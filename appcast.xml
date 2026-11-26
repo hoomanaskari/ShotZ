@@ -2,5 +2,23 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>ShotZ</title>
+        <item>
+            <title>0.1.0</title>
+            <pubDate>Thu, 26 Nov 2026 15:23:07 -0500</pubDate>
+            <link>https://github.com/hoomanaskari/ShotZ</link>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# ShotZ 0.1.0
+
+The first public release of ShotZ.
+
+- Capture an area, a window or the full screen with your shortcuts.
+- The quick-access stack keeps every capture at hand: copy, save, drag out or annotate.
+- Annotate with arrows, shapes, text, counters, highlights and redaction, then copy or save.
+- Present captures on a background with padding, gradients and shadow.
+]]></description>
+            <enclosure url="https://github.com/hoomanaskari/ShotZ/releases/download/v0.1.0/ShotZ-0.1.0.zip" length="6511791" type="application/octet-stream" sparkle:edSignature="igQHaapmIertDE+pIVw2/TguYrg8vj6OqW7A0QbqzYvdSh2V0KZ4W8vLi7RCo8aHQHDupwUFlHY4Ct6XFdq0AQ=="/>
+        </item>
     </channel>
 </rss>
