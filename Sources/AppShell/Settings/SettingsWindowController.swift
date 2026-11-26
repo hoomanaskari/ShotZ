@@ -2,56 +2,75 @@ import AppKit
 import ShotzCore
 import SwiftUI
 
-/// Placeholder Settings window. TODO(engineer A): full tabbed Settings (SPEC §7).
-@MainActor public final class SettingsWindowController {
-    private let settings: SettingsStore
+/// The Settings window: SwiftUI tabs hosted in an AppKit window (SPEC §7).
+@MainActor public final class SettingsWindowController: NSObject, NSWindowDelegate {
+    private let context: SettingsContext
+    private let selection = SettingsSelection()
     private var window: NSWindow?
-    /// Called after a setting the shell cares about changes (e.g. menu-bar icon).
-    public var onChange: (() -> Void)?
 
-    public init(settings: SettingsStore) {
-        self.settings = settings
+    public init(context: SettingsContext) {
+        self.context = context
     }
 
-    public func show() {
+    public var isVisible: Bool { window?.isVisible ?? false }
+
+    public func show(tab: SettingsTab? = nil) {
+        if let tab { selection.tab = tab }
         if window == nil {
-            let view = SettingsPlaceholderView(settings: settings) { [weak self] in self?.onChange?() }
-            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+            let root = SettingsRootView(context: context, selection: selection)
+            let hosting = NSHostingController(rootView: root)
+            hosting.sizingOptions = [.preferredContentSize]
+            let window = NSWindow(contentViewController: hosting)
             window.title = String(localized: "Shotz Settings")
-            window.styleMask = [.titled, .closable]
+            window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
-            window.center()
+            window.delegate = self
+            window.setFrameAutosaveName("ShotzSettings")
+            if !window.setFrameUsingName("ShotzSettings") { window.center() }
             self.window = window
         }
+        if window?.isVisible != true { context.screenRecording.startPolling() }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
     }
+
+    public func windowWillClose(_ notification: Notification) {
+        context.screenRecording.stopPolling()
+        context.hotkeys.isSuspended = false
+    }
 }
 
-struct SettingsPlaceholderView: View {
-    @ObservedObject var settings: SettingsStore
-    let onChange: () -> Void
+/// Selected tab, shared so `show(tab:)` can switch an open window.
+@MainActor final class SettingsSelection: ObservableObject {
+    @Published var tab: SettingsTab = .general
+}
+
+struct SettingsRootView: View {
+    let context: SettingsContext
+    @ObservedObject var selection: SettingsSelection
 
     var body: some View {
-        Form {
-            Toggle(String(localized: "Show menu-bar icon"), isOn: binding(\.showMenuBarIcon))
-            Toggle(String(localized: "Play sounds"), isOn: binding(\.playSounds))
-            Toggle(String(localized: "Window capture shadow"), isOn: binding(\.windowShadow))
-            LabeledContent(String(localized: "Export folder"), value: settings.exportFolder.path(percentEncoded: false))
-            Button(String(localized: "Reset All Settings")) {
-                settings.resetAll()
-                onChange()
-            }
+        TabView(selection: $selection.tab) {
+            GeneralSettingsView(context: context, settings: context.settings, loginItem: context.loginItem,
+                                screenRecording: context.screenRecording)
+                .tabItem { Label(String(localized: "General"), systemImage: "gearshape") }
+                .tag(SettingsTab.general)
+            ShortcutsSettingsView(settings: context.settings, hotkeys: context.hotkeys)
+                .tabItem { Label(String(localized: "Shortcuts"), systemImage: "command") }
+                .tag(SettingsTab.shortcuts)
+            QuickAccessSettingsView(settings: context.settings)
+                .tabItem { Label(String(localized: "Quick Access"), systemImage: "square.stack") }
+                .tag(SettingsTab.quickAccess)
+            CaptureSettingsView(settings: context.settings)
+                .tabItem { Label(String(localized: "Capture"), systemImage: "camera.aperture") }
+                .tag(SettingsTab.capture)
+            EditorSettingsView(settings: context.settings)
+                .tabItem { Label(String(localized: "Editor"), systemImage: "pencil.and.outline") }
+                .tag(SettingsTab.editor)
+            AdvancedSettingsView(context: context, settings: context.settings)
+                .tabItem { Label(String(localized: "Advanced"), systemImage: "slider.horizontal.3") }
+                .tag(SettingsTab.advanced)
         }
-        .formStyle(.grouped)
-        .frame(width: 420)
-        .padding()
-    }
-
-    private func binding(_ keyPath: ReferenceWritableKeyPath<SettingsStore, Bool>) -> Binding<Bool> {
-        Binding(
-            get: { settings[keyPath: keyPath] },
-            set: { settings[keyPath: keyPath] = $0; onChange() }
-        )
+        .frame(width: 560, height: 500)
     }
 }
