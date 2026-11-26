@@ -18,6 +18,10 @@ extension EditorWindowController {
         toolbarController.onToggleBackground = { [weak self] in self?.toggleBackgroundPanelVisibility() }
         toolbarController.onCopy = { [weak self] in self?.copyImage(nil) }
         toolbarController.onSave = { [weak self] in self?.saveImage(nil) }
+        toolbarController.onDone = { [weak self] in self?.window?.performClose(nil) }
+        toolbarController.onZoomIn = { [weak self] in self?.zoomStep(1) }
+        toolbarController.onZoomOut = { [weak self] in self?.zoomStep(-1) }
+        toolbarController.onZoomMenu = { [weak self] view in self?.showZoomMenu(from: view) }
         toolbarController.dragHandle.makeFile = { [weak self] in self?.makeDragFile() }
 
         optionsBar.onCropApply = { [weak self] in (self?.model.tool as? CropTool)?.apply() }
@@ -60,7 +64,6 @@ extension EditorWindowController {
         }
         scrollView.onZoomSettled = { [weak self] in self?.rasterizeForZoom() }
 
-        scheduleThumbnail(delay: 0)
         let stream = store.changes
         changeTask = Task { [weak self] in
             for await change in stream {
@@ -91,7 +94,6 @@ extension EditorWindowController {
         perf?.recordUpdate(ContinuousClock.now - start, reason: change.reason)
         model.pruneSelection()
         refreshOverlay()
-        scheduleThumbnail()
         switch change.reason {
         case .undo, .redo:
             optionsBar.scheduleRebuild()
@@ -110,26 +112,6 @@ extension EditorWindowController {
         canvas.layers.finishInteraction(store.document)
         perf?.recordFinish(ContinuousClock.now - start)
         schedulePersist()
-    }
-
-    /// The drag handle's preview of the result, rendered off the main thread after edits settle.
-    func scheduleThumbnail(delay: Double = 0.35) {
-        thumbnailWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            let document = self.store.document
-            let base = self.base
-            Task { [weak self] in
-                let image = await Task.detached(priority: .utility) { () -> CGImage? in
-                    let side = max(document.imageRect.width, document.imageRect.height, 1)
-                    return try? AnnotationRenderer.renderImage(document, base: base, outputScale: 120 / side) // a failed preview just stays empty
-                }.value
-                guard let image else { return }
-                self?.toolbarController.dragHandle.thumbnail = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
-            }
-        }
-        thumbnailWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 
     // MARK: Overlay

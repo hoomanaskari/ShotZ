@@ -1,5 +1,6 @@
 import AnnotationKit
 import AppKit
+import ShotzUI
 
 /// G: the presentation background panel (SPEC §5.4), a sidebar beside the
 /// canvas. Every control previews live; a slider drag is one undo step.
@@ -27,8 +28,8 @@ import AppKit
         scroll.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 8
-        stack.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
+        stack.spacing = ShotzUI.Space.s
+        stack.edgeInsets = NSEdgeInsets(top: ShotzUI.Space.l, left: ShotzUI.Space.l, bottom: ShotzUI.Space.l, right: ShotzUI.Space.l)
         stack.translatesAutoresizingMaskIntoConstraints = false
         let flipped = FlippedView()
         flipped.translatesAutoresizingMaskIntoConstraints = false
@@ -100,16 +101,17 @@ import AppKit
         divider()
         addFill(s)
         divider()
-        formRow(String(localized: "Padding"), controls.sliderRow(
+        formRow(String(localized: "Padding"), controls.slider(
             value: s.padding * 100, min: 0, max: 25, width: Self.sliderWidth, label: String(localized: "Padding"), glyph: nil,
             format: { "\(Int($0.rounded()))%" }) { [weak self] v, final in
             self?.update(final: final) { $0.padding = v / 100 }
         })
-        formRow("", controls.checkbox(String(localized: "Auto-balance margins"), on: s.autoBalance) { [weak self] on in
+        formRow("", controls.toggleChip(title: String(localized: "Auto-balance"), tooltip: String(localized: "Balance the margins around window shadows"),
+                                         on: s.autoBalance) { [weak self] on in
             self?.update { $0.autoBalance = on }
         })
         let maxRadius = Double(model.unit * 24)
-        formRow(String(localized: "Corners"), controls.sliderRow(
+        formRow(String(localized: "Corners"), controls.slider(
             value: s.cornerRadius, min: 0, max: maxRadius, width: Self.sliderWidth, label: String(localized: "Corner radius"), glyph: nil,
             format: { "\(Int($0.rounded()))" }) { [weak self] v, final in
             self?.update(final: final) { $0.cornerRadius = v }
@@ -141,7 +143,7 @@ import AppKit
         let l = EditorControls.formLabel(label, width: Self.labelWidth)
         let r = NSStackView(views: [l, control])
         r.orientation = .horizontal
-        r.spacing = 8
+        r.spacing = ShotzUI.Space.s
         r.alignment = .centerY
         r.heightAnchor.constraint(greaterThanOrEqualToConstant: EditorMetrics.optionHeight).isActive = true
         r.widthAnchor.constraint(lessThanOrEqualToConstant: Self.contentWidth).isActive = true
@@ -188,7 +190,7 @@ import AppKit
                 self?.update(final: final) { if case .gradient(var gg) = $0.fill { gg.to = Self.rgba(color); $0.fill = .gradient(gg) } }
             }
             formRow(String(localized: "Colours"), row([from, to, spacer()], width: Self.contentWidth - Self.labelWidth - 8))
-            formRow(String(localized: "Angle"), controls.sliderRow(
+            formRow(String(localized: "Angle"), controls.slider(
                 value: g.angle, min: 0, max: 360, width: Self.sliderWidth, label: String(localized: "Gradient angle"), glyph: nil,
                 format: { "\(Int($0.rounded()))°" }) { [weak self] v, final in
                 self?.update(final: final) { if case .gradient(var gg) = $0.fill { gg.angle = v; $0.fill = .gradient(gg) } }
@@ -235,14 +237,9 @@ import AppKit
     /// A small rounded cell of the 3 × 3 position picker.
     static func alignmentChip(on: Bool) -> NSImage {
         NSImage(size: NSSize(width: 22, height: 15), flipped: true) { r in
-            let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 3.5, yRadius: 3.5)
-            if on {
-                NSColor.controlAccentColor.setFill()
-                p.fill()
-            } else {
-                NSColor.quaternaryLabelColor.setFill()
-                p.fill()
-            }
+            let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: ShotzUI.Radius.small, yRadius: ShotzUI.Radius.small)
+            (on ? ShotzUI.Palette.accentFill : ShotzUI.Palette.surfaceSunken).setFill()
+            p.fill()
             return true
         }
     }
@@ -258,8 +255,8 @@ import AppKit
             self.set(saved[i].style)
         }
         popup.isEnabled = !saved.isEmpty
-        let save = controls.button(String(localized: "Save…")) { [weak self] in self?.promptSave(s) }
-        let delete = controls.button(String(localized: "Delete…")) { [weak self, weak popup] in
+        let save = controls.secondaryButton(String(localized: "Save…"), tooltip: String(localized: "Save…")) { [weak self] in self?.promptSave(s) }
+        let delete = controls.secondaryButton(String(localized: "Delete…"), tooltip: String(localized: "Delete…")) { [weak self, weak popup] in
             guard let self, let i = popup?.selectedItem?.tag, i >= 0, i < saved.count else { return }
             self.confirmDelete(saved[i].name)
         }
@@ -307,7 +304,7 @@ import AppKit
     private func row(_ views: [NSView], width: CGFloat? = nil) -> NSStackView {
         let r = NSStackView(views: views)
         r.orientation = .horizontal
-        r.spacing = 8
+        r.spacing = ShotzUI.Space.s
         r.alignment = .centerY
         r.widthAnchor.constraint(equalToConstant: width ?? Self.contentWidth).isActive = true
         return r
@@ -345,14 +342,14 @@ import AppKit
             if let ctx = NSGraphicsContext.current?.cgContext {
                 // The image is flipped (top-left), as AnnotationKit's fill expects.
                 ctx.saveGState()
-                ctx.addPath(CGPath(roundedRect: inner, cornerWidth: 5, cornerHeight: 5, transform: nil))
+                ctx.addPath(CGPath(roundedRect: inner, cornerWidth: ShotzUI.Radius.small, cornerHeight: ShotzUI.Radius.small, transform: nil))
                 ctx.clip()
                 AnnotationRenderer.drawBackgroundFill(.gradient(g), in: inner, ctx: ctx)
                 ctx.restoreGState()
             }
             if selected {
-                NSColor.controlAccentColor.setStroke()
-                let ring = NSBezierPath(roundedRect: r.insetBy(dx: 0.75, dy: 0.75), xRadius: 6.5, yRadius: 6.5)
+                ShotzUI.Palette.selectedBorder.setStroke()
+                let ring = NSBezierPath(roundedRect: r.insetBy(dx: 0.75, dy: 0.75), xRadius: ShotzUI.Radius.small + 1.5, yRadius: ShotzUI.Radius.small + 1.5)
                 ring.lineWidth = 1.5
                 ring.stroke()
             }

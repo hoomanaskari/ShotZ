@@ -11,21 +11,22 @@ import AppKit
     private let controls = EditorControls()
     private var toolStrip: (any SegmentedPicker)?
     private var backgroundToggle: (any SegmentedPicker)?
+    private(set) var actionBar: EditorActionBar?
     var onSelectTool: ((ToolKind) -> Void)?
     var onToggleBackground: (() -> Void)?
     var onCopy: (() -> Void)?
     var onSave: (() -> Void)?
+    var onDone: (() -> Void)?
+    var onZoomIn: (() -> Void)?
+    var onZoomOut: (() -> Void)?
+    var onZoomMenu: ((NSView) -> Void)?
 
-    /// Tool strip order and groups: select · drawing · text and numbers · redact and crop.
+    /// Tool strip order and groups: select | shapes | text and numbers | redact and crop.
     static let toolOrder: [ToolKind] = [.select, .arrow, .line, .rectangle, .ellipse, .pen, .highlighter, .text, .counter, .redact, .crop]
     static let groupStarts: Set<Int> = [1, 7, 9]
 
     private static let toolsID = NSToolbarItem.Identifier("tools")
     private static let backgroundID = NSToolbarItem.Identifier("background")
-    private static let copyID = NSToolbarItem.Identifier("copy")
-    private static let saveID = NSToolbarItem.Identifier("save")
-    private static let dragID = NSToolbarItem.Identifier("drag")
-    private static let moreID = NSToolbarItem.Identifier("more")
 
     init(model: EditorModel, commandMenu: NSMenu) {
         self.model = model
@@ -48,8 +49,7 @@ import AppKit
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        // Copy, the primary action, sits last on the right.
-        [Self.toolsID, Self.backgroundID, .flexibleSpace, Self.moreID, Self.dragID, Self.saveID, Self.copyID]
+        [Self.toolsID, Self.backgroundID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -63,44 +63,42 @@ import AppKit
             let strip = controls.toolStrip(items, selected: Self.toolOrder.firstIndex(of: model.toolKind), groupStarts: Self.groupStarts,
                                            label: String(localized: "Tools")) { [weak self] i in self?.onSelectTool?(Self.toolOrder[i]) }
             toolStrip = strip
-            return item(id, String(localized: "Tools"), String(localized: "Tools"), strip)
+            return item(id, String(localized: "Tools"), strip)
         case Self.backgroundID:
             let toggle = controls.toolbarToggle(.init(glyph: .background, label: String(localized: "Background"), shortcut: "G"),
                                                 on: false) { [weak self] in self?.onToggleBackground?() }
             backgroundToggle = toggle
-            return item(id, String(localized: "Background"), "\(String(localized: "Background"))  G", toggle)
-        case Self.copyID:
-            let b = controls.primaryButton(String(localized: "Copy"), glyph: .copy,
-                                           tooltip: String(localized: "Copy the finished image  ⇧⌘C")) { [weak self] in self?.onCopy?() }
-            return item(id, String(localized: "Copy"), String(localized: "Copy the finished image  ⇧⌘C"), b)
-        case Self.saveID:
-            let b = controls.secondaryButton(String(localized: "Save"), glyph: .save,
-                                             tooltip: String(localized: "Save to the export folder  ⌘S")) { [weak self] in self?.onSave?() }
-            return item(id, String(localized: "Save"), String(localized: "Save to the export folder  ⌘S"), b)
-        case Self.dragID:
-            return item(id, String(localized: "Drag"), dragHandle.toolTip ?? "", dragHandle)
-        case Self.moreID:
-            let b = controls.iconButton(.more, label: String(localized: "More commands"),
-                                        tooltip: String(localized: "More commands: Save As, Print, Arrange, Zoom…")) { [weak self] button in
-                self?.showCommandMenu(from: button)
-            }
-            return item(id, String(localized: "More"), String(localized: "More commands: Save As, Print, Arrange, Zoom…"), b)
+            return item(id, String(localized: "Background"), toggle)
         default:
             return nil
         }
     }
 
-    private func item(_ id: NSToolbarItem.Identifier, _ label: String, _ tip: String, _ view: NSView) -> NSToolbarItem {
+    /// The action area (it lives in the title row, trailing, where there is room for it).
+    func makeActionBar() -> EditorActionBar {
+        if let actionBar { return actionBar }
+        let bar = EditorActionBar(
+            controls: controls, drag: dragHandle,
+            onZoomOut: { [weak self] in self?.onZoomOut?() },
+            onZoomIn: { [weak self] in self?.onZoomIn?() },
+            onZoomMenu: { [weak self] b in self?.onZoomMenu?(b) },
+            onMore: { [weak self] b in self?.showCommandMenu(from: b) },
+            onCopy: { [weak self] in self?.onCopy?() },
+            onSave: { [weak self] in self?.onSave?() },
+            onDone: { [weak self] in self?.onDone?() }
+        )
+        actionBar = bar
+        return bar
+    }
+
+    private func item(_ id: NSToolbarItem.Identifier, _ label: String, _ view: NSView) -> NSToolbarItem {
         let i = NSToolbarItem(itemIdentifier: id)
         i.view = view
         i.label = label
-        i.toolTip = tip
-        view.setAccessibilityLabel(label)
         return i
     }
 
-    private func showCommandMenu(from button: NSButton) {
-        commandMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
+    private func showCommandMenu(from view: NSView) {
+        commandMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height + 4), in: view)
     }
-
 }
