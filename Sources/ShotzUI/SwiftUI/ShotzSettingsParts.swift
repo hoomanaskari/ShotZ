@@ -107,7 +107,8 @@ public struct ShotzStatusBadge: View {
     }
 }
 
-/// Preferences-window tabs: icon above label, selected tab softly tinted (like a selected tool).
+/// Icon-above-label tabs, selected tab softly tinted (like a selected tool). For onboarding and
+/// in-window tab strips only: Settings uses the system preferences toolbar for its tabs.
 public struct ShotzSettingsTabBar: View {
     public struct Tab: Identifiable, Sendable {
         public var id: String { title }

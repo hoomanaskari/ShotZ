@@ -62,6 +62,24 @@ struct ContrastTests {
         }
     }
 
+    /// Primary labels: white on blue, purple, pink, red and graphite in every appearance (as macOS
+    /// users expect); dark only on genuinely light accents.
+    @Test mutating func primaryLabelColourPerAccent() {
+        defer { P.accentOverride = nil; P.increasedContrastOverride = false }
+        let white: Set = ["blue", "purple", "pink", "red", "graphite"], dark: Set = ["yellow", "orange", "green"]
+        for (accentName, accent) in Self.accents {
+            P.accentOverride = accent
+            for (name, a, hc) in Self.appearances {
+                currentHC = hc
+                P.increasedContrastOverride = hc
+                let label = P.onAccent.resolved(in: a)
+                let isWhite = label.redComponent > 0.9 && label.greenComponent > 0.9
+                if white.contains(accentName) { #expect(isWhite, "\(accentName)/\(name) needs a white label") }
+                if dark.contains(accentName) { #expect(!isWhite, "\(accentName)/\(name) should keep a dark label") }
+            }
+        }
+    }
+
     @Test mutating func glyphsOnInteractionFills() {
         defer { P.increasedContrastOverride = false }
         for (name, a, hc) in Self.appearances {
