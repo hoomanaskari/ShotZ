@@ -19,7 +19,6 @@ import AppKit
     var onDone: (() -> Void)?
     var onZoomIn: (() -> Void)?
     var onZoomOut: (() -> Void)?
-    var onZoomMenu: ((NSView) -> Void)?
 
     /// Tool strip order and groups: select | shapes | text and numbers | redact and crop.
     static let toolOrder: [ToolKind] = [.select, .arrow, .line, .rectangle, .ellipse, .pen, .highlighter, .text, .counter, .redact, .crop]
@@ -75,13 +74,12 @@ import AppKit
     }
 
     /// The action area (it lives in the title row, trailing, where there is room for it).
-    func makeActionBar() -> EditorActionBar {
+    func makeActionBar(zoomMenu: NSMenu) -> EditorActionBar {
         if let actionBar { return actionBar }
         let bar = EditorActionBar(
-            controls: controls, drag: dragHandle,
+            controls: controls, drag: dragHandle, zoomMenu: zoomMenu,
             onZoomOut: { [weak self] in self?.onZoomOut?() },
             onZoomIn: { [weak self] in self?.onZoomIn?() },
-            onZoomMenu: { [weak self] b in self?.onZoomMenu?(b) },
             onMore: { [weak self] b in self?.showCommandMenu(from: b) },
             onCopy: { [weak self] in self?.onCopy?() },
             onSave: { [weak self] in self?.onSave?() },

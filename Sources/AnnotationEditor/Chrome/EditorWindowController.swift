@@ -49,6 +49,8 @@ import ShotzUI
     let commandMenu = EditorMenu.build()
     /// Zoom presets, opened from the action bar's zoom value.
     let zoomMenu = NSMenu(title: String(localized: "Zoom"))
+    /// The pending render of the drag chip's preview.
+    var thumbnailWork: DispatchWorkItem?
     private(set) var backgroundPanel: BackgroundPanelView?
     let mainSplit = NSStackView()
     var changeTask: Task<Void, Never>?
@@ -98,19 +100,31 @@ import ShotzUI
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    /// Fits the image at ≤ 100 % within 80 % of the screen; minimum 720 × 480.
-    static func initialContentSize(for extent: CGSize, scale: CGFloat) -> NSSize {
-        let screen = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
-        let chrome = NSSize(width: 48, height: 2 * EditorMetrics.barHeight + 48)
+    /// Breathing room around the image at fit zoom.
+    static let canvasMargin: CGFloat = ShotzUI.Space.xl
+    static let minimumContentSize = NSSize(width: 720, height: 480)
+    /// The smallest window a capture opens in: comfortably above the minimum, so a small capture
+    /// still gets room around it and the full options bar.
+    static let comfortableContentSize = NSSize(width: 1040, height: 680)
+
+    /// Fits the image at ≤ 100 % within 80 % of the screen, with the canvas margin around it.
+    /// Never smaller than the comfortable size (capped to 80 % of the screen), never below the minimum.
+    static func initialContentSize(for extent: CGSize, scale: CGFloat, screen: NSSize? = nil) -> NSSize {
+        let screen = screen ?? NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
+        let chrome = NSSize(width: 2 * canvasMargin, height: 2 * EditorMetrics.barHeight + 2 * canvasMargin)
         let points = NSSize(width: extent.width / max(scale, 1), height: extent.height / max(scale, 1))
-        let fit = min(1, (screen.width * 0.8 - chrome.width) / max(points.width, 1), (screen.height * 0.8 - chrome.height - 80) / max(points.height, 1))
-        return NSSize(width: max(720, points.width * fit + chrome.width), height: max(480, points.height * fit + chrome.height))
+        let room = NSSize(width: screen.width * 0.8, height: screen.height * 0.8 - 80) // 80: title bar and tool strip
+        let fit = min(1, (room.width - chrome.width) / max(points.width, 1), (room.height - chrome.height) / max(points.height, 1))
+        let floorW = max(minimumContentSize.width, min(comfortableContentSize.width, room.width))
+        let floorH = max(minimumContentSize.height, min(comfortableContentSize.height, room.height))
+        return NSSize(width: max(floorW, points.width * fit + chrome.width).rounded(),
+                      height: max(floorH, points.height * fit + chrome.height).rounded())
     }
 
     private func setUpWindow(_ window: EditorWindow) {
         window.title = documentTitle
         window.representedURL = store.document.baseImageURL
-        window.minSize = NSSize(width: 720, height: 480)
+        window.minSize = Self.minimumContentSize
         window.isReleasedWhenClosed = false
         window.toolbarStyle = .expanded
         window.toolbar = toolbarController.toolbar
@@ -150,7 +164,7 @@ import ShotzUI
         canvasArea.setContentHuggingPriority(.init(1), for: .horizontal)
 
         // The action bar under the canvas: zoom leading; drag, More, Copy, Save and Done trailing.
-        let actionBar = toolbarController.makeActionBar()
+        let actionBar = toolbarController.makeActionBar(zoomMenu: zoomMenu)
         let footer = NSVisualEffectView()
         footer.material = .titlebar
         footer.blendingMode = .withinWindow
@@ -172,7 +186,7 @@ import ShotzUI
             actionBar.leadingAnchor.constraint(equalTo: footer.leadingAnchor, constant: ShotzUI.Space.m),
             actionBar.trailingAnchor.constraint(equalTo: footer.trailingAnchor, constant: -ShotzUI.Space.m),
             actionBar.centerYAnchor.constraint(equalTo: footer.centerYAnchor),
-            actionBar.heightAnchor.constraint(equalToConstant: EditorControls.size.hitHeight),
+            actionBar.heightAnchor.constraint(equalToConstant: EditorControls.actionSize.hitHeight),
         ])
         setUpZoomMenu()
         // The options bar sits under the toolbar as part of the window's title bar.
@@ -219,6 +233,13 @@ import ShotzUI
 
     func windowDidBecomeKey(_ notification: Notification) {
         window?.makeFirstResponder(canvas.text.isEditingText ? window?.firstResponder : canvas)
+    }
+
+    /// A window showing the whole image keeps showing it (with the canvas margin) as it resizes.
+    func windowDidResize(_ notification: Notification) {
+        guard isSetUp, wasFitted else { return }
+        window?.contentView?.layoutSubtreeIfNeeded()
+        zoomFit()
     }
 
     func windowDidChangeBackingProperties(_ notification: Notification) {

@@ -23,7 +23,7 @@ extension EditorControls {
 
     /// An on/off panel switch in the toolbar: a toggle chip (a capsule), never a selected tool.
     func toolbarToggle(_ item: ToolItem, on: Bool, _ onToggle: @escaping () -> Void) -> any SegmentedPicker {
-        let chip = ToolbarToggleChip(title: item.label, icon: EditorGlyphs.shotzIcon(item.glyph), isOn: on, size: .regular)
+        let chip = ToolbarToggleChip(title: item.label, icon: EditorGlyphs.shotzIcon(item.glyph), isOn: on, size: EditorControls.actionSize)
         chip.chip.setShotzToolTip(item.label, shortcut: item.shortcut)
         chip.onToggle = { _ in onToggle() }
         return chip
@@ -59,41 +59,36 @@ extension EditorControls {
     }
 }
 
-/// ShotzToolButtons in groups, one selected (a radio group for VoiceOver).
+/// ShotzToolButtons in groups (a ShotzToolbarStack), one selected (a radio group for VoiceOver).
 @MainActor final class ToolStripView: NSView, SegmentedPicker {
     private var buttons: [ShotzToolButton] = []
-    private let stack = NSStackView()
+    private let stack: ShotzToolbarStack
 
     init(items: [EditorControls.ToolItem], selected: Int?, groupStarts: Set<Int>, label: String, onSelect: @escaping (Int) -> Void) {
-        super.init(frame: .zero)
-        stack.orientation = .horizontal
-        stack.spacing = ShotzUI.ToolMetrics.gap
-        stack.alignment = .centerY
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor), stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor), stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
+        var groups: [[NSView]] = [[]]
+        var made: [ShotzToolButton] = []
         for (i, item) in items.enumerated() {
-            if groupStarts.contains(i) {
-                let sep = EditorControls.separator(length: 20)
-                stack.addArrangedSubview(sep)
-                stack.setCustomSpacing(ShotzUI.Space.s, after: stack.arrangedSubviews[stack.arrangedSubviews.count - 2])
-                stack.setCustomSpacing(ShotzUI.Space.s, after: sep)
-            }
+            if groupStarts.contains(i), !(groups.last?.isEmpty ?? true) { groups.append([]) }
             guard let icon = EditorGlyphs.shotzIcon(item.glyph) else { continue }
             let b = ShotzToolButton(icon: icon)
             b.setAccessibilityLabel(item.label)
             b.setShotzToolTip(item.label, shortcut: item.shortcut)
             b.isSelected = i == selected
+            made.append(b)
+            groups[groups.count - 1].append(b)
+        }
+        stack = ShotzToolbarStack(groups: groups)
+        stack.itemGap = ShotzUI.ToolMetrics.gap
+        stack.groupGap = ShotzUI.Space.s
+        buttons = made
+        super.init(frame: .zero)
+        for (i, b) in made.enumerated() {
             b.onAction = { [weak self] _ in
                 self?.selectedIndex = i
                 onSelect(i)
             }
-            buttons.append(b)
-            stack.addArrangedSubview(b)
         }
+        addSubview(stack)
         setAccessibilityElement(true)
         setAccessibilityRole(.radioGroup)
         setAccessibilityLabel(label)
@@ -101,6 +96,13 @@ extension EditorControls {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override var isFlipped: Bool { true }
+    override var intrinsicContentSize: NSSize { stack.intrinsicContentSize }
+    override func layout() {
+        super.layout()
+        stack.frame = bounds
+    }
 
     var selectedIndex: Int? {
         get { buttons.firstIndex { $0.isSelected } }
@@ -110,52 +112,56 @@ extension EditorControls {
 
 /// The editor's action bar, under the canvas (ShotzUI's `EditorActionArea` hierarchy):
 ///
-///     [−][100 %][+]                      [drag][…]  │  [Copy] [Save]  [Done]
+///     [−][100 % ⌄][+]                    [▭ ⠿][…]  │  [Copy] [Save]  [Done]
 ///
 /// Done is the single primary action (closes the window: "done, back to the stack").
-/// Copy and Save are labelled secondaries of equal width. Drag-out and More are quiet icon
-/// buttons. Zoom is its own group at the leading edge. All 28 pt; 4 pt between icon buttons,
-/// 8 pt between labelled buttons, 12 pt and a separator between groups.
+/// Copy and Save are labelled secondaries of equal width. Drag-out and More are quiet.
+/// Zoom is its own group at the leading edge; its value is a quiet pop-up of zoom levels.
+/// Regular (28 pt) controls in ShotzToolbarStacks: 4 pt between icon buttons, 8 pt between
+/// labelled buttons, 12 pt and a separator between groups.
 @MainActor final class EditorActionBar: NSView {
     let zoomOut: ShotzButton
-    let zoomValue: ShotzButton
+    let zoomValue: ShotzPopUpButton
     let zoomIn: ShotzButton
     let drag: DragHandleView
     let more: ShotzButton
     let copy: ShotzButton
     let save: ShotzButton
     let done: ShotzButton
-    private let separator = ShotzSeparator()
+    private let leading: ShotzToolbarStack
+    private let trailing: ShotzToolbarStack
 
-    private var zoomGroup: [NSView] { [zoomOut, zoomValue, zoomIn] }
-    private var trailingGroups: [[NSView]] { [[drag, more], [copy, save, done]] }
-
-    init(controls: EditorControls, drag: DragHandleView, onZoomOut: @escaping () -> Void, onZoomIn: @escaping () -> Void,
-         onZoomMenu: @escaping (ShotzButton) -> Void, onMore: @escaping (ShotzButton) -> Void,
-         onCopy: @escaping () -> Void, onSave: @escaping () -> Void, onDone: @escaping () -> Void) {
-        zoomOut = controls.iconButton(.zoomOut, label: String(localized: "Zoom out"), tooltip: String(localized: "Zoom out"), shortcut: "⌘−") { _ in onZoomOut() }
-        zoomIn = controls.iconButton(.zoomIn, label: String(localized: "Zoom in"), tooltip: String(localized: "Zoom in"), shortcut: "⌘+") { _ in onZoomIn() }
-        zoomValue = ShotzButton(title: "100 %", role: .quiet, size: EditorControls.size)
+    init(controls: EditorControls, drag: DragHandleView, zoomMenu: NSMenu, onZoomOut: @escaping () -> Void, onZoomIn: @escaping () -> Void,
+         onMore: @escaping (ShotzButton) -> Void, onCopy: @escaping () -> Void, onSave: @escaping () -> Void, onDone: @escaping () -> Void) {
+        let size = EditorControls.actionSize
+        zoomOut = controls.iconButton(.zoomOut, label: String(localized: "Zoom out"), tooltip: String(localized: "Zoom out"), shortcut: "⌘−", size: size) { _ in onZoomOut() }
+        zoomIn = controls.iconButton(.zoomIn, label: String(localized: "Zoom in"), tooltip: String(localized: "Zoom in"), shortcut: "⌘+", size: size) { _ in onZoomIn() }
+        zoomValue = controls.menuButton(title: "100 %", glyph: nil, menu: zoomMenu, label: String(localized: "Zoom level"),
+                                        tooltip: String(localized: "Zoom: fit, actual size or a preset"), shortcut: "⌘0 / ⌘1", size: size)
         zoomValue.titleFont = ShotzUI.Typography.value.font
-        zoomValue.minimumWidth = 56
-        zoomValue.setAccessibilityLabel(String(localized: "Zoom level"))
-        zoomValue.setShotzToolTip(String(localized: "Zoom: fit or actual size"), shortcut: "⌘0 / ⌘1")
-        zoomValue.onAction = { b in
-            guard let b = b as? ShotzButton else { return }
-            onZoomMenu(b)
-        }
+        zoomValue.items = ["1600 %"] // reserve the widest value so the bar doesn't shift
+        let reserved = zoomValue.intrinsicContentSize.width
+        zoomValue.items = ["100 %"]
         self.drag = drag
         more = controls.iconButton(.more, label: String(localized: "More commands"),
-                                   tooltip: String(localized: "More: Save As, Print, Arrange…")) { b in onMore(b) }
-        copy = controls.secondaryButton(String(localized: "Copy"), glyph: .copy, tooltip: String(localized: "Copy image"), shortcut: "⇧⌘C", onCopy)
-        save = controls.secondaryButton(String(localized: "Save"), glyph: .save, tooltip: String(localized: "Save to the export folder"), shortcut: "⌘S", onSave)
+                                   tooltip: String(localized: "More: Save As, Print, Arrange…"), size: size) { b in onMore(b) }
+        copy = controls.secondaryButton(String(localized: "Copy"), glyph: .copy, tooltip: String(localized: "Copy image"), shortcut: "⇧⌘C", size: size, onCopy)
+        save = controls.secondaryButton(String(localized: "Save"), glyph: .save, tooltip: String(localized: "Save to the export folder"), shortcut: "⌘S", size: size, onSave)
         done = controls.primaryButton(String(localized: "Done"), tooltip: String(localized: "Done: close and return the capture to the stack"),
-                                      shortcut: "⌘W", onDone)
-        super.init(frame: .zero)
+                                      shortcut: "⌘W", size: size, onDone)
         let pair = max(copy.intrinsicContentSize.width, save.intrinsicContentSize.width)
         copy.minimumWidth = pair
         save.minimumWidth = pair
-        for view in zoomGroup + trailingGroups.flatMap({ $0 }) + [separator] { addSubview(view) }
+        let zoomValueBox = FixedWidth(zoomValue, width: reserved)
+        leading = ShotzToolbarStack(groups: [[zoomOut, zoomValueBox, zoomIn]])
+        leading.showsSeparators = false
+        let labelled = ShotzToolbarStack(groups: [[copy, save, done]])
+        labelled.itemGap = ShotzUI.Space.s
+        labelled.showsSeparators = false
+        trailing = ShotzToolbarStack(groups: [[drag, more], [labelled]])
+        super.init(frame: .zero)
+        addSubview(leading)
+        addSubview(trailing)
         setAccessibilityElement(false)
     }
 
@@ -165,50 +171,40 @@ extension EditorControls {
     override var isFlipped: Bool { true }
 
     func setZoomTitle(_ title: String) {
-        zoomValue.title = title
-    }
-
-    private func isLabelled(_ v: NSView) -> Bool { v === copy || v === save || v === done }
-
-    private func gap(_ a: NSView, _ b: NSView) -> CGFloat {
-        isLabelled(a) && isLabelled(b) ? ShotzUI.Space.s : ShotzUI.Space.xs
-    }
-
-    private func width(_ group: [NSView]) -> CGFloat {
-        var w: CGFloat = 0
-        for (i, v) in group.enumerated() {
-            w += v.intrinsicContentSize.width
-            if i > 0 { w += gap(group[i - 1], v) }
-        }
-        return w
+        zoomValue.items = [title]
     }
 
     override var intrinsicContentSize: NSSize {
-        let trailing = trailingGroups.map(width).reduce(0, +) + 2 * ShotzUI.Space.m + 1
-        return NSSize(width: ceil(width(zoomGroup) + ShotzUI.Space.xl + trailing), height: EditorControls.size.hitHeight)
+        NSSize(width: ceil(leading.intrinsicContentSize.width + ShotzUI.Space.xl + trailing.intrinsicContentSize.width),
+               height: EditorControls.actionSize.hitHeight)
     }
 
     override func layout() {
         super.layout()
-        let h = EditorControls.size.hitHeight
-        let y = ((bounds.height - h) / 2).rounded()
-        func place(_ group: [NSView], from start: CGFloat) -> CGFloat {
-            var x = start
-            for (i, v) in group.enumerated() {
-                if i > 0 { x += gap(group[i - 1], v) }
-                let w = v.intrinsicContentSize.width
-                v.frame = CGRect(x: x, y: y, width: w, height: h)
-                x += w
-            }
-            return x
-        }
-        _ = place(zoomGroup, from: 0)
-        let groups = trailingGroups
-        var x = bounds.width - (groups.map(width).reduce(0, +) + 2 * ShotzUI.Space.m + 1)
-        x = place(groups[0], from: x)
-        x += ShotzUI.Space.m
-        separator.frame = CGRect(x: x, y: y + 4, width: 1, height: h - 8)
-        x += 1 + ShotzUI.Space.m
-        _ = place(groups[1], from: x)
+        let l = leading.intrinsicContentSize, t = trailing.intrinsicContentSize
+        leading.frame = CGRect(x: 0, y: ((bounds.height - l.height) / 2).rounded(), width: l.width, height: l.height)
+        trailing.frame = CGRect(x: bounds.width - t.width, y: ((bounds.height - t.height) / 2).rounded(), width: t.width, height: t.height)
+    }
+}
+
+/// Holds a control at a fixed width (a value pop-up that must not resize as its value changes).
+@MainActor final class FixedWidth: NSView {
+    let content: NSView
+    private let width: CGFloat
+    init(_ content: NSView, width: CGFloat) {
+        self.content = content
+        self.width = width
+        super.init(frame: .zero)
+        addSubview(content)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: width, height: content.intrinsicContentSize.height) }
+    override func layout() {
+        super.layout()
+        let w = min(content.intrinsicContentSize.width, bounds.width)
+        content.frame = CGRect(x: 0, y: 0, width: w, height: bounds.height)
     }
 }

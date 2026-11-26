@@ -21,7 +21,9 @@ extension EditorWindowController {
         let clip = scrollView.contentView.frame.size
         let extent = canvas.canvasLayout.extent
         guard extent.width > 0, extent.height > 0 else { return 1 }
-        let m = min((clip.width - 40) / extent.width, (clip.height - 40) / extent.height)
+        // At least 24 pt of canvas around the image on every side.
+        let margin = 2 * EditorWindowController.canvasMargin
+        let m = min((clip.width - margin) / extent.width, (clip.height - margin) / extent.height)
         return min(m * store.document.scale, 1)
     }
 
@@ -70,10 +72,6 @@ extension EditorWindowController {
             item.target = self
             menu.addItem(item)
         }
-    }
-
-    func showZoomMenu(from view: NSView) {
-        zoomMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height + 4), in: view)
     }
 
     @objc func zoomPreset(_ sender: NSMenuItem) {

@@ -130,7 +130,8 @@ extension EditorUITests {
         let c = try makeController()
         c.model.setTool(.crop)
         c.optionsBar.rebuild()
-        let field = try #require(c.optionsBar.widthField)
+        let numberField = try #require(c.optionsBar.widthField)
+        let field = try #require(numberField.subviews.first { $0 is NSTextField })
         let window = try #require(c.window)
         window.makeFirstResponder(field)
         #expect(window.firstResponder !== c.canvas)
@@ -147,7 +148,7 @@ extension EditorUITests {
         #expect(bar.done.role == .primary)
         #expect(bar.copy.role == .secondary && bar.save.role == .secondary)
         #expect(bar.copy.intrinsicContentSize.width == bar.save.intrinsicContentSize.width)
-        #expect(bar.more.role == .quiet && bar.drag.button.role == .quiet)
+        #expect(bar.more.role == .quiet && bar.drag.chip.role == .quiet)
         c.model.setTool(.arrow)
         c.optionsBar.rebuild()
         func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
@@ -156,6 +157,35 @@ extension EditorUITests {
         #expect(views.contains { $0 is ShotzSegmentedControl })
         #expect(views.contains { $0 is ShotzSlider })
         #expect(views.contains { $0 is ShotzToggleChip })
+    }
+
+    /// A narrow window moves the lowest-priority options into More instead of dropping them;
+    /// the default width shows every option.
+    @Test func narrowOptionsOverflowIntoMore() throws {
+        let c = try makeController()
+        c.model.setTool(.text)
+        c.optionsBar.rebuild()
+        let all = c.optionsBar.groups.map(\.title)
+        let wide = c.optionsBar.fitting(EditorWindowController.comfortableContentSize.width - 28)
+        #expect(wide.hidden.isEmpty)
+        let narrow = c.optionsBar.fitting(400)
+        #expect(!narrow.hidden.isEmpty)
+        #expect(narrow.shown.count + narrow.hidden.count == all.count)
+        #expect(narrow.hidden.allSatisfy { $0.priority < .essential })
+        // Opacity (low) leaves before Bold (medium).
+        if narrow.hidden.contains(where: { $0.title == String(localized: "Weight") }) {
+            #expect(narrow.hidden.contains { $0.title == String(localized: "Opacity") })
+        }
+    }
+
+    @Test func defaultWindowIsComfortablyLargerThanTheMinimum() {
+        let screen = NSSize(width: 1512, height: 945)
+        let small = EditorWindowController.initialContentSize(for: CGSize(width: 400, height: 300), scale: 2, screen: screen)
+        #expect(small.width >= 960 && small.height >= 640)
+        let huge = EditorWindowController.initialContentSize(for: CGSize(width: 10000, height: 6000), scale: 2, screen: screen)
+        #expect(huge.width <= screen.width * 0.8 + 1)
+        let tiny = EditorWindowController.initialContentSize(for: CGSize(width: 10, height: 10), scale: 1, screen: NSSize(width: 800, height: 600))
+        #expect(tiny.width >= 720 && tiny.height >= 480)
     }
 
     /// Emoji (with skin tone and a flag) survive in-place editing, the saved document and export.

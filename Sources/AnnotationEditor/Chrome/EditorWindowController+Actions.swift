@@ -147,24 +147,10 @@ extension EditorWindowController: EditorCommands, NSMenuItemValidation {
 
     // MARK: Feedback
 
-    /// A brief confirmation over the canvas.
-    func flash(_ text: String) {
+    /// A brief confirmation over the canvas (ShotzToast; it also announces itself to VoiceOver).
+    func flash(_ text: String, success: Bool = true) {
         guard let host = overlay.superview else { return }
-        let box = EditorControls.toast(text)
-        host.addSubview(box)
-        NSLayoutConstraint.activate([
-            box.centerXAnchor.constraint(equalTo: host.centerXAnchor),
-            box.bottomAnchor.constraint(equalTo: host.bottomAnchor, constant: -24),
-        ])
-        box.setAccessibilityLabel(text)
-        NSAccessibility.post(element: box, notification: .announcementRequested,
-                             userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.medium.rawValue])
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.25
-                box.animator().alphaValue = 0
-            }, completionHandler: { MainActor.assumeIsolated { box.removeFromSuperview() } })
-        }
+        EditorControls.toast(text, in: host, success: success)
     }
 
     func present(_ error: Error) {
