@@ -90,8 +90,11 @@ extension QuickAccessController: CardViewDelegate {
         if let other = hoveredCard, other !== card { other.setHovered(false) }
         hoveredCard = card
         timers.values.forEach { $0.pause() }
-        guard let panel = card.window as? StackPanel else { return }
+        guard takesKeyFocus, let panel = card.window as? StackPanel else { return }
         // Key without activating Shotz, so hover shortcuts reach the stack.
+        if focusOwnerBeforeHover == nil {
+            focusOwnerBeforeHover = NSWorkspace.shared.frontmostApplication
+        }
         panel.acceptsKey = true
         panel.makeKey()
         installKeyMonitor()
@@ -113,12 +116,20 @@ extension QuickAccessController: CardViewDelegate {
     }
 
     /// Gives keyboard focus back to the app the user was in. Re-ordering the
-    /// panel (it is transparent and stays at the same place) drops key status
-    /// without activating anything.
+    /// panel (it is transparent and stays at the same place) drops key status;
+    /// if the system then treats Shotz as frontmost, hand activation back to
+    /// the app that had it before the hover.
     private func relinquishKey(_ panel: StackPanel) {
+        let previous = focusOwnerBeforeHover
+        focusOwnerBeforeHover = nil
         guard !quickLook.isShowing else { return }
         panel.orderOut(nil)
         panel.orderFrontRegardless()
+        let me = NSRunningApplication.current
+        if let previous, previous != me, NSWorkspace.shared.frontmostApplication == me {
+            NSApp.yieldActivation(to: previous)
+            previous.activate(from: me)
+        }
     }
 
     private func installKeyMonitor() {

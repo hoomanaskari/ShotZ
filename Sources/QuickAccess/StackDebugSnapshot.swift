@@ -27,7 +27,7 @@ import UniformTypeIdentifiers
         }
     }
 
-    private static func render(_ panel: NSPanel, to url: URL) -> Bool {
+    static func render(_ panel: NSPanel, to url: URL) -> Bool {
         guard let view = panel.contentView, let layer = view.layer else { return false }
         let scale = panel.backingScaleFactor
         let w = Int(view.bounds.width * scale), h = Int(view.bounds.height * scale)

@@ -12,6 +12,7 @@ import AppKit
     private let captionChip = NSView()
     private let flash = FlashBadgeView()
     private(set) var isRevealed = false
+    private var flashGeneration = 0
 
     init(style: CardStyle, captionText: String) {
         self.style = style
@@ -68,14 +69,19 @@ import AppKit
         flash.configure(text: text, symbol: symbol, success: success)
         needsLayout = true
         layoutSubtreeIfNeeded()
-        flash.layer?.removeAllAnimations()
-        flash.alphaValue = 1
-        let anim = CAKeyframeAnimation(keyPath: "opacity")
-        anim.values = [0, 1, 1, 0]
-        anim.keyTimes = [0, 0.12, 0.8, 1]
-        anim.duration = 1.1
-        flash.layer?.add(anim, forKey: "flash")
-        flash.layer?.opacity = 0
+        flashGeneration += 1
+        let generation = flashGeneration
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.1
+            flash.animator().alphaValue = 1
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+            guard let self, self.flashGeneration == generation else { return }
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.2
+                self.flash.animator().alphaValue = 0
+            }
+        }
         // Hide the controls behind the badge while it shows.
         controls.alphaValue = 0
         isRevealed = false

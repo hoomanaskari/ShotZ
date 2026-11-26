@@ -23,13 +23,18 @@ import ShotzCore
     var timers: [UUID: AutoCloseTimer] = [:]
     var hoveredCard: CardView?
     var keyMonitor: Any?
-    private var applied: AppliedSettings
+    var focusOwnerBeforeHover: NSRunningApplication?
+    private(set) var applied: AppliedSettings
+    /// False while the in-process self-test drives hover, so it never takes
+    /// keyboard focus from the person using the Mac.
+    var takesKeyFocus = true
+    private var selfTest: StackSelfTest?
     private var observers: [NSObjectProtocol] = []
     private var settingsSink: AnyCancellable?
     private var debugSnapshot: StackDebugSnapshot?
 
     /// Settings that change the stack's shape, compared on every settings change.
-    private struct AppliedSettings: Equatable {
+    struct AppliedSettings: Equatable {
         var size: CardSize, side: StackSide, display: StackDisplay, autoClose: Int
     }
 
@@ -79,6 +84,11 @@ import ShotzCore
             log.info("Card first frame \(Int((CACurrentMediaTime() - start) * 1000)) ms after present")
         }
         log.info("Present \(capture.displayName, privacy: .public) on display \(display)")
+        if selfTest == nil, let test = StackSelfTest.makeIfRequested(controller: self) {
+            selfTest = test
+            takesKeyFocus = false
+            test.start()
+        }
     }
 
     public func dismiss(id: CaptureResult.ID) {
@@ -281,6 +291,12 @@ import ShotzCore
             size: settings.quickAccessSize, side: settings.quickAccessSide,
             display: settings.quickAccessDisplay, autoClose: settings.quickAccessAutoCloseSeconds
         )
+        apply(now)
+    }
+
+    /// Applies stack-shaping settings (also used by the self-test, which must
+    /// not write to the shared preferences).
+    func apply(_ now: AppliedSettings) {
         guard now != applied else { return }
         let old = applied
         applied = now

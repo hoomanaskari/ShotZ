@@ -87,6 +87,8 @@ import ShotzCore
         imageLayer.add(fade, forKey: "fade")
     }
 
+    var thumbnailPixelSize: CGSize? { thumbnail.map { CGSize(width: $0.width, height: $0.height) } }
+
     /// Where the image sits inside the card (aspect-fit).
     var imageRect: CGRect {
         let b = bounds
