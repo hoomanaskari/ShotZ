@@ -22,8 +22,10 @@ Check how many you have:
 security find-identity -v -p codesigning | grep -c '"Developer ID Application:'
 ```
 
-If you have several (for example the old and the renewed G2 certificate, which share a name),
-`release.sh` picks the one whose certificate lasts longest, by its SHA-1. To pin one instead, set
+Only certificates of the team committed in `Resources/DeveloperTeamID.txt` (Pixel Forty,
+`2SQ9JNU8XE`) can sign a release. If that team has several (for example the old and the renewed G2
+certificate, which share a name), `release.sh` picks the one whose certificate lasts longest, by its
+SHA-1. After signing it checks the `TeamIdentifier` of the app, of `Sparkle.framework` and of the DMG. To pin one instead, set
 `SHOTZ_DEVELOPER_ID` to its SHA-1 (shown by the command above without `| grep -c …`) in your
 shell profile. The first signing may show a keychain dialog asking to let `codesign` use the key:
 choose **Always Allow**.
@@ -166,11 +168,20 @@ find the new one once the feed is live (step 5 below).
 In this order, so the feed never points to downloads that aren't public yet:
 
 1. Review `appcast.xml` (new item, version, build, enclosure URL, `sparkle:edSignature`, deltas)
-   and commit it with the notes. Never commit the ZIP, DMG or deltas (`dist/` and
-   `sparkle-releases/` ignore them).
+   and commit exactly these files:
+
+   | File | Why |
+   |---|---|
+   | `appcast.xml` | the feed, exposed when `main` is pushed (step 4) |
+   | `release-notes/<version>.md` | the notes (the GitHub release description and the update window) |
+   | `sparkle-releases/.gitignore` | keeps the folder's build products out of git (unchanged after the first release) |
+
+   Everything else the run produced is a build product and stays uncommitted: all of `dist/` (it
+   ignores itself) and, in `sparkle-releases/`, the ZIPs, deltas and the notes copies
+   (`ShotZ-<version>.md`, made from `release-notes/` for `generate_appcast`).
 
    ```bash
-   git add appcast.xml release-notes/$VERSION.md && git commit -m "Release v$VERSION"
+   git add appcast.xml release-notes/$VERSION.md sparkle-releases/.gitignore && git commit -m "Release v$VERSION"
    ```
 
 2. Tag and push the tag only: `git tag v$VERSION && git push origin refs/tags/v$VERSION`
@@ -200,8 +211,9 @@ Keep the ZIPs in `sparkle-releases/` after releasing: the next release makes its
   Manage Certificates, or developer.apple.com) into the login keychain.
 - **"notary profile 'notarytool-profile' is missing or unusable"**: run the store-credentials
   command above; if it exists, the app-specific password may have been revoked.
-- **Notarization "Invalid"**: run `xcrun notarytool log <submission-id> --keychain-profile
-  notarytool-profile`. Usual causes: missing hardened runtime or secure timestamp on nested code,
+- **Notarization "Invalid"**: `release.sh` prints each submission id and saves Apple's log as
+  `dist/notary-log-<file>-<id>.json` (it lists the problems and contains no credentials). To fetch it
+  again: `xcrun notarytool log <submission-id> --keychain-profile notarytool-profile`. Usual causes: missing hardened runtime or secure timestamp on nested code,
   or an unsigned helper. `release.sh` checks both before submitting.
 - **"the app is not universal"**: `bundle.sh release` builds universal by default; check nothing
   forced a host-only build.

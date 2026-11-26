@@ -30,6 +30,8 @@
 #   SHOTZ_DEVELOPER_ID   Developer ID Application identity (SHA-1 or exact name); default: the one
 #                        on this Mac whose certificate lasts longest (several can share a name)
 #   NOTARY_PROFILE       notarytool keychain profile (default: notarytool-profile)
+# Committed configuration: Resources/DeveloperTeamID.txt (the only team allowed to sign a release),
+# Resources/SparkleKeyAccount.txt and Resources/SparklePublicKey.txt.
 #   SHOTZ_GITHUB_REPO    owner/name of the GitHub repository the downloads come from (default:
 #                        the repository in SUFeedURL; must match it when both are set)
 #   SPARKLE_BIN          folder with Sparkle's generate_appcast (default: found in .build/artifacts)
@@ -53,7 +55,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run-dir)
       [[ $# -ge 2 && -n "$2" ]] || { echo "release.sh: --dry-run-dir needs a directory" >&2; exit 64; }
       DRY_RUN_DIR="$2"; shift 2 ;;
-    -h|--help) sed -n '2,37p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,39p' "$0"; exit 0 ;;
     *) echo "release.sh: unknown option $1 (see --help)" >&2; exit 64 ;;
   esac
 done
@@ -171,20 +173,24 @@ cert_end_epoch() { # SHA-1 → expiry as epoch seconds
   end="$(printf '%s\n' "$pem" | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
   date -j -f "%b %e %T %Y %Z" "$end" +%s 2>/dev/null || echo 0
 }
+# Only identities of the committed team can sign a release (Resources/DeveloperTeamID.txt).
+EXPECTED_TEAM_ID="$(tr -d '[:space:]' < "$ROOT/Resources/DeveloperTeamID.txt" 2>/dev/null || true)"
+[[ "$EXPECTED_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || stop "Resources/DeveloperTeamID.txt must hold the 10-character Apple team id."
+identities="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+team_identities="$(grep '"Developer ID Application:' <<<"$identities" | grep -F "($EXPECTED_TEAM_ID)\"" || true)"
 IDENTITY="${SHOTZ_DEVELOPER_ID:-}"
 if [[ -z "$IDENTITY" ]]; then
   newest=0
-  for hash in $(security find-identity -v -p codesigning 2>/dev/null | awk '/"Developer ID Application:/ { print $2 }'); do
+  for hash in $(awk '{ print $2 }' <<<"$team_identities"); do
     ends="$(cert_end_epoch "$hash")"
     if [[ "$ends" -gt "$newest" ]]; then newest="$ends"; IDENTITY="$hash"; fi
   done
-  [[ -n "$IDENTITY" ]] || stop "no Developer ID Application certificate on this Mac (see docs/RELEASE.md, one-time setup)."
-  ok "Developer ID Application identity selected (longest-lasting; expires $(date -j -f %s "$newest" +%Y-%m-%d))"
+  [[ -n "$IDENTITY" ]] || stop "no Developer ID Application certificate for team $EXPECTED_TEAM_ID on this Mac (see docs/RELEASE.md, one-time setup)."
+  ok "Developer ID Application identity of team $EXPECTED_TEAM_ID selected (longest-lasting; expires $(date -j -f %s "$newest" +%Y-%m-%d))"
 else
-  identities="$(security find-identity -v -p codesigning 2>/dev/null || true)"
-  grep -F -- "$IDENTITY" <<<"$identities" | grep '"Developer ID Application:' >/dev/null \
-    || stop "SHOTZ_DEVELOPER_ID does not name a valid Developer ID Application identity on this Mac."
-  ok "Developer ID Application identity from SHOTZ_DEVELOPER_ID"
+  grep -F -- "$IDENTITY" <<<"$team_identities" >/dev/null \
+    || stop "SHOTZ_DEVELOPER_ID does not name a valid Developer ID Application identity of team $EXPECTED_TEAM_ID on this Mac."
+  ok "Developer ID Application identity of team $EXPECTED_TEAM_ID from SHOTZ_DEVELOPER_ID"
 fi
 
 REHEARSAL=0
@@ -278,6 +284,12 @@ grep -q '^Authority=Developer ID Application:' <<<"$SIGNATURE" || stop "the app 
 grep -q 'flags=.*(runtime)' <<<"$SIGNATURE" || stop "the app is not signed with the hardened runtime."
 grep -q '^Timestamp=' <<<"$SIGNATURE" || stop "the app's signature has no secure timestamp (notarization requires one)."
 ok "Developer ID authority, hardened runtime and secure timestamp"
+team_of() { codesign -dvv "$1" 2>&1 | sed -n 's/^TeamIdentifier=//p' || true; }
+[[ "$(team_of "$APP")" == "$EXPECTED_TEAM_ID" ]] || stop "the app's TeamIdentifier is not $EXPECTED_TEAM_ID."
+if [[ -d "$SPARKLE_FW" ]]; then
+  [[ "$(team_of "$SPARKLE_FW")" == "$EXPECTED_TEAM_ID" ]] || stop "Sparkle.framework's TeamIdentifier is not $EXPECTED_TEAM_ID."
+fi
+ok "TeamIdentifier $EXPECTED_TEAM_ID on the app$([[ -d "$SPARKLE_FW" ]] && echo ' and Sparkle.framework')"
 if [[ -d "$SPARKLE_FW" ]]; then
   while IFS= read -r nested; do
     codesign --verify --strict "$nested" >/dev/null 2>&1 || stop "nested code is not validly signed: ${nested#$APP/}"
@@ -319,9 +331,27 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------------
-notarize() { # notarize <file>
-  printf '    submitting %s (Apple usually takes a few minutes)\n' "$(basename "$1")"
-  xcrun notarytool submit "$1" --keychain-profile "$NOTARY_PROFILE" --wait
+notarize() { # notarize <file>: prints the submission id; on failure saves Apple's log in dist/
+  local file="$1" name result id status
+  name="$(basename "$file")"
+  printf '    submitting %s (Apple usually takes a few minutes)\n' "$name"
+  result="$STAGE/notary-$name.json"
+  set +e
+  xcrun notarytool submit "$file" --keychain-profile "$NOTARY_PROFILE" --wait --output-format json > "$result" 2>"$STAGE/notary-$name.err"
+  set -e
+  id="$(plutil -extract id raw -o - "$result" 2>/dev/null || true)"
+  status="$(plutil -extract status raw -o - "$result" 2>/dev/null || true)"
+  printf '    submission id for %s: %s (status: %s)\n' "$name" "${id:-unknown}" "${status:-unknown}"
+  if [[ "$status" != Accepted ]]; then
+    if [[ -n "$id" ]]; then
+      # The log lists the issues Apple found; it holds no credentials.
+      xcrun notarytool log "$id" --keychain-profile "$NOTARY_PROFILE" "$DIST/notary-log-$name-$id.json" >/dev/null 2>&1 || true
+      printf '    notarization log: %s\n' "$DIST/notary-log-$name-$id.json"
+    else
+      sed 's/^/    /' "$STAGE/notary-$name.err" >&2
+    fi
+    stop "notarization of $name was not accepted (status: ${status:-unknown})."
+  fi
 }
 if [[ "$SKIP_NOTARIZE" == 0 ]]; then
   step "Notarizing the app"
@@ -358,8 +388,9 @@ codesign --verify --strict "$DMG" >/dev/null 2>&1 || stop "the DMG is not validl
 # Capture before grepping: with pipefail, `grep -q` exiting early would fail the pipe.
 dmg_sig="$(codesign -dvv "$DMG" 2>&1 || true)"
 grep -q '^Authority=Developer ID Application:' <<<"$dmg_sig" || stop "the DMG is not signed with the Developer ID."
+[[ "$(sed -n 's/^TeamIdentifier=//p' <<<"$dmg_sig")" == "$EXPECTED_TEAM_ID" ]] || stop "the DMG's TeamIdentifier is not $EXPECTED_TEAM_ID."
 hdiutil verify -quiet "$DMG" || stop "hdiutil verify fails for the DMG."
-ok "$(basename "$DMG") (Developer ID signature, image checksum)"
+ok "$(basename "$DMG") (Developer ID signature, team $EXPECTED_TEAM_ID, image checksum)"
 if [[ "$SKIP_NOTARIZE" == 0 ]]; then
   step "Notarizing the DMG"
   notarize "$DMG"
@@ -387,7 +418,12 @@ ok "ShotZ.app (signature, build) and the Applications link"
 if [[ "$HAVE_SPARKLE" == 1 ]]; then
   step "Appcast"
   mkdir -p "$RELEASES_DIR"
-  [[ -f "$RELEASES_DIR/.gitignore" ]] || printf '*.zip\n*.delta\n*.dmg\n' > "$RELEASES_DIR/.gitignore"
+  # sparkle-releases/ keeps the archives (the next release makes deltas from them) but only its
+  # .gitignore is committed: archives, deltas and the notes copies here are build products.
+  touch "$RELEASES_DIR/.gitignore"
+  for pattern in '*.zip' '*.delta' '*.dmg' '*.md'; do
+    grep -qxF "$pattern" "$RELEASES_DIR/.gitignore" || printf '%s\n' "$pattern" >> "$RELEASES_DIR/.gitignore"
+  done
   if [[ -n "$DRY_RUN_DIR" && -d "$ROOT/sparkle-releases" ]]; then
     # Rehearse deltas against the real previous archives without changing them.
     find "$ROOT/sparkle-releases" -maxdepth 1 \( -name '*.zip' -o -name '*.md' \) -exec cp -n {} "$RELEASES_DIR/" \;
@@ -474,8 +510,9 @@ if [[ ${#NOT_RELEASABLE[@]} -eq 0 && -z "$DRY_RUN_DIR" ]]; then
   cat <<EOF
 
 Go-live steps (this script does none of them; see docs/RELEASE.md):
-  1. Review appcast.xml and release-notes/$VERSION.md, then commit the source, notes and appcast
-     (never the ZIP, DMG or deltas):   git add appcast.xml release-notes/$VERSION.md && git commit -m "Release $TAG"
+  1. Review appcast.xml and release-notes/$VERSION.md, then commit exactly these three files
+     (never the ZIP, DMG, deltas or anything else in dist/ or sparkle-releases/):
+       git add appcast.xml release-notes/$VERSION.md sparkle-releases/.gitignore && git commit -m "Release $TAG"
   2. Tag:                              git tag $TAG
   3. Push the tag only:                git push origin refs/tags/$TAG
   4. Create the GitHub release $TAG from release-notes/$VERSION.md and upload:
