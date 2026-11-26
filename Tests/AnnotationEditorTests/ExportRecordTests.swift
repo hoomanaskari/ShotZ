@@ -131,4 +131,20 @@ struct ExportRecordTests {
         let other = try #require(try await EditorExporter(exporter: f.service, settings: f.settings, base: f.base).save(f.document, name: "File"))
         #expect(other != first)
     }
+
+    /// History that does not know the capture (pruned or never added): saves in one window
+    /// still overwrite one file, and each save is still recorded.
+    @Test func unknownCaptureStillOverwritesWithinTheWindow() async throws {
+        let f = try fixture()
+        defer { try? FileManager.default.removeItem(at: f.dir) } // best-effort cleanup
+        let recorded = FakeHistory()
+        let record = ExportRecord(captureID: UUID(), previous: { _ in nil }, record: { await recorded.record($0, $1) })
+        let exporter = EditorExporter(exporter: f.service, settings: f.settings, base: f.base, record: record)
+        let first = try #require(try await exporter.save(f.document, name: "Shot"))
+        let second = try #require(try await exporter.save(f.document, name: "Shot"))
+        let third = try #require(try await exporter.save(f.document, name: "Shot"))
+        #expect(first == second && second == third)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: f.service.folder.path(percentEncoded: false)) == ["Shot.png"])
+        #expect(await recorded.records == 3)
+    }
 }

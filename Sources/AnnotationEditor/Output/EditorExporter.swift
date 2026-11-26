@@ -63,11 +63,13 @@ struct ExportRecord: Sendable {
 
     /// Writes to the export folder without asking (or asks, per setting), or
     /// overwrites the previous export of this document. Returns the file.
-    /// A capture's previous export (recorded with its history item) or, for an image
-    /// opened from a file, this window's previous Save. If that file is gone, Save
+    /// A capture's previous export (recorded with its history item), else this window's
+    /// previous Save. If that file is gone, Save
     /// exports anew through `ExportService` and records the new file.
     func save(_ document: AnnotationDocument, name: String) async throws -> URL? {
-        let previous: URL? = if let record { await record.previous(record.captureID) } else { lastExportURL }
+        // History may not know the capture (pruned, or never added): fall back to this window's last Save.
+        let recorded: URL? = if let record { await record.previous(record.captureID) } else { nil }
+        let previous = recorded ?? lastExportURL
         if let previous, FileManager.default.fileExists(atPath: previous.path(percentEncoded: false)) {
             try overwrite(previous, with: document)
             await remember(previous)
