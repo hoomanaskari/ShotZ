@@ -25,9 +25,12 @@ import ShotzCore
     var keyMonitor: Any?
     var focusOwnerBeforeHover: NSRunningApplication?
     private(set) var applied: AppliedSettings
-    /// False while the in-process self-test drives hover, so it never takes
-    /// keyboard focus from the person using the Mac.
-    var takesKeyFocus = true
+    /// Decides when the stack holds keyboard focus (see `HoverKeyFocus`).
+    let focus = HoverKeyFocus()
+    /// Where `ExportService` puts per-drag copies; swept on launch.
+    let dragRoot = ShotzPaths.default.dragExports
+    /// The export copy of each card's drag in flight.
+    var dragFiles: [UUID: URL] = [:]
     private var selfTest: StackSelfTest?
     private var observers: [NSObjectProtocol] = []
     private var settingsSink: AnyCancellable?
@@ -50,6 +53,9 @@ import ShotzCore
             display: settings.quickAccessDisplay, autoClose: settings.quickAccessAutoCloseSeconds
         )
         observe()
+        focus.host = self
+        let root = dragRoot
+        Task.detached(priority: .utility) { DragExportJanitor.purge(root: root) }
         debugSnapshot = StackDebugSnapshot(panels: { [weak self] in self?.panels ?? [:] }) { [log] in
             log.info("\($0, privacy: .public)")
         }
@@ -86,7 +92,6 @@ import ShotzCore
         log.info("Present \(capture.displayName, privacy: .public) on display \(display)")
         if selfTest == nil, let test = StackSelfTest.makeIfRequested(controller: self) {
             selfTest = test
-            takesKeyFocus = false
             CardView.ignoresRealPointer = true
             test.start()
         }
@@ -198,7 +203,7 @@ import ShotzCore
     func remove(_ card: CardView, animation: Exit) {
         guard !card.isExiting, cards[card.capture.id] === card else { return }
         let id = card.capture.id
-        if hoveredCard === card { hoverEnded(card) }
+        if hoveredCard === card { self.card(card, hoverChanged: false) }
         card.markExiting()
         model.remove(id)
         cards[id] = nil
@@ -216,6 +221,7 @@ import ShotzCore
             CardAnimator.slideOut(card, to: target) { [weak self] in self?.discard(card, animation: .none) }
         }
         layoutAll(animated: true)
+        if cards.isEmpty { focus.handle(.lastCardClosed) }
     }
 
     /// Drops the view immediately.
@@ -247,6 +253,11 @@ import ShotzCore
                     log.info("Thumbnail on screen \(Int((CACurrentMediaTime() - start) * 1000)) ms after present (\(image.width)×\(image.height) px)")
                 }
             }
+            let cardSize = card.bounds.size
+            if ThumbnailLoader.coverage(pixelSize: card.capture.pixelSize, cardSize: cardSize) < ThumbnailLoader.backdropThreshold,
+               let backdrop = await ThumbnailLoader.backdrop(from: image, cardSize: cardSize) {
+                card.setBackdrop(backdrop)
+            }
         }
     }
 
@@ -272,9 +283,19 @@ import ShotzCore
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didWakeNotification] {
             observers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.screensChanged() }
+                MainActor.assumeIsolated {
+                    self?.focus.handle(.spaceChanged)
+                    self?.screensChanged()
+                }
             })
         }
+        observers.append(workspace.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+            let activated = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier
+            MainActor.assumeIsolated {
+                guard activated != NSRunningApplication.current.processIdentifier else { return }
+                self?.focus.handle(.otherAppActivated)
+            }
+        })
         settingsSink = settings.objectWillChange.sink { [weak self] _ in
             // objectWillChange fires before the write lands; read on the next turn.
             DispatchQueue.main.async { self?.settingsChanged() }
@@ -311,7 +332,7 @@ import ShotzCore
     /// New card size: rebuild the views (metrics differ per size), keep order.
     private func rebuildCards() {
         for (id, old) in cards {
-            if hoveredCard === old { hoverEnded(old) }
+            if hoveredCard === old { card(old, hoverChanged: false) }
             let card = CardView(capture: old.capture, size: applied.size)
             card.delegate = self
             old.superview?.addSubview(card)

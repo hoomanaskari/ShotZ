@@ -5,6 +5,9 @@ import ShotzCore
     func card(_ card: CardView, hoverChanged inside: Bool)
     func card(_ card: CardView, perform action: CardAction)
     /// The pasteboard writer for a drag-out, or nil if the file cannot be prepared.
+    /// A real mouse-moved event inside the card (never sent for a card that
+    /// merely appears or moves under a resting pointer).
+    func cardPointerMoved(_ card: CardView, buttonsDown: Bool)
     func cardDragWriter(_ card: CardView) -> NSPasteboardWriting?
     func card(_ card: CardView, isAtSwipeEdge screenPoint: NSPoint) -> Bool
     func card(_ card: CardView, dragEndedWith operation: NSDragOperation, swiped: Bool)
@@ -24,6 +27,9 @@ import ShotzCore
     private let style: CardStyle
     private let clip = NSView()
     private let imageLayer = CALayer()
+    /// Blurred aspect-fill of the thumbnail behind letterboxed images.
+    private let backdropLayer = CALayer()
+    private let backdropTint = CALayer()
     private let borderLayer = CALayer()
     let overlay: CardOverlayView
     private var thumbnail: CGImage?
@@ -54,6 +60,11 @@ import ShotzCore
         imageLayer.opacity = 0
         borderLayer.cornerRadius = style.cornerRadius
         borderLayer.cornerCurve = .continuous
+        backdropLayer.contentsGravity = .resizeAspectFill
+        backdropLayer.opacity = 0
+        backdropTint.opacity = 0
+        clip.layer?.addSublayer(backdropLayer)
+        clip.layer?.addSublayer(backdropTint)
         clip.layer?.addSublayer(imageLayer)
         addSubview(clip)
         clip.addSubview(overlay)
@@ -89,6 +100,20 @@ import ShotzCore
 
     var thumbnailPixelSize: CGSize? { thumbnail.map { CGSize(width: $0.width, height: $0.height) } }
 
+    func setBackdrop(_ image: CGImage) {
+        backdropLayer.contents = image
+        for layer in [backdropLayer, backdropTint] {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0
+            fade.toValue = 1
+            fade.duration = 0.18
+            layer.opacity = 1
+            layer.add(fade, forKey: "fade")
+        }
+    }
+
+    var hasBackdrop: Bool { backdropLayer.contents != nil }
+
     /// Where the image sits inside the card (aspect-fit).
     var imageRect: CGRect {
         let b = bounds
@@ -106,6 +131,8 @@ import ShotzCore
         clip.frame = bounds
         overlay.frame = clip.bounds
         imageLayer.frame = clip.bounds
+        backdropLayer.frame = clip.bounds
+        backdropTint.frame = clip.bounds
         borderLayer.frame = clip.bounds
         let scale = window?.backingScaleFactor ?? 2
         borderLayer.borderWidth = 1 / scale
@@ -128,6 +155,7 @@ import ShotzCore
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         clip.layer?.backgroundColor = palette.backdrop
+        backdropTint.backgroundColor = palette.backdropTint
         borderLayer.borderColor = palette.border
         layer?.shadowOpacity = palette.shadowOpacity
         overlay.apply(palette)
@@ -148,7 +176,7 @@ import ShotzCore
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let trackingArea { removeTrackingArea(trackingArea) }
-        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
+        let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
         addTrackingArea(area)
         trackingArea = area
     }
@@ -158,6 +186,12 @@ import ShotzCore
 
     override func mouseEntered(with event: NSEvent) { if !Self.ignoresRealPointer { setHovered(true) } }
     override func mouseExited(with event: NSEvent) { if !Self.ignoresRealPointer { setHovered(false) } }
+
+    override func mouseMoved(with event: NSEvent) {
+        guard !Self.ignoresRealPointer, !isExiting else { return }
+        if !isHovered { setHovered(true) }
+        delegate?.cardPointerMoved(self, buttonsDown: NSEvent.pressedMouseButtons != 0)
+    }
 
     func setHovered(_ hovered: Bool) {
         let effective = hovered && !isExiting && !isDragging

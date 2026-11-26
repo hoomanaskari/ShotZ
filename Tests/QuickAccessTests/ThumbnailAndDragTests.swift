@@ -37,3 +37,23 @@ struct ThumbnailAndDragTests {
         #expect(data == (try Data(contentsOf: url)))
     }
 }
+
+struct BackdropTests {
+    @Test func coverageDecidesBackdrop() {
+        let card = CGSize(width: 250, height: 156)
+        #expect(ThumbnailLoader.coverage(pixelSize: CGSize(width: 2560, height: 1600), cardSize: card) > ThumbnailLoader.backdropThreshold)
+        #expect(ThumbnailLoader.coverage(pixelSize: CGSize(width: 5120, height: 2880), cardSize: card) < ThumbnailLoader.backdropThreshold)
+        #expect(ThumbnailLoader.coverage(pixelSize: CGSize(width: 800, height: 2400), cardSize: card) < ThumbnailLoader.backdropThreshold)
+        #expect(ThumbnailLoader.coverage(pixelSize: CGSize(width: 3000, height: 600), cardSize: card) < ThumbnailLoader.backdropThreshold)
+    }
+
+    @Test func backdropIsSmallAndCardShaped() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "bd-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: url) } // test scratch
+        try FakeCaptureEngine.writePNG(width: 100, height: 300, to: url)
+        let thumb = try #require(ThumbnailLoader.make(url: url, maxPixelSize: 300))
+        let backdrop = try #require(ThumbnailLoader.makeBackdrop(from: thumb, cardSize: CGSize(width: 250, height: 156)))
+        #expect(backdrop.width == 125)
+        #expect(backdrop.height == 78)
+    }
+}
