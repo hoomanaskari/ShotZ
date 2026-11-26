@@ -108,6 +108,43 @@ struct FileHistoryStoreTests {
         #expect(await previousAfterReopen(a.id) == export)
     }
 
+    // MARK: --debug-edit-capture reuse
+
+    @Test func debugCaptureIDIsStablePerSourcePath() {
+        let a = URL(filePath: "/tmp/shotz-samples/a.png")
+        #expect(DebugCaptureIdentity.id(forSourcePath: a) == DebugCaptureIdentity.id(forSourcePath: a))
+        #expect(DebugCaptureIdentity.id(forSourcePath: URL(filePath: "/tmp/shotz-samples/./x/../a.png"))
+            == DebugCaptureIdentity.id(forSourcePath: a))
+        #expect(DebugCaptureIdentity.id(forSourcePath: URL(filePath: "/tmp/shotz-samples/b.png"))
+            != DebugCaptureIdentity.id(forSourcePath: a))
+        let id = DebugCaptureIdentity.id(forSourcePath: a).uuidString
+        #expect(Array(id)[14] == "5")   // name-based UUID layout
+    }
+
+    /// Second launch with the same source: the existing entry is reused; once
+    /// its image is gone it is imported again under the same id.
+    @Test func reusableCaptureFollowsHistoryAndFile() async throws {
+        defer { cleanup() }
+        let source = URL(filePath: "/tmp/shotz-samples/a.png")
+        let id = DebugCaptureIdentity.id(forSourcePath: source)
+        let store = FileHistoryStore(paths: paths)
+        #expect(await store.reusableCapture(id: id) == nil)          // first launch: import
+
+        try paths.createDirectories()
+        let file = paths.captures.appending(path: "Shotz A.png")
+        try FakeCaptureEngine.writePNG(width: 4, height: 3, to: file)
+        let imported = CaptureResult(id: id, fileURL: file, displayName: "Shotz A", kind: .area,
+                                     pixelSize: CGSize(width: 4, height: 3), scale: 2, displayID: 1)
+        await store.add(imported)
+
+        let secondLaunch = FileHistoryStore(paths: paths)            // a new process
+        #expect(await secondLaunch.reusableCapture(id: id)?.fileURL == file)
+        #expect(await secondLaunch.count == 1)
+
+        try FileManager.default.removeItem(at: file)
+        #expect(await secondLaunch.reusableCapture(id: id) == nil)   // re-import, same id
+    }
+
     @Test func orderIsByCreationDateNotInsertion() async throws {
         defer { cleanup() }
         let store = FileHistoryStore(paths: paths)

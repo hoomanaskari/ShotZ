@@ -125,4 +125,29 @@ extension AppCoordinator {
         log.info("Exported \(capture.displayName, privacy: .public) to \(url.lastPathComponent, privacy: .public)")
         Task { await history.markExported(id: capture.id, url: url) }
     }
+
+    // MARK: Debug
+
+    /// `--debug-edit-capture <png> [--debug-capture-id <uuid>]`: the same
+    /// source path maps to the same history id, so a second launch reopens the
+    /// same capture (editor document and recorded export included).
+    func debugEditCapture(_ source: URL, forcedID: UUID?, options: CaptureOptions) async {
+        let id = forcedID ?? DebugCaptureIdentity.id(forSourcePath: source)
+        let capture: CaptureResult
+        if let existing = await history.reusableCapture(id: id) {
+            capture = existing
+            log.info("Debug edit capture: reusing \(id.uuidString, privacy: .public)")
+        } else {
+            do {
+                capture = try DebugCaptureImporter.importImage(at: source, options: options, id: id)
+            } catch {
+                log.error("Debug edit capture failed for \(source.path(percentEncoded: false), privacy: .public): \(String(describing: error), privacy: .public)")
+                return
+            }
+            await history.add(capture)
+            refreshHistoryMenu()
+            log.info("Debug edit capture: imported \(source.lastPathComponent, privacy: .public) as \(id.uuidString, privacy: .public)")
+        }
+        editor.openEditor(for: capture)
+    }
 }

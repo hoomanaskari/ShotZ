@@ -8,7 +8,7 @@ import ShotzCore
 enum DebugCaptureImporter {
     enum ImportError: Error { case unreadable(String) }
 
-    static func importImage(at source: URL, options: CaptureOptions) throws -> CaptureResult {
+    static func importImage(at source: URL, options: CaptureOptions, id: UUID = UUID()) throws -> CaptureResult {
         guard let src = CGImageSourceCreateWithURL(source as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
               let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
               let width = props[kCGImagePropertyPixelWidth] as? Int,
@@ -23,6 +23,7 @@ enum DebugCaptureImporter {
         let destination = FileNaming.uniqueURL(in: options.destinationDirectory, base: name, ext: ext)
         try fm.copyItem(at: source, to: destination)
         return CaptureResult(
+            id: id,
             fileURL: destination,
             displayName: destination.deletingPathExtension().lastPathComponent,
             kind: .area,

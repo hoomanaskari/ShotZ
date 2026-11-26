@@ -7,8 +7,12 @@ struct DebugLaunchArguments: Equatable {
     var present: [URL] = []
     var edit: URL?
     var snapshotUI: URL?
+    /// `--debug-edit-capture <png>`: import into history (or reuse) and open with `openEditor(for:)`.
+    var editCapture: URL?
+    /// `--debug-capture-id <uuid>`: forces the history id used by `--debug-edit-capture`.
+    var captureID: UUID?
 
-    var isEmpty: Bool { present.isEmpty && edit == nil && snapshotUI == nil }
+    var isEmpty: Bool { present.isEmpty && edit == nil && snapshotUI == nil && editCapture == nil }
 
     init(
         arguments: [String] = Array(ProcessInfo.processInfo.arguments.dropFirst()),
@@ -30,6 +34,18 @@ struct DebugLaunchArguments: Equatable {
                 i += 1
                 if i < arguments.endIndex, !arguments[i].hasPrefix("-") {
                     edit = url(arguments[i])
+                    i += 1
+                }
+            case "--debug-edit-capture":
+                i += 1
+                if i < arguments.endIndex, !arguments[i].hasPrefix("-") {
+                    editCapture = url(arguments[i])
+                    i += 1
+                }
+            case "--debug-capture-id":
+                i += 1
+                if i < arguments.endIndex {
+                    captureID = UUID(uuidString: arguments[i])
                     i += 1
                 }
             case "--debug-snapshot-ui":

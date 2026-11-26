@@ -90,9 +90,13 @@ public actor FileHistoryStore: HistoryStore {
 
     /// Records the latest export of a capture (Save, auto-save, editor Save).
     public func markExported(id: CaptureResult.ID, url: URL) {
-        mutate { list in
-            guard let index = list.firstIndex(where: { $0.id == id }) else { return }
+        let known = mutate { list -> Bool in
+            guard let index = list.firstIndex(where: { $0.id == id }) else { return false }
             list[index].exportURL = url
+            return true
+        }
+        if !known {
+            log.notice("markExported: unknown capture \(id.uuidString, privacy: .public); export \(url.lastPathComponent, privacy: .public) not recorded")
         }
     }
 
