@@ -35,7 +35,7 @@ public enum AnnotationRenderer {
         case .text(let box):
             drawText(box, style: style, in: ctx)
         case .highlight(let h):
-            drawHighlight(h, style: style, in: ctx)
+            drawHighlight(h, style: style, blend: blendMode(for: object, document: document, base: base), in: ctx)
         case .redact(let rect, let mode):
             drawRedaction(rect, mode: mode, style: style, document: document, base: base, quality: quality, in: ctx)
         case .counter(let c):
@@ -45,13 +45,28 @@ public enum AnnotationRenderer {
         }
     }
 
-    /// Blend mode an object needs against what is beneath it. The editor should mirror this on
-    /// the object's layer (e.g. `compositingFilter = "multiplyBlendMode"` for highlights),
-    /// because a separate layer cannot multiply against the image by itself.
+    /// Blend mode an object needs against what is beneath it, assuming light content. Prefer
+    /// `blendMode(for:document:base:)`, which also handles highlights over dark content.
     public static func blendMode(for object: AnnotationObject) -> CGBlendMode {
         if case .highlight = object.shape { return .multiply }
         return .normal
     }
+
+    /// Blend mode an object needs against the base image beneath it. Highlights multiply, so dark
+    /// text under the mark stays crisp; over dark content (average luminance < 0.18, e.g. a dark-mode
+    /// window) multiply would make the mark invisible, so they screen instead, which keeps light
+    /// text readable and the mark visible. The editor must mirror this on the object's layer:
+    /// `compositingFilter = "multiplyBlendMode"` / `"screenBlendMode"`, since a separate layer
+    /// cannot blend with the image by itself.
+    public static func blendMode(for object: AnnotationObject, document: AnnotationDocument, base: BaseImageProvider) -> CGBlendMode {
+        guard case .highlight = object.shape else { return .normal }
+        let area = ObjectGeometry.frame(of: object).insetBy(dx: -object.style.lineWidth / 2, dy: -object.style.lineWidth / 2)
+        if let l = base.averageLuminance(in: area, imageSize: document.pixelSize), l < darkContentLuminance { return .screen }
+        return .multiply
+    }
+
+    /// Below this average base luminance a highlight switches from multiply to screen.
+    public static let darkContentLuminance: CGFloat = 0.18
 
     /// Objects in paint order: redactions first (SPEC §5.3), then everything else in z-order.
     public static func paintOrder(_ objects: [AnnotationObject]) -> [AnnotationObject] {
@@ -96,7 +111,7 @@ public enum AnnotationRenderer {
         let rect = document.imageRect
         let radius = min(document.background?.cornerRadius ?? 0, min(rect.width, rect.height) / 2)
         if let bg = document.background, let shadow = shadowParameters(bg.shadow, imageSize: rect.size) {
-            drawShadow(shadow, image: image, document: document, layout: layout, radius: radius, outputScale: outputScale, in: ctx)
+            drawShadow(shadow, image: image, document: document, layout: layout, radius: radius, in: ctx)
         }
         ctx.saveGState()
         ctx.translateBy(x: layout.imageFrame.minX - rect.minX, y: layout.imageFrame.minY - rect.minY)

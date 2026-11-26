@@ -70,6 +70,7 @@ struct GoldenTests {
         }
         out.append(Case(name: "highlight", objects: [
             AnnotationObject(shape: .highlight(.rect(CGRect(x: 10, y: 95, width: 200, height: 24))), style: style { $0.color = .yellow }),
+            AnnotationObject(shape: .highlight(.rect(CGRect(x: 120, y: 88, width: 110, height: 10))), style: style { $0.color = .yellow }),
             AnnotationObject(shape: .highlight(.freehand([CGPoint(x: 20, y: 20), CGPoint(x: 80, y: 40), CGPoint(x: 150, y: 25), CGPoint(x: 220, y: 45)])),
                              style: style { $0.color = .green; $0.lineWidth = 16 }),
         ]))
@@ -97,6 +98,7 @@ struct GoldenTests {
         out.append(Case(name: "background-gradient", objects: [
             AnnotationObject(shape: .arrow(ArrowGeometry(start: CGPoint(x: 40, y: 110), end: CGPoint(x: 190, y: 40))), style: style()),
         ], background: BackgroundStyle(fill: .gradient(GradientPreset.all[2].fill), padding: 0.1, cornerRadius: 12, shadow: .soft, alignment: .center, aspect: .square)))
+        out.append(Case(name: "background-strong-shadow", objects: [], background: BackgroundStyle(fill: .solid(.white), padding: 0.15, cornerRadius: 8, shadow: .strong)))
         return out
     }()
 

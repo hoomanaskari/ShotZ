@@ -273,3 +273,55 @@ struct Pixels {
         return m
     }
 }
+
+struct ShadowTests {
+    /// Darkness (1 - luma relative to the white fill) sampled in the padding below the image.
+    static func darkness(_ shadow: BackgroundStyle.Shadow, outputScale: CGFloat) throws -> [Double] {
+        var doc = AnnotationDocument(baseImageURL: URL(filePath: "/x"), pixelSize: CGSize(width: 1000, height: 600))
+        doc.background = BackgroundStyle(fill: .solid(.white), padding: 0.15, cornerRadius: 0, shadow: shadow)
+        let image = TestImages.base(width: 1000, height: 600, text: false)
+        let out = Pixels(try AnnotationRenderer.renderImage(doc, base: BaseImageProvider(image: image, url: doc.baseImageURL), outputScale: outputScale))
+        // Image spans y 150…750 on a 1300×900 canvas; sample 10, 30 and 60 px below it, mid-width.
+        return [10.0, 30, 60].map { d in 1 - out.luma(Int(650 * outputScale), Int((750 + d) * outputScale)) }
+    }
+
+    @Test func softAndStrongAreDistinctAndScaleInvariant() throws {
+        let soft = try Self.darkness(.soft, outputScale: 1)
+        let strong = try Self.darkness(.strong, outputScale: 1)
+        let off = try Self.darkness(.off, outputScale: 1)
+        #expect(off.allSatisfy { $0 < 0.01 })
+        #expect(soft[0] > 0.03)
+        // Strong is clearly darker close in and reaches much further.
+        #expect(strong[0] > soft[0] * 1.8, "\(strong) vs \(soft)")
+        #expect(strong[2] > 0.04 && strong[2] > soft[2] * 3, "\(strong) vs \(soft)")
+        // The same shadow at half output scale looks the same (sampled at the same relative spot).
+        for style in [BackgroundStyle.Shadow.soft, .strong] {
+            let full = try Self.darkness(style, outputScale: 1), half = try Self.darkness(style, outputScale: 0.5)
+            for (a, b) in zip(full, half) { #expect(abs(a - b) < 0.03, "\(style): \(full) vs \(half)") }
+        }
+    }
+}
+
+struct HighlightTests {
+    @Test func multiplyOnLightScreenOnDark() throws {
+        // TestImages.base has a dark band at 62–72 % of the height; the rest is light.
+        let size = CGSize(width: 400, height: 200)
+        let base = BaseImageProvider(image: TestImages.base(width: 400, height: 200, text: false), url: URL(filePath: "/x"))
+        let onLight = AnnotationObject(shape: .highlight(.rect(CGRect(x: 20, y: 40, width: 150, height: 30))), style: ObjectStyle(color: .yellow))
+        let onDark = AnnotationObject(shape: .highlight(.rect(CGRect(x: 220, y: 128, width: 150, height: 14))), style: ObjectStyle(color: .yellow))
+        let doc = AnnotationDocument(baseImageURL: base.url, pixelSize: size, objects: [onLight, onDark])
+        #expect(AnnotationRenderer.blendMode(for: onLight, document: doc, base: base) == .multiply)
+        #expect(AnnotationRenderer.blendMode(for: onDark, document: doc, base: base) == .screen)
+        let out = Pixels(try AnnotationRenderer.renderImage(doc, base: base, outputScale: 1))
+        var plainDoc = doc
+        plainDoc.objects = []
+        let plain = Pixels(try AnnotationRenderer.renderImage(plainDoc, base: base, outputScale: 1))
+        // Over light content the mark is yellow and never lighter than the base (multiply).
+        #expect(out.rgba(90, 55)[2] < plain.rgba(90, 55)[2] / 2)
+        #expect(out.luma(90, 55) <= plain.luma(90, 55))
+        // Over the dark band the mark is clearly visible (screen lightens) and yellow-ish.
+        #expect(out.luma(300, 135) > plain.luma(300, 135) + 0.4)
+        let p = out.rgba(300, 135)
+        #expect(p[0] > 200 && p[1] > 160 && p[2] < 140)
+    }
+}

@@ -47,7 +47,9 @@ struct ShowcaseTests {
                           string: "Wrapped and centred text that flows onto several lines ✨", style: TextStyle(decoration: .solidPill, alignment: .center))),
             style(.text) { $0.color = .blue })
         // Row 4 (on the dark band at 62–72 %): highlights, counters, pen.
-        add(.highlight(.rect(CGRect(x: 900, y: 1040, width: 760, height: 64))), style(.highlighter))
+        add(.highlight(.rect(CGRect(x: 900, y: 1100, width: 760, height: 44))), style(.highlighter))
+        // Fully over the dark band: falls back to screen so the mark stays visible.
+        add(.highlight(.rect(CGRect(x: 1700, y: 980, width: 600, height: 50))), style(.highlighter))
         let marker: [CGPoint] = (0...40).map { (i: Int) -> CGPoint in
             let t = CGFloat(i)
             return CGPoint(x: 900 + t * 18, y: 1150 + sin(t / 5) * 12)

@@ -13,11 +13,13 @@ extension AnnotationRenderer {
         case .off:
             return nil
         case .soft:
-            return ShadowParameters(offset: CGSize(width: 0, height: long * 0.008), blur: long * 0.03,
-                                    color: CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.28))
+            // A gentle lift: short, light, nearly straight down.
+            return ShadowParameters(offset: CGSize(width: 0, height: long * 0.006), blur: long * 0.022,
+                                    color: CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.22))
         case .strong:
-            return ShadowParameters(offset: CGSize(width: 0, height: long * 0.016), blur: long * 0.05,
-                                    color: CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.5))
+            // A deep drop: about three times the reach, offset and darkness.
+            return ShadowParameters(offset: CGSize(width: 0, height: long * 0.024), blur: long * 0.06,
+                                    color: CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 0.55))
         }
     }
 
@@ -52,9 +54,11 @@ extension AnnotationRenderer {
     /// offset compensated, so only the shadow lands. Images with alpha (window captures) cast
     /// their real silhouette; opaque images cast the rounded rect.
     static func drawShadow(_ shadow: ShadowParameters, image: CGImage, document: AnnotationDocument, layout: BackgroundLayout,
-                           radius: CGFloat, outputScale: CGFloat, in ctx: CGContext) {
+                           radius: CGFloat, in ctx: CGContext) {
         let canvas = layout.canvasSize
-        let k = min(1, max(12 / max(shadow.blur, 1), 1 / 32)) * min(outputScale, 1)
+        // Fixed ≈12 px of blur in the small bitmap whatever the output scale: Core Graphics'
+        // blur is not linear at small radii, so scaling it would change the shadow's look.
+        let k = min(1, max(12 / max(shadow.blur, 1), 1 / 32))
         let w = max(Int((canvas.width * k).rounded(.up)), 1), h = max(Int((canvas.height * k).rounded(.up)), 1)
         guard let small = Redactor.bitmap(width: w, height: h, space: Redactor.workingSpace(of: image)) else { return }
         small.interpolationQuality = .medium

@@ -24,7 +24,7 @@ public struct TextLayout {
     }
 
     /// Width of the outline drawn around outlined text (beyond the glyph edge).
-    static func outlineWidth(fontSize: CGFloat) -> CGFloat { max(fontSize * 0.07, 1) }
+    static func outlineWidth(fontSize: CGFloat) -> CGFloat { max(fontSize * 0.075, 1) }
 
     public init(box: TextBox, fontSize: CGFloat) {
         self.init(box: box, fontSize: fontSize, color: CGColor(gray: 0, alpha: 1), stroke: nil)
@@ -84,6 +84,11 @@ public struct TextLayout {
             kCTParagraphStyleAttributeName: paragraph,
             kCTForegroundColorAttributeName: color,
         ]
+        if style.decoration == .outlined {
+            // The halo sits outside each glyph; open the tracking by the same amount so
+            // neighbouring halos don't fuse letters together. Measured and drawn alike.
+            attributes[kCTKernAttributeName] = outlineWidth(fontSize: fontSize) * 1.1
+        }
         if let stroke {
             // Positive stroke width = stroke only, as a percentage of the font size; the stroke
             // is centred on the glyph edge, so double it to get `width` outside the glyph.

@@ -80,8 +80,8 @@ public final class BaseImageProvider: Sendable {
         if let cached = state.withLock({ $0.redactions[key] }) { return cached }
         let result: CGImage?
         switch mode.kind {
-        case .pixelate: result = Redactor.pixelate(full, rect: clipped, block: Redactor.blockSize(strength: mode.strength, scale: scale))
-        case .blur: result = Redactor.blur(full, rect: clipped, radius: Redactor.blurRadius(strength: mode.strength, scale: scale))
+        case .pixelate: result = Redactor.pixelate(full, rect: clipped, block: Redactor.blockSize(strength: mode.strength, scale: scale, rect: clipped))
+        case .blur: result = Redactor.blur(full, rect: clipped, radius: Redactor.blurRadius(strength: mode.strength, scale: scale, rect: clipped))
         case .solid: result = nil
         }
         if let result {
@@ -92,6 +92,24 @@ public final class BaseImageProvider: Sendable {
             }
         }
         return result
+    }
+
+    /// Average relative luminance (0…1) of the base image inside `rect` (base-image pixels,
+    /// top-left origin), sampled from the preview image. nil if unreadable or empty.
+    public func averageLuminance(in rect: CGRect, imageSize: CGSize) -> CGFloat? {
+        guard let preview = previewImage(), imageSize.width > 0 else { return nil }
+        let k = CGFloat(preview.width) / imageSize.width
+        let src = CGRect(x: rect.minX * k, y: rect.minY * k, width: rect.width * k, height: rect.height * k)
+            .standardized.integral.intersection(CGRect(x: 0, y: 0, width: preview.width, height: preview.height))
+        guard !src.isEmpty, let crop = preview.cropping(to: src),
+              let ctx = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let data = ctx.data else { return nil }
+        ctx.interpolationQuality = .high
+        ctx.draw(crop, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        let p = data.bindMemory(to: UInt8.self, capacity: 4)
+        return RGBAColor(red: CGFloat(p[0]) / 255, green: CGFloat(p[1]) / 255, blue: CGFloat(p[2]) / 255).luminance
     }
 
     /// Integral rect clipped to the image, as used for cache keys and drawing.

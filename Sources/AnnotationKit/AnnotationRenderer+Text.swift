@@ -88,22 +88,28 @@ extension AnnotationRenderer {
                               base: BaseImageProvider, quality: RenderQuality, in ctx: CGContext) {
         let target = BaseImageProvider.pixelRect(rect, imageSize: document.pixelSize)
         guard !target.isEmpty else { return }
+        // Hard edges, overscanned by half a device pixel: at fractional zoom or output scale the
+        // boundary pixels are fully covered instead of blending in sharp original pixels.
+        let deviceScale = max(sqrt(abs(ctx.ctm.a * ctx.ctm.d - ctx.ctm.b * ctx.ctm.c)), 0.01)
+        let cover = target.insetBy(dx: -0.49 / deviceScale, dy: -0.49 / deviceScale)
+            .intersection(CGRect(origin: .zero, size: document.pixelSize))
+        ctx.setShouldAntialias(false)
         switch mode.kind {
         case .solid:
             // Always fully opaque: a redaction must never let pixels through.
             ctx.setFillColor(style.color.withAlpha(1).cgColor)
-            ctx.fill(target)
+            ctx.fill(cover)
         case .pixelate, .blur:
             ctx.interpolationQuality = .none
             if quality == .final, let img = base.redactedImage(rect: target, mode: mode, scale: document.scale) {
-                ctx.drawFlipped(img, in: target)
+                ctx.drawFlipped(img, in: cover)
             } else if let preview = previewRedaction(target, mode: mode, document: document, base: base) {
                 ctx.interpolationQuality = mode.kind == .blur ? .high : .none
-                ctx.drawFlipped(preview, in: target)
+                ctx.drawFlipped(preview, in: cover)
             } else {
                 // Never show the original pixels: fall back to an opaque neutral fill.
                 ctx.setFillColor(CGColor(srgbRed: 0.5, green: 0.5, blue: 0.52, alpha: 1))
-                ctx.fill(target)
+                ctx.fill(cover)
             }
         }
     }
@@ -118,8 +124,8 @@ extension AnnotationRenderer {
             .integral.intersection(CGRect(x: 0, y: 0, width: preview.width, height: preview.height))
         guard !src.isEmpty, let crop = preview.cropping(to: src) else { return nil }
         let cell = mode.kind == .pixelate
-            ? Redactor.blockSize(strength: mode.strength, scale: document.scale)
-            : Redactor.blurRadius(strength: mode.strength, scale: document.scale) * 0.75
+            ? Redactor.blockSize(strength: mode.strength, scale: document.scale, rect: target)
+            : Redactor.blurRadius(strength: mode.strength, scale: document.scale, rect: target) * 0.75
         let cols = max(Int((target.width / cell).rounded()), 1), rows = max(Int((target.height / cell).rounded()), 1)
         guard let small = Redactor.bitmap(width: cols, height: rows, space: Redactor.workingSpace(of: preview)) else { return nil }
         small.interpolationQuality = .high
