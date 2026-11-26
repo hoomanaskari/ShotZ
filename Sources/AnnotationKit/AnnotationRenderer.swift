@@ -135,6 +135,15 @@ public enum AnnotationRenderer {
         drawBackground(document, base: base, image: image, layout: backgroundLayout(document, base: base), in: ctx)
     }
 
+    /// As `drawBackground(_:base:in:)`, with `ctx` in top-left *device* space at `scale` device
+    /// pixels per canvas pixel (e.g. backing scale × zoom); the CTM is scaled for the call.
+    public static func drawBackground(document: AnnotationDocument, base: BaseImageProvider, in ctx: CGContext, scale: CGFloat) {
+        ctx.saveGState()
+        defer { ctx.restoreGState() }
+        ctx.scaleBy(x: scale, y: scale)
+        drawBackground(document, base: base, in: ctx)
+    }
+
     /// The background layout for `document`, using the provider's visible-content bounds for auto-balance.
     public static func backgroundLayout(_ document: AnnotationDocument, base: BaseImageProvider) -> BackgroundLayout {
         BackgroundLayout(document: document, visibleContent: visibleContent(document, base: base))

@@ -354,3 +354,25 @@ struct HighlightTests {
         #expect(p[0] > 200 && p[1] > 160 && p[2] < 140)
     }
 }
+
+extension BackgroundDrawingTests {
+    @Test func scaledOverloadMatchesExportAtScale() throws {
+        var doc = AnnotationDocument(baseImageURL: URL(filePath: "/x"), pixelSize: CGSize(width: 400, height: 240))
+        doc.background = BackgroundStyle(fill: .solid(.white), padding: 0.15, cornerRadius: 10, shadow: .strong)
+        let base = BaseImageProvider(image: TestImages.base(width: 400, height: 240), url: doc.baseImageURL)
+        let scale: CGFloat = 0.5
+        let exported = Pixels(try AnnotationRenderer.renderImage(doc, base: base, outputScale: scale))
+        let w = exported.width, h = exported.height
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: TestImages.sRGB,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.translateBy(x: 0, y: CGFloat(h))
+        ctx.scaleBy(x: 1, y: -1)
+        AnnotationRenderer.drawBackground(document: doc, base: base, in: ctx, scale: scale)
+        let preview = Pixels(ctx.makeImage()!)
+        let frame = AnnotationRenderer.backgroundLayout(doc, base: base).imageFrame
+        // Below the image, in the shadow: same darkness within 4/255.
+        let x = Int(frame.midX * scale), y = Int((frame.maxY + 12) * scale)
+        #expect(zip(preview.rgba(x, y), exported.rgba(x, y)).allSatisfy { abs(Int($0) - Int($1)) <= 4 })
+        #expect(exported.luma(x, y) < 0.9) // there is a visible shadow there
+    }
+}
