@@ -41,13 +41,14 @@ extension EditorCoordinator {
             let dir = url.deletingLastPathComponent()
             let temp = dir.appending(path: ".\(UUID().uuidString).png", directoryHint: .notDirectory)
             do {
-                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                try PrivateStorage.makeDirectory(dir)
                 try DocumentExport.write(document, base: base, to: temp, format: .png, quality: 1, scale: 1)
                 if fm.fileExists(atPath: url.path(percentEncoded: false)) {
                     _ = try fm.replaceItemAt(url, withItemAt: temp)
                 } else {
                     try fm.moveItem(at: temp, to: url)
                 }
+                PrivateStorage.protectFile(url)   // replaceItemAt/move keep the new file's default mode
                 return url
             } catch {
                 log.error("Cannot write rendered image: \(String(describing: error), privacy: .private)")

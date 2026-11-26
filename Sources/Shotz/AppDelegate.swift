@@ -1,3 +1,4 @@
+import ShotzCore
 import AppKit
 import AppShell
 
@@ -9,6 +10,12 @@ import AppShell
         // Before anything reads settings or history: data from the pre-release
         // app.shotz.Shotz identity moves to com.pixelforty.shotz (not in test runs).
         LegacyDataMigration.runAtLaunch()
+        // Owner-only data (0700 folders, 0600 files) for installs from before 0.1.2: once, off the main thread.
+        let paths = ShotzPaths.default
+        Task.detached(priority: .utility) {
+            let changed = paths.repairPermissions()
+            if changed > 0 { ShotzLog.logger("App").notice("Data permissions tightened on \(changed) items") }
+        }
         let coordinator = AppCoordinator()
         self.coordinator = coordinator
         coordinator.start()

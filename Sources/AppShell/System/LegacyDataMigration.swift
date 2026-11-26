@@ -188,7 +188,7 @@ public struct LegacyDataMigration {
             let rewritten = Self.rewrite(json, replacements, &changed)
             guard changed else { continue }
             let out = try JSONSerialization.data(withJSONObject: rewritten, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-            try out.write(to: file, options: .atomic)
+            try PrivateStorage.write(out, to: file)
         }
     }
 
@@ -239,7 +239,7 @@ public struct LegacyDataMigration {
         guard !added.isEmpty else { return 0 }
         let merged = (current + added).sorted { $0.capture.createdAt > $1.capture.createdAt }
         let data = try HistoryDates.encoder().encode(HistoryIndexFile(entries: merged))
-        try data.write(to: target.appending(path: "history.json"), options: .atomic)
+        try PrivateStorage.write(data, to: target.appending(path: "history.json"))
         return added.count
     }
 

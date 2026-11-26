@@ -273,6 +273,14 @@ public enum DocumentExport {
 - `StatusItemController`, `SettingsWindow` (SwiftUI), `OnboardingWindow`
   (SwiftUI), `LoginItem` (`SMAppService.mainApp`), `FileHistoryStore`
   (JSON index + captures folder under Application Support).
+- Storage permissions (`ShotzCore/PrivateStorage.swift`): the data folder and
+  everything in it (Captures, Documents, rendered images, `history.json`,
+  `.incoming`) are owner-only, folders 0700 and files 0600, set at creation and
+  after every atomic write or replace. The temp folders under the per-user temp
+  dir are 0700. Files the user exports to a folder they chose, and the temp
+  copies handed out by drag, keep normal permissions. At launch (after the
+  migration, off the main thread) one bounded pass tightens existing installs;
+  it never follows or changes a symbolic link and never leaves the folder.
 - `CaptureEditingFlow`: the stack ↔ editor rules of SPEC §4.6 (see §2).
 - `AppCoordinator` (in `Shotz`) builds the concrete objects and wires the flow
   in section 2. It is the only file that names concrete types from several modules.

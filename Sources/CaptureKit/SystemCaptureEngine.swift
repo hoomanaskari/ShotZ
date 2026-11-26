@@ -41,7 +41,7 @@ public actor SystemCaptureEngine: CaptureEngine {
         let fm = FileManager.default
         let incoming = options.destinationDirectory.appending(path: ".incoming", directoryHint: .isDirectory)
         do {
-            try fm.createDirectory(at: incoming, withIntermediateDirectories: true)
+            try PrivateStorage.makeDirectory(incoming)
         } catch {
             throw CaptureError.failed("Cannot create captures folder: \(error.localizedDescription)")
         }
@@ -105,6 +105,7 @@ public actor SystemCaptureEngine: CaptureEngine {
             let final = FileNaming.uniqueURL(in: directory, base: base, ext: "png")
             do {
                 try fm.moveItem(at: temp, to: final)
+                PrivateStorage.protectFile(final)   // the capture is private: 0600
                 return final
             } catch CocoaError.fileWriteFileExists {
                 lastError = CocoaError(.fileWriteFileExists)

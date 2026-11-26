@@ -270,7 +270,7 @@ public actor FileHistoryStore: HistoryStore {
             try paths.createDirectories()
             let encoder = HistoryDates.encoder()
             let data = try encoder.encode(HistoryIndexFile(entries: entries ?? []))
-            try data.write(to: paths.historyIndex, options: .atomic)
+            try PrivateStorage.write(data, to: paths.historyIndex)   // atomic, then 0600
             stamp = HistoryIndexStamp(paths.historyIndex)
         } catch {
             log.error("Saving history index failed: \(error.localizedDescription, privacy: .private)")

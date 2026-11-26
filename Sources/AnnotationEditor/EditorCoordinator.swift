@@ -108,7 +108,7 @@ import ShotzCore
         let name = FileNaming.sanitize(String(localized: "Clipboard Image"))
         let url = dir.appending(path: "\(name) \(UUID().uuidString.prefix(8)).png", directoryHint: .notDirectory)
         do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try PrivateStorage.makeDirectory(dir)
             try png.write(to: url, options: .atomic)
             openEditor(imageAt: url)
         } catch {
