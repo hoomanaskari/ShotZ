@@ -131,7 +131,7 @@ private struct PageText: View {
     var body: some View {
         VStack(alignment: .leading, spacing: ShotzUI.Space.s) {
             Text(title)
-                .font(ShotzUI.Typography.title.swiftUIFont)
+                .font(ShotzUI.Typography.display.swiftUIFont)
                 .foregroundStyle(Color(nsColor: ShotzUI.Palette.textPrimary))
                 .accessibilityAddTraits(.isHeader)
             Text(message)

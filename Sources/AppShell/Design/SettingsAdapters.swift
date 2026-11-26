@@ -26,12 +26,10 @@ struct RowSwitch: View {
     }
 
     var body: some View {
-        // ShotzSwitchStyle draws its label, so the visible label stays empty
-        // (the row shows the title) and the title is the accessibility label.
-        Toggle("", isOn: $isOn)
+        // The row shows the title; the hidden label is what VoiceOver reads.
+        Toggle(label, isOn: $isOn)
             .toggleStyle(.shotzSwitch)
             .labelsHidden()
-            .accessibilityLabel(label)
     }
 }
 
