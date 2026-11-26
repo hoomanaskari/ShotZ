@@ -75,3 +75,20 @@ public struct BackgroundStyle: Codable, Sendable, Equatable, Hashable {
         self.aspect = aspect
     }
 }
+
+extension BackgroundStyle {
+    /// Tolerant decoding: missing or unknown values fall back to the defaults.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = BackgroundStyle()
+        self.init(
+            fill: (try? c.decodeIfPresent(Fill.self, forKey: .fill)) ?? d.fill,
+            padding: (try? c.decodeIfPresent(CGFloat.self, forKey: .padding)) ?? d.padding,
+            autoBalance: (try? c.decodeIfPresent(Bool.self, forKey: .autoBalance)) ?? d.autoBalance,
+            cornerRadius: (try? c.decodeIfPresent(CGFloat.self, forKey: .cornerRadius)) ?? d.cornerRadius,
+            shadow: (try? c.decodeIfPresent(Shadow.self, forKey: .shadow)) ?? d.shadow,
+            alignment: (try? c.decodeIfPresent(Alignment.self, forKey: .alignment)) ?? d.alignment,
+            aspect: (try? c.decodeIfPresent(Aspect.self, forKey: .aspect)) ?? d.aspect
+        )
+    }
+}

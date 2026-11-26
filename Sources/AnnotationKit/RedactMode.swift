@@ -21,3 +21,11 @@ public struct RedactMode: Codable, Sendable, Equatable, Hashable {
     public static let blur = RedactMode(kind: .blur)
     public static let solid = RedactMode(kind: .solid, strength: 1)
 }
+
+extension RedactMode {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = (try? c.decodeIfPresent(Kind.self, forKey: .kind)) ?? .pixelate // unknown kind: still redact
+        self.init(kind: kind, strength: (try? c.decodeIfPresent(CGFloat.self, forKey: .strength)) ?? 0.6)
+    }
+}

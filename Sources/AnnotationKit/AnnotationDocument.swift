@@ -49,6 +49,35 @@ public struct AnnotationDocument: Codable, Sendable, Equatable {
 
     // MARK: Persistence (JSON at HistoryStore.documentURL(for:))
 
+    /// Written into every saved document. Bump when the format changes incompatibly;
+    /// decoding stays tolerant of older and newer versions.
+    public static let formatVersion = 1
+
+    enum CodingKeys: String, CodingKey {
+        case version, baseImageURL, pixelSize, scale, objects, crop, background
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        baseImageURL = try c.decode(URL.self, forKey: .baseImageURL)
+        pixelSize = try c.decode(CGSize.self, forKey: .pixelSize)
+        scale = (try? c.decodeIfPresent(CGFloat.self, forKey: .scale)) ?? 1 // missing/bad scale: assume 1×
+        objects = (try? c.decodeIfPresent(LossyArray<AnnotationObject>.self, forKey: .objects))?.elements ?? []
+        crop = try? c.decodeIfPresent(CGRect.self, forKey: .crop) // a damaged crop falls back to the full image
+        background = try? c.decodeIfPresent(BackgroundStyle.self, forKey: .background) // damaged: background off
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(Self.formatVersion, forKey: .version)
+        try c.encode(baseImageURL, forKey: .baseImageURL)
+        try c.encode(pixelSize, forKey: .pixelSize)
+        try c.encode(scale, forKey: .scale)
+        try c.encode(objects, forKey: .objects)
+        try c.encodeIfPresent(crop, forKey: .crop)
+        try c.encodeIfPresent(background, forKey: .background)
+    }
+
     public func jsonData() throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]

@@ -51,3 +51,20 @@ public struct ObjectStyle: Codable, Sendable, Equatable, Hashable {
     /// The 5 thickness steps as multiples of `thicknessUnit`.
     public static let thicknessSteps: [CGFloat] = [0.5, 1, 1.5, 2.5, 4]
 }
+
+extension ObjectStyle {
+    /// Tolerant decoding: missing or unknown values fall back to the defaults.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = ObjectStyle.default
+        self.init(
+            color: (try? c.decodeIfPresent(RGBAColor.self, forKey: .color)) ?? d.color,
+            opacity: (try? c.decodeIfPresent(CGFloat.self, forKey: .opacity)) ?? d.opacity,
+            lineWidth: (try? c.decodeIfPresent(CGFloat.self, forKey: .lineWidth)) ?? d.lineWidth,
+            fill: (try? c.decodeIfPresent(FillMode.self, forKey: .fill)) ?? d.fill,
+            dash: (try? c.decodeIfPresent(Dash.self, forKey: .dash)) ?? d.dash,
+            fontSize: (try? c.decodeIfPresent(CGFloat.self, forKey: .fontSize)) ?? d.fontSize,
+            contrastOutline: (try? c.decodeIfPresent(Bool.self, forKey: .contrastOutline)) ?? d.contrastOutline
+        )
+    }
+}

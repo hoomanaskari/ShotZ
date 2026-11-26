@@ -18,3 +18,14 @@ public struct TextStyle: Codable, Sendable, Equatable, Hashable {
         self.alignment = alignment
     }
 }
+
+extension TextStyle {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            decoration: (try? c.decodeIfPresent(Decoration.self, forKey: .decoration)) ?? .plain,
+            isBold: (try? c.decodeIfPresent(Bool.self, forKey: .isBold)) ?? false,
+            alignment: (try? c.decodeIfPresent(Alignment.self, forKey: .alignment)) ?? .left
+        )
+    }
+}
