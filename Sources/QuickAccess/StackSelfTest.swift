@@ -66,7 +66,7 @@ import ShotzUI
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true) // reported below if snapshots are missing
         await wait(1500) // let the --debug-present batch arrive and settle
         let start = Date()
-        template = qa.model.order.first.flatMap { qa.cards[$0] }?.capture
+        template = makeTemplate(from: qa.model.order.first.flatMap { qa.cards[$0] }?.capture)
         qa.focus.host = focusRecorder
 
         checkOrder("initial order")
@@ -107,6 +107,39 @@ import ShotzUI
             try? await Task.sleep(for: .milliseconds(300)) // let the log line flush
             NSApp.terminate(nil)
         }
+    }
+
+    /// A private copy of the oldest presented capture for every clone the
+    /// test presents, so no step (Close and Delete in particular) can delete
+    /// a file the clones still point at, whatever the stack's size.
+    private func makeTemplate(from source: CaptureResult?) -> CaptureResult? {
+        guard let source else { return nil }
+        let copy = dir.appending(path: "template-\(UUID().uuidString).\(source.fileURL.pathExtension)")
+        do {
+            try FileManager.default.copyItem(at: source.fileURL, to: copy)
+        } catch {
+            note("template copy failed (\(error.localizedDescription)); cloning the original")
+            return source
+        }
+        return CaptureResult(fileURL: copy, displayName: source.displayName, kind: source.kind,
+                             pixelSize: source.pixelSize, scale: source.scale, displayID: source.displayID)
+    }
+
+    /// A new capture backed by the template copy.
+    func clone(_ name: String) -> CaptureResult? {
+        guard let t = template else { return nil }
+        return CaptureResult(fileURL: t.fileURL, displayName: name, kind: t.kind, pixelSize: t.pixelSize, scale: t.scale, displayID: t.displayID)
+    }
+
+    /// Tops the stack up with clones so a step has the cards it needs
+    /// (runs with 1, 3 or 5 presented captures all exercise every step).
+    func ensureCards(_ n: Int, label: String) async {
+        var added = 0
+        while qa.cards.values.filter({ !$0.isExiting }).count < n, let c = clone("\(label) \(added + 1)") {
+            qa.present(c)
+            added += 1
+        }
+        if added > 0 { await wait(500) }
     }
 
     func checkOrder(_ name: String) {
@@ -207,6 +240,7 @@ import ShotzUI
     }
 
     private func drag() async {
+        await ensureCards(2, label: "Drag test")
         guard let card = newest else { return check("drag", false, "no card") }
         guard let writer = qa.cardDragWriter(card) as? DragFileWriter else { return check("drag writer", false) }
         let url = writer.fileURL
@@ -248,6 +282,7 @@ import ShotzUI
     }
 
     private func saveAndClose() async {
+        await ensureCards(3, label: "Save test")
         guard let card = newest else { return note("no card left for save/close") }
         let folder = ExportConfiguration.current().exportFolder
         if folder.standardizedFileURL == ShotzPaths.defaultExportFolder.standardizedFileURL {
@@ -266,14 +301,20 @@ import ShotzUI
             let closeAfterSave = qa.settings.quickAccessCloseAfterSave
             check("close-after-save setting honoured", (qa.cards[card.capture.id] == nil) == closeAfterSave)
         }
+        // Close and Delete: the stack removes the card and asks its delegate to
+        // delete the file (deleting it is the coordinator's job, via history).
+        await ensureCards(2, label: "Delete test")
         guard let victim = newest else { return }
-        let file = victim.capture.fileURL
+        let recorder = RecordingQuickAccessDelegate()
+        let realDelegate = qa.delegate
+        qa.delegate = recorder
         qa.perform(.closeAndDelete, on: victim)
-        await wait(800)
-        check("close and delete removes card and file", qa.cards[victim.capture.id] == nil && !FileManager.default.fileExists(atPath: file.path(percentEncoded: false)))
-        if newest == nil, let template {
-            qa.present(CaptureResult(fileURL: template.fileURL, displayName: "Close test", kind: template.kind,
-                                     pixelSize: template.pixelSize, scale: template.scale, displayID: template.displayID))
+        qa.delegate = realDelegate
+        await wait(400)
+        check("close and delete removes the card and requests deletion",
+              qa.cards[victim.capture.id] == nil && recorder.closed.map(\.id) == [victim.capture.id] && recorder.closed.first?.deleteFile == true)
+        if newest == nil, let c = clone("Close test") {
+            qa.present(c)
             await wait(450)
         }
         if let other = newest {
