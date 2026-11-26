@@ -119,13 +119,7 @@ extension EditorWindowController {
                     return try? AnnotationRenderer.renderImage(document, base: base, outputScale: 160 / side) // a failed preview just stays empty
                 }.value
                 guard let image else { return }
-                let size = CGSize(width: image.width, height: image.height)
-                // Tile content is laid out top-down (see EditorControls.tileImage).
-                self?.toolbarController.dragHandle.thumbnail = EditorControls.tileImage(size: size) { ctx, r in
-                    ctx.translateBy(x: 0, y: r.height)
-                    ctx.scaleBy(x: 1, y: -1)
-                    ctx.draw(image, in: r)
-                }
+                self?.toolbarController.dragHandle.thumbnail = NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
             }
         }
         thumbnailWork = work

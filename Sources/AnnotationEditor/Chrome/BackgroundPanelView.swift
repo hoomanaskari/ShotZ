@@ -219,7 +219,8 @@ import ShotzUI
         let all = AnnotationKit.BackgroundStyle.Alignment.allCases
         let cell = CGSize(width: 18, height: 12)
         let tiles: [NSView] = all.map { a in
-            controls.tile(Self.solidImage(size: cell), size: cell, label: Self.alignmentName(a), selected: a == s.alignment) { [weak self] in
+            // Empty content: the tile's own base fill shows.
+            controls.tile(NSImage(size: cell), size: cell, label: Self.alignmentName(a), selected: a == s.alignment) { [weak self] in
                 self?.update { $0.alignment = a }
             }
         }
@@ -229,15 +230,6 @@ import ShotzUI
         grid.setContentHuggingPriority(.required, for: .horizontal)
         grid.setAccessibilityLabel(String(localized: "Image position"))
         return grid
-    }
-
-    /// The content of a position tile: the sunken surface colour (the tile draws edge and ring).
-    static func solidImage(size: CGSize) -> NSImage {
-        NSImage(size: size, flipped: true) { r in
-            ShotzUI.Palette.surfaceSunken.setFill()
-            r.fill()
-            return true
-        }
     }
 
     private func addPresets(_ s: AnnotationKit.BackgroundStyle) {

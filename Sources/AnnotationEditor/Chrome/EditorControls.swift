@@ -134,11 +134,9 @@ import ShotzUI
         return t
     }
 
-    /// Content for a ShotzTileButton, drawn with a top-left origin. ShotzTileButton currently draws
-    /// its image without `respectFlipped` (it appears upside down), so the content is laid out
-    /// bottom-up here to come out upright. Remove the compensation when ShotzUI fixes the tile.
+    /// Content for a ShotzTileButton, drawn with a top-left origin.
     static func tileImage(size: CGSize, _ draw: @escaping (CGContext, CGRect) -> Void) -> NSImage {
-        NSImage(size: size, flipped: false) { r in
+        NSImage(size: size, flipped: true) { r in
             if let ctx = NSGraphicsContext.current?.cgContext { draw(ctx, r) }
             return true
         }
