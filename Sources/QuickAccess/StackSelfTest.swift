@@ -98,6 +98,14 @@ import ShotzCore
         }
         qa.focus.host = qa
         CardView.ignoresRealPointer = false
+        // A self-test run is a test run: quit so no instance is left behind
+        // (`-QuickAccessSelfTestKeepRunning YES` keeps it for inspection).
+        if !UserDefaults.standard.bool(forKey: "QuickAccessSelfTestKeepRunning") {
+            qa.log.info("SELFTEST quitting")
+            qa.dismissAll()
+            try? await Task.sleep(for: .milliseconds(300)) // let the log line flush
+            NSApp.terminate(nil)
+        }
     }
 
     func checkOrder(_ name: String) {
