@@ -1,0 +1,5 @@
+name: Phosphor Icons (core)
+version: 2.1.1
+commit: 2b75f3ad12b420c9504ef05df8d2564a28f8500e
+url: https://github.com/phosphor-icons/core
+weight: regular (assets/regular)
