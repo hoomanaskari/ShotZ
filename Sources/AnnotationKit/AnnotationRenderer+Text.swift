@@ -23,11 +23,9 @@ extension AnnotationRenderer {
                 fillPill(measure, color: color.cgColor, in: ctx)
                 textColor = color.contrastingTextColor
             case .translucentPill:
-                // Dark glass by default; light glass when the text colour itself is dark.
-                let glass = color.luminance < 0.18
-                    ? CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.78)
-                    : CGColor(srgbRed: 0.05, green: 0.05, blue: 0.07, alpha: 0.62)
-                fillPill(measure, color: glass, in: ctx)
+                // Tinted glass: the chosen colour, see-through, with auto-contrast text.
+                fillPill(measure, color: color.withAlpha(0.7).cgColor, in: ctx)
+                textColor = color.contrastingTextColor
             }
             TextLayout(box: box, fontSize: size, color: textColor.cgColor, stroke: nil).drawGlyphs(in: ctx)
         }

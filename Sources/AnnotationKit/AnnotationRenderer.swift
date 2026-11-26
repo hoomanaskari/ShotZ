@@ -91,17 +91,15 @@ public enum AnnotationRenderer {
             drawBackgroundFill(background.fill, in: canvas, ctx: ctx)
         }
 
-        // Image group: base image, redactions, objects; clipped to the visible image, with the
-        // background's corner radius and shadow applied to the group as a whole.
+        // Image group: base image, redactions, objects; clipped to the visible image with the
+        // background's corner radius, over its drop shadow.
         let rect = document.imageRect
+        let radius = min(document.background?.cornerRadius ?? 0, min(rect.width, rect.height) / 2)
+        if let bg = document.background, let shadow = shadowParameters(bg.shadow, imageSize: rect.size) {
+            drawShadow(shadow, image: image, document: document, layout: layout, radius: radius, outputScale: outputScale, in: ctx)
+        }
         ctx.saveGState()
         ctx.translateBy(x: layout.imageFrame.minX - rect.minX, y: layout.imageFrame.minY - rect.minY)
-        let shadow = document.background.map { shadowParameters($0.shadow, imageSize: rect.size) } ?? nil
-        if let shadow {
-            ctx.setShadowInUserSpace(offset: shadow.offset, blur: shadow.blur, color: shadow.color)
-            ctx.beginTransparencyLayer(in: rect.insetBy(dx: -1, dy: -1), auxiliaryInfo: nil)
-        }
-        let radius = min(document.background?.cornerRadius ?? 0, min(rect.width, rect.height) / 2)
         if radius > 0 {
             ctx.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
         } else {
@@ -112,7 +110,6 @@ public enum AnnotationRenderer {
         for object in paintOrder(document.objects) {
             draw(object, in: ctx, document: document, base: base, quality: .final)
         }
-        if shadow != nil { ctx.endTransparencyLayer() }
         ctx.restoreGState()
 
         guard let output = ctx.makeImage() else { throw RenderError.contextCreationFailed }
