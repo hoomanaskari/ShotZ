@@ -4,6 +4,7 @@ import Foundation
 import ImageIO
 import ShotzCore
 import Testing
+import ShotzTestSupport
 @testable import AnnotationEditor
 
 /// Closing a capture's editor hands it back with the annotated result (SPEC §4.6).
@@ -38,7 +39,7 @@ extension EditorUITests {
         let dest = try #require(CGImageDestinationCreateWithURL(png as CFURL, "public.png" as CFString, 1, nil))
         CGImageDestinationAddImage(dest, try #require(ctx.makeImage()), nil)
         #expect(CGImageDestinationFinalize(dest))
-        let defaults = try #require(UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)"))
+        let defaults = MemoryDefaults()
         let rendered = dir.appending(path: "rendered.png")
         let coordinator = EditorCoordinator(settings: SettingsStore(defaults: defaults), exporter: DefaultExportService(),
                                             documentURL: { dir.appending(path: "\($0.uuidString).json") },

@@ -469,6 +469,14 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 
 ## 9. Test strategy
 
+- Tests leave nothing behind. Preferences come from `MemoryDefaults`
+  (`Tests/ShotzTestSupport`, a test-only target): an in-memory `UserDefaults`,
+  because a real `UserDefaults(suiteName:)` suite keeps its plist in
+  ~/Library/Preferences even after `removePersistentDomain` and deleting the file
+  (cfprefsd writes it again). Temporary folders are removed by the test that
+  makes them (`TemporaryFolder` removes itself). The only real suite a test
+  touches is `com.pixelforty.shotz.dev.testrun`, the fixed suite ShotZ Dev's
+  hermetic runs use.
 - Unit tests (Swift Testing) for everything pure: `StackLayout`, file naming,
   settings defaults, history index, document mutations and undo/redo,
   hit-testing, renderer geometry, Codable round-trips.

@@ -1,14 +1,14 @@
 import Combine
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
 @MainActor
 struct SettingsBehaviourTests {
     @Test func playSoundsFlowsIntoCaptureOptions() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         #expect(settings.captureOptions().playSound)
         settings.playSounds = false
         #expect(!settings.captureOptions().playSound)
@@ -21,8 +21,7 @@ struct SettingsBehaviourTests {
     }
 
     @Test func afterCaptureActionsFollowSettings() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         #expect(AfterCaptureActions(settings: settings)
             == AfterCaptureActions(showQuickAccess: true, copyToClipboard: false, saveToExportFolder: false))
         settings.afterCaptureShowQuickAccess = false
@@ -35,8 +34,7 @@ struct SettingsBehaviourTests {
 
     /// Each variant's defaults come from `AppVariant`; nothing is written until the user records.
     @Test func variantDefaultsAreNotWritten() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         let dev = SettingsStore(defaults: settings.defaults, variant: .development)
         #expect(settings.hotkey(for: .captureArea) == .defaultArea)
         #expect(dev.hotkey(for: .captureArea) == .devArea)
@@ -46,8 +44,7 @@ struct SettingsBehaviourTests {
     }
 
     @Test func bindingFollowsStoredValueLive() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         let center = HotkeyCenter(settings: settings, hotkeysEnabled: true, registrar: FakeRegistrar())
         let combo = KeyCombo(keyCode: 0x00, modifiers: [.control, .option, .command, .shift])
         settings.setHotkey(combo, for: .captureWindow)
@@ -60,8 +57,7 @@ struct SettingsBehaviourTests {
     }
 
     @Test func suspendedCenterRegistersNothingAndRecordsNoFailures() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         // Bind an unusual combo nothing else uses so registration is deterministic.
         settings.setHotkey(nil, for: .captureFullscreen)
         settings.setHotkey(nil, for: .captureArea)
@@ -78,8 +74,7 @@ struct SettingsBehaviourTests {
 
     /// `--no-hotkeys` registers nothing, whatever is stored, and logs why.
     @Test func noHotkeysRunRegistersNothing() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         settings.setHotkey(KeyCombo(keyCode: 0x00, modifiers: [.command, .option]), for: .captureWindow)
         let fake = FakeRegistrar()
         let center = HotkeyCenter(settings: settings, hotkeysEnabled: false, registrar: fake)

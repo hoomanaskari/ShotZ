@@ -4,6 +4,7 @@ import Foundation
 import ImageIO
 import ShotzCore
 import Testing
+import ShotzTestSupport
 @testable import AnnotationEditor
 
 /// Stand-in for the history store's export path.
@@ -54,7 +55,7 @@ struct ExportRecordTests {
         let dest = try #require(CGImageDestinationCreateWithURL(baseURL as CFURL, "public.png" as CFString, 1, nil))
         CGImageDestinationAddImage(dest, image, nil)
         #expect(CGImageDestinationFinalize(dest))
-        let defaults = try #require(UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)"))
+        let defaults = MemoryDefaults()
         return Fixture(
             dir: dir,
             document: AnnotationDocument(baseImageURL: baseURL, pixelSize: CGSize(width: 120, height: 80)),

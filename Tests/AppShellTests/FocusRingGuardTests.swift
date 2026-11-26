@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import SwiftUI
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -24,12 +25,11 @@ struct FocusRingGuardTests {
 
     func settings() throws -> (SettingsStore, String) {
         let suite = "ShotzFocusGuard-\(UUID().uuidString)"
-        return (SettingsStore(defaults: try #require(UserDefaults(suiteName: suite)), variant: .production), suite)
+        return (SettingsStore(defaults: MemoryDefaults(), variant: .production), suite)
     }
 
     @Test func onboardingOpensWithoutFocusRing() throws {
-        let (settings, suite) = try settings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = try settings()
         let model = OnboardingModel(
             settings: settings,
             hotkeys: HotkeyCenter(settings: settings, hotkeysEnabled: false, registrar: FakeRegistrar()),
@@ -44,8 +44,7 @@ struct FocusRingGuardTests {
     }
 
     @Test func everySettingsTabOpensWithoutFocusRing() throws {
-        let (settings, suite) = try settings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = try settings()
         let context = SettingsContext(
             settings: settings,
             hotkeys: HotkeyCenter(settings: settings, hotkeysEnabled: false, registrar: FakeRegistrar()),

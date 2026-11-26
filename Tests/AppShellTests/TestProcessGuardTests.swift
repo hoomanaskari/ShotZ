@@ -1,6 +1,7 @@
 import Carbon.HIToolbox
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -28,9 +29,7 @@ struct TestProcessGuardTests {
     }
 
     @Test func aStartedCenterWithTheRealRegistrarRegistersNothing() throws {
-        let suite = "ShotzGuard-\(UUID().uuidString)"
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
-        let settings = SettingsStore(defaults: try #require(UserDefaults(suiteName: suite)), variant: .production)
+        let settings = SettingsStore(defaults: MemoryDefaults(), variant: .production)
         let center = HotkeyCenter(settings: settings, hotkeysEnabled: true)   // the app's convenience init
         center.start()
         defer { center.shutdown() }

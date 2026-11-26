@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import ShotzCore
 
 struct AppVariantTests {
@@ -49,9 +50,7 @@ struct AppVariantTests {
     }
 
     @MainActor @Test func settingsStoreDefaultsFollowVariant() throws {
-        let suite = "ShotzVariantTests-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let defaults = MemoryDefaults()
         let prod = SettingsStore(defaults: defaults, variant: .production)
         let dev = SettingsStore(defaults: defaults, variant: .development)
         #expect(prod.hotkey(for: .captureArea) == .defaultArea)
@@ -102,9 +101,7 @@ struct AppVariantTests {
     }
 
     @MainActor @Test func oldDefaultFileNamePatternIsMigrated() throws {
-        let suite = "ShotzRenameTests-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let defaults = MemoryDefaults()
         defaults.set(FileNaming.legacyDefaultPattern, forKey: SettingsKey.fileNamePattern)
         #expect(SettingsStore(defaults: defaults).fileNamePattern == "ShotZ %Y-%m-%d at %H.%M.%S")
         defaults.set("Shotz custom %H", forKey: SettingsKey.fileNamePattern)

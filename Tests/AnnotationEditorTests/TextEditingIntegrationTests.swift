@@ -4,6 +4,7 @@ import Foundation
 import ShotzCore
 import ShotzUI
 import Testing
+import ShotzTestSupport
 @testable import AnnotationEditor
 
 /// Drives a real editor window (never shown) with NSEvents sent to the window itself.
@@ -12,7 +13,7 @@ extension EditorUITests {
 @Suite struct TextEditingIntegrationTests {
     private func makeController() throws -> EditorWindowController {
         _ = NSApplication.shared
-        let defaults = try #require(UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)"))
+        let defaults = MemoryDefaults()
         let ctx = try #require(CGContext(data: nil, width: 800, height: 500, bitsPerComponent: 8, bytesPerRow: 0,
                                          space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
         ctx.setFillColor(CGColor(gray: 0.95, alpha: 1))

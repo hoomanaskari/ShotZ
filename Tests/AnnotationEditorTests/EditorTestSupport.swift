@@ -2,11 +2,12 @@ import AnnotationKit
 import CoreGraphics
 import Foundation
 @testable import AnnotationEditor
+import ShotzTestSupport
 
 /// A fresh model on a 1600 × 1000 document with isolated defaults.
 @MainActor
 func makeModel(size: CGSize = CGSize(width: 1600, height: 1000), tool: ToolKind = .select) -> EditorModel {
-    let defaults = UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)") ?? .standard
+    let defaults = MemoryDefaults()
     let doc = AnnotationDocument(baseImageURL: URL(filePath: "/tmp/none.png"), pixelSize: size, scale: 2)
     let model = EditorModel(store: DocumentStore(document: doc), library: ToolSettingsLibrary(defaults: defaults), initialTool: tool)
     model.pointsPerPixel = 1

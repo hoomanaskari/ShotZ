@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -20,8 +21,7 @@ struct SettingsWindowTests {
     /// Toolbar tabs size the window to each pane (no scrolling), the title
     /// follows the tab, and nothing is ordered on screen.
     @Test func eachTabFitsTheWindowAndNamesIt() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         let tabs = SettingsTabViewController(context: makeContext(settings))
         let window = SettingsWindowController.makeWindow(tabs: tabs)
         #expect(tabs.tabStyle == .toolbar)
@@ -43,8 +43,7 @@ struct SettingsWindowTests {
     }
 
     @Test func commandDigitsSelectTabs() throws {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         let tabs = SettingsTabViewController(context: makeContext(settings))
         let window = SettingsWindowController.makeWindow(tabs: tabs)
         let event = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command, timestamp: 0,

@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Testing
+import ShotzTestSupport
 @testable import AnnotationEditor
 
 struct ShapeTranslationTests {
@@ -87,7 +88,7 @@ struct PasteboardPlacementTests {
 @MainActor
 struct BackgroundPresetTests {
     @Test func saveReplaceDeleteAndLast() throws {
-        let defaults = try #require(UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)"))
+        let defaults = MemoryDefaults()
         let p = BackgroundPresets(defaults: defaults)
         #expect(p.last == BackgroundPresets.defaultStyle)
         var s = BackgroundStyle(padding: 0.2)

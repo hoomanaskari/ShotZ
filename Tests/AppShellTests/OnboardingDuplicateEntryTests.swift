@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -8,7 +9,7 @@ import ShotzCore
 struct OnboardingDuplicateEntryTests {
     func model(migrated: Bool) throws -> (OnboardingModel, String) {
         let suite = "ShotzOnboardingNote-\(UUID().uuidString)"
-        let settings = SettingsStore(defaults: try #require(UserDefaults(suiteName: suite)), variant: .production)
+        let settings = SettingsStore(defaults: MemoryDefaults(), variant: .production)
         let model = OnboardingModel(
             settings: settings,
             hotkeys: HotkeyCenter(settings: settings, hotkeysEnabled: false, registrar: FakeRegistrar()),
@@ -20,9 +21,8 @@ struct OnboardingDuplicateEntryTests {
     }
 
     @Test func showsOnlyAfterTheIdentityChangeWhilePermissionIsMissing() throws {
-        let (migrated, a) = try model(migrated: true)
-        let (fresh, b) = try model(migrated: false)
-        defer { [a, b].forEach { UserDefaults().removePersistentDomain(forName: $0) } }
+        let (migrated, _) = try model(migrated: true)
+        let (fresh, _) = try model(migrated: false)
         #expect(migrated.showsDuplicateEntryNote(granted: false))
         #expect(!migrated.showsDuplicateEntryNote(granted: true))
         #expect(!fresh.showsDuplicateEntryNote(granted: false))

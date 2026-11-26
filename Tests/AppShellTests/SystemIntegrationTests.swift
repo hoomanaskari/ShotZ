@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -105,8 +106,7 @@ struct LoginItemTests {
     }
 
     @MainActor @Test func devBundleNeverRegistersButStoresPreference() throws {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         let item = LoginItemController(settings: settings, bundleURL: URL(filePath: "/tmp/build/Shotz.app"), variant: .production)
         #expect(item.state == .notInstalled)
         item.setEnabled(false)
@@ -128,5 +128,5 @@ struct RelaunchTests {
 @MainActor
 func makeSettings() -> (SettingsStore, String) {
     let suite = "ShotzAppShellTests-\(UUID().uuidString)"
-    return (SettingsStore(defaults: UserDefaults(suiteName: suite) ?? .standard), suite)
+    return (SettingsStore(defaults: MemoryDefaults()), suite)
 }

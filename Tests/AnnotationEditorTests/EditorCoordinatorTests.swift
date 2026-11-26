@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AnnotationEditor
 import ShotzCore
 
@@ -7,7 +8,7 @@ import ShotzCore
 @MainActor
 struct EditorCoordinatorTests {
     @Test func conformsToAnnotationEditing() throws {
-        let defaults = try #require(UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)"))
+        let defaults = MemoryDefaults()
         let editor: AnnotationEditing = EditorCoordinator(
             settings: SettingsStore(defaults: defaults), exporter: DefaultExportService(),
             documentURL: { URL(filePath: "/tmp/\($0.uuidString).json") }

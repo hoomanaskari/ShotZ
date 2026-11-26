@@ -33,13 +33,15 @@ let package = Package(
             ]
         ),
 
-        .testTarget(name: "ShotzCoreTests", dependencies: ["ShotzCore"]),
-        .testTarget(name: "ShotzUITests", dependencies: ["ShotzUI", "ShotzCore"], exclude: ["Goldens"]),
-        .testTarget(name: "CaptureKitTests", dependencies: ["CaptureKit", "ShotzCore"]),
-        .testTarget(name: "QuickAccessTests", dependencies: ["QuickAccess", "ShotzCore", "ShotzUI"]),
-        .testTarget(name: "AnnotationKitTests", dependencies: ["AnnotationKit", "ShotzCore"], exclude: ["Goldens"]),
-        .testTarget(name: "AnnotationEditorTests", dependencies: ["AnnotationEditor", "AnnotationKit", "ShotzCore", "ShotzUI"]),
-        .testTarget(name: "AppShellTests", dependencies: ["AppShell", "ShotzCore", "ShotzUI"]),
+        // Test-only helpers (in-memory preferences, self-removing temp folders); never shipped.
+        .target(name: "ShotzTestSupport", dependencies: ["ShotzCore"], path: "Tests/ShotzTestSupport"),
+        .testTarget(name: "ShotzCoreTests", dependencies: ["ShotzTestSupport", "ShotzCore"]),
+        .testTarget(name: "ShotzUITests", dependencies: ["ShotzTestSupport", "ShotzUI", "ShotzCore"], exclude: ["Goldens"]),
+        .testTarget(name: "CaptureKitTests", dependencies: ["ShotzTestSupport", "CaptureKit", "ShotzCore"]),
+        .testTarget(name: "QuickAccessTests", dependencies: ["ShotzTestSupport", "QuickAccess", "ShotzCore", "ShotzUI"]),
+        .testTarget(name: "AnnotationKitTests", dependencies: ["ShotzTestSupport", "AnnotationKit", "ShotzCore"], exclude: ["Goldens"]),
+        .testTarget(name: "AnnotationEditorTests", dependencies: ["ShotzTestSupport", "AnnotationEditor", "AnnotationKit", "ShotzCore", "ShotzUI"]),
+        .testTarget(name: "AppShellTests", dependencies: ["ShotzTestSupport", "AppShell", "ShotzCore", "ShotzUI"]),
     ],
     swiftLanguageModes: [.v6]
 )

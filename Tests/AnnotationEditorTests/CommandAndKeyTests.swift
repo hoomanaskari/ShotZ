@@ -2,6 +2,7 @@ import AnnotationKit
 import CoreGraphics
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AnnotationEditor
 
 @MainActor
@@ -63,7 +64,7 @@ struct CommandTests {
     }
 
     @Test func toolSettingsPersistAcrossLibraries() throws {
-        let defaults = try #require(UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)"))
+        let defaults = MemoryDefaults()
         let a = ToolSettingsLibrary(defaults: defaults)
         a.update(.pen) { $0.thicknessStep = 4; $0.color = .purple }
         a.lastTool = .counter

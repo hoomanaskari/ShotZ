@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -20,17 +21,16 @@ struct LegacyDataMigrationTests {
 
     func cleanup() {
         try? FileManager.default.removeItem(at: base)
-        UserDefaults().removePersistentDomain(forName: oldSuite)
-        UserDefaults().removePersistentDomain(forName: newSuite)
     }
 
-    var oldDefaults: UserDefaults { UserDefaults(suiteName: oldSuite)! }
-    var newDefaults: UserDefaults { UserDefaults(suiteName: newSuite)! }
+    /// In-memory stand-ins for the old (app.shotz.Shotz) and new (com.pixelforty.shotz) domains.
+    let oldDefaults = MemoryDefaults()
+    let newDefaults = MemoryDefaults()
 
     func migration() -> LegacyDataMigration {
-        let suite = oldSuite
+        let old = oldDefaults
         return LegacyDataMigration(oldRoot: oldRoot, newRoot: newRoot,
-                                   oldDomain: { UserDefaults().persistentDomain(forName: suite) },
+                                   oldDomain: { old.persistentDomain(forName: "app.shotz.Shotz") },
                                    newDefaults: newDefaults, newDomainName: newSuite)
     }
 

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import ShotzCore
 
 /// The production app ignores every debug hook; ShotZ Dev honours them (DebugHooks is the one gate).
@@ -38,9 +39,7 @@ struct DebugHooksTests {
     }
 
     @Test func productionReadsNoDebugPreference() throws {
-        let suite = "ShotzDebugHooksTests-\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: suite))
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let defaults = MemoryDefaults()
         for key in DebugHooks.defaultsHooks {
             defaults.set("YES", forKey: key)
             #expect(!DebugHooks.bool(key, defaults: defaults, allowed: false), "\(key)")
