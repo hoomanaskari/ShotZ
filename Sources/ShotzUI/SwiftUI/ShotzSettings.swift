@@ -29,6 +29,57 @@ public struct ShotzSettingsPane<Content: View>: View {
             .frame(width: ShotzSettingsMetrics.paneWidth, alignment: .topLeading)
             .fixedSize(horizontal: false, vertical: true)
             .background(Color(nsColor: ShotzUI.Palette.windowBackground))
+            .shotzOpensWithoutFocusRing()
+    }
+}
+
+extension View {
+    /// The window holding this view opens with no keyboard focus, so no control shows a ring until
+    /// the user presses Tab. Settings panes apply it; use it on other SwiftUI window content.
+    public func shotzOpensWithoutFocusRing() -> some View {
+        background(OpeningFocusGuard().frame(width: 0, height: 0).accessibilityHidden(true))
+    }
+}
+
+/// Clears keyboard focus each time its window opens (first key after being shown or reshown).
+/// Becoming key again after switching apps keeps whatever the user focused.
+private struct OpeningFocusGuard: NSViewRepresentable {
+    func makeNSView(context: Context) -> OpeningFocusGuardView { OpeningFocusGuardView() }
+    func updateNSView(_ nsView: OpeningFocusGuardView, context: Context) {}
+}
+
+@MainActor
+final class OpeningFocusGuardView: NSView {
+    private var observers: [NSObjectProtocol] = []
+    /// True until the window's next becoming key counts as an opening.
+    private(set) var opening = true
+
+    override var acceptsFirstResponder: Bool { false }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+        guard let window else { return }
+        // Joining a window that is already key and visible (a Settings tab switch) is not an opening.
+        opening = !(window.isKeyWindow && window.isVisible)
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.windowBecameKey() }
+        })
+        observers.append(center.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.opening = true }
+        })
+    }
+
+    func windowBecameKey() {
+        guard opening, let window else { return }
+        opening = false
+        ShotzUI.FocusRing.clearOpeningFocus(in: window)
+        // SwiftUI may pick its default focus on the next turn; clear that too.
+        DispatchQueue.main.async { [weak window] in
+            MainActor.assumeIsolated { if let window { ShotzUI.FocusRing.clearOpeningFocus(in: window) } }
+        }
     }
 }
 
@@ -137,6 +188,8 @@ extension ShotzSettingsRow where Trailing == EmptyView {
 
 /// ShotZ's switch: 32 × 18 capsule, accent when on, white knob with a soft shadow.
 /// `Toggle("Launch at login", isOn: $on).toggleStyle(.shotzSwitch)` (labels hidden in rows).
+/// A button underneath: a click never focuses it, so it never leaves a focus ring; keyboard
+/// navigation focuses it (ring around the capsule) and Space toggles it.
 public struct ShotzSwitchStyle: ToggleStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
@@ -147,31 +200,29 @@ public struct ShotzSwitchStyle: ToggleStyle {
         let configuration: Configuration
         @Environment(\.isEnabled) private var isEnabled
         @Environment(\.labelsVisibility) private var labelsVisibility
-        @FocusState private var focused: Bool
 
         var body: some View {
             let on = configuration.isOn
             let track = on ? Color(nsColor: ShotzUI.Palette.accentFill) : Color(nsColor: ShotzUI.Palette.fillPressed)
-            HStack(spacing: ShotzUI.Space.s) {
-                // `.labelsHidden()` drops the label and its gap (the switch stands alone in a row).
-                if labelsVisibility != .hidden { configuration.label }
-                ZStack(alignment: on ? .trailing : .leading) {
-                    Capsule().fill(track)
-                        .overlay(Capsule().strokeBorder(Color(nsColor: ShotzUI.Palette.border), lineWidth: on ? 0 : 1))
-                    Circle().fill(.white).padding(2)
-                        .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
+            Button { withAnimation(.easeOut(duration: 0.16)) { configuration.isOn.toggle() } } label: {
+                HStack(spacing: ShotzUI.Space.s) {
+                    // `.labelsHidden()` drops the label and its gap (the switch stands alone in a row).
+                    if labelsVisibility != .hidden { configuration.label }
+                    ZStack(alignment: on ? .trailing : .leading) {
+                        Capsule().fill(track)
+                            .overlay(Capsule().strokeBorder(Color(nsColor: ShotzUI.Palette.border), lineWidth: on ? 0 : 1))
+                        Circle().fill(.white).padding(2)
+                            .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
+                    }
+                    .frame(width: 32, height: 18)
+                    .contentShape(.focusEffect, Capsule())
+                    .opacity(isEnabled ? 1 : 0.45)
+                    .frame(minHeight: 28)
                 }
-                .frame(width: 32, height: 18)
-                .overlay { if focused { Capsule().inset(by: -3).strokeBorder(Color(nsColor: ShotzUI.Palette.focusRing), lineWidth: 3) } }
-                .opacity(isEnabled ? 1 : 0.45)
-                .frame(minHeight: 28)
                 .contentShape(Rectangle())
-                .onTapGesture { withAnimation(.easeOut(duration: 0.16)) { configuration.isOn.toggle() } }
             }
-            .focusable()
-            .focused($focused)
+            .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isButton)
             .accessibilityValue(on ? Text("On") : Text("Off"))
         }
     }
@@ -202,6 +253,7 @@ public struct ShotzCheckboxStyle: ToggleStyle {
                     if on { ShotzIconView(.check, size: 11).foregroundStyle(Color(nsColor: ShotzUI.Palette.onAccent)) }
                 }
                 .frame(width: 14, height: 14)
+                .contentShape(.focusEffect, shape)
                 if showsLabel {
                     configuration.label
                         .font(ShotzUI.Typography.body.swiftUIFont)

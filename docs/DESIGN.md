@@ -34,6 +34,25 @@ AppKit (layer-backed, drawn in `draw(_:)`, usable in title bars, panels and the 
 panel). All share `ShotzControlView`: hover/press tracking, keyboard focus with ShotZ's focus ring,
 first-mouse, Space/Return activation, VoiceOver role/label/value, `stateOverride` for previews.
 
+### Focus ring: keyboard only
+
+The focus ring shows where the keyboard is, so it appears only when the keyboard put focus there
+(`ShotzUI.FocusRing`). This applies to every control, AppKit and SwiftUI, and lives in ShotzUI, never per screen:
+
+- **A pointer click never leaves a ring.** AppKit controls refuse first responder during mouse events.
+  As a result a click also leaves the keyboard where it was, for example on the editor canvas.
+  SwiftUI controls (switch, checkbox, chip, segments, tabs, buttons) are `Button`s, which only keyboard navigation
+  focuses. Never add `.focusable()` to a clickable control: it makes clicks take focus, which caused
+  the 0.1.0 switch ring.
+- **Tab, ⇧Tab and Full Keyboard Access show the ring.** The ring is ShotZ's 3-pt accent band
+  (`drawFocusRing`) on AppKit controls, and the system ring on SwiftUI controls, shaped by
+  `contentShape(.focusEffect, …)`. Clicking a keyboard-focused control hides its ring; it stays focused.
+- **Focus given any other way shows no ring until Tab.** That covers a window opening and code calling `makeFirstResponder`.
+  SwiftUI window content clears focus when the window opens: `ShotzSettingsPane` does it, and other
+  content uses `.shotzOpensWithoutFocusRing()`.
+- Text fields are the exception: they show the ring while you edit them, as on macOS, because that is where
+  typing goes.
+
 | Control | Use it for |
 |---|---|
 | `ShotzButton` `.primary` | The one main action of a surface (editor Done, onboarding Continue) |
@@ -168,3 +187,4 @@ Every surface
 - [ ] No `import SwiftUI` `.bordered*` styles, no SF Symbols, no colour literals in chrome.
 - [ ] Check light, dark and Increase Contrast; keyboard-only pass (Tab through, Space activates,
       focus ring visible); VoiceOver reads every control.
+- [ ] Clicking any control leaves no focus ring, and a newly opened window shows none.
