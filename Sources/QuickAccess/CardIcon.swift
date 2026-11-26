@@ -10,8 +10,8 @@ enum CardIcon: Equatable {
 
     var shotzIcon: ShotzIcon {
         switch self {
-        case .success: .check
-        case .failure: .warning
+        case .success: .success
+        case .failure: .failure
         case .action(let a):
             switch a {
             case .close: .close
@@ -20,9 +20,9 @@ enum CardIcon: Equatable {
             case .copy: .copy
             case .save: .save
             case .closeAndDelete: .trash
-            case .showInFinder: .folder
-            case .copyFilePath: .share // TODO: a link glyph if ShotzIcon gains one
-            case .closeAll: .stack
+            case .showInFinder: .showInFinder
+            case .copyFilePath: .copyPath
+            case .closeAll: .closeAll
             }
         }
     }

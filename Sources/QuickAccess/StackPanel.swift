@@ -33,7 +33,7 @@ import ShotzCore
             appearance = NSAppearance(named: name == "light" ? .aqua : .darkAqua)
         }
         setAccessibilityRole(.group)
-        setAccessibilityLabel(String(localized: "Shotz screenshots"))
+        setAccessibilityLabel(String(localized: "ShotZ screenshots"))
     }
 
     override var canBecomeKey: Bool { acceptsKey }

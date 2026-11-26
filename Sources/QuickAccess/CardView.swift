@@ -270,7 +270,7 @@ import ShotzCore
                 let item = NSMenuItem(title: action.title, action: #selector(menuAction(_:)), keyEquivalent: "")
                 item.target = self
                 item.representedObject = action
-                item.image = CardIcon.action(action).image(pointSize: 13)
+                item.image = CardIcon.action(action).image(pointSize: 16)
                 menu.addItem(item)
             }
         }

@@ -193,7 +193,7 @@ import AppKit
     func configure(text: String, success: Bool) {
         self.success = success
         label.stringValue = text
-        icon.image = (success ? CardIcon.success : .failure).image(pointSize: 15)
+        icon.image = (success ? CardIcon.success : .failure).image(pointSize: 18)
         if let palette { icon.contentTintColor = success ? palette.accentInk : palette.failureInk }
         setAccessibilityLabel(text)
         NSAccessibility.post(element: self, notification: .announcementRequested, userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
