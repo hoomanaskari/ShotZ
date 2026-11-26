@@ -127,24 +127,4 @@ import AppKit
         image.isTemplate = true
         return image
     }
-
-    /// A filled colour circle for the preset swatches (not a template).
-    static func swatch(_ color: NSColor, selected: Bool) -> NSImage {
-        NSImage(size: NSSize(width: 18, height: 18), flipped: true) { r in
-            let inner = r.insetBy(dx: 3, dy: 3)
-            color.setFill()
-            NSBezierPath(ovalIn: inner).fill()
-            NSColor.separatorColor.setStroke()
-            let border = NSBezierPath(ovalIn: inner.insetBy(dx: 0.25, dy: 0.25))
-            border.lineWidth = 0.5
-            border.stroke()
-            if selected {
-                NSColor.controlAccentColor.setStroke()
-                let ring = NSBezierPath(ovalIn: r.insetBy(dx: 0.75, dy: 0.75))
-                ring.lineWidth = 1.5
-                ring.stroke()
-            }
-            return true
-        }
-    }
 }
