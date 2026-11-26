@@ -57,24 +57,23 @@ extension EditorWindowController {
     // MARK: Zoom menu
 
     func setUpZoomMenu() {
-        let menu = zoomMenu.menu ?? NSMenu()
+        let menu = zoomMenu
         menu.removeAllItems()
-        // The pull-down's title item, kept by reference (never looked up by position).
-        let titleItem = NSMenuItem(title: "100%", action: nil, keyEquivalent: "")
-        menu.addItem(titleItem)
-        zoomTitleItem = titleItem
         let fit = NSMenuItem(title: String(localized: "Zoom to Fit"), action: #selector(EditorCommands.zoomToFit(_:)), keyEquivalent: "0")
         menu.addItem(fit)
         let actual = NSMenuItem(title: String(localized: "Actual Size"), action: #selector(EditorCommands.zoomToActualSize(_:)), keyEquivalent: "1")
         menu.addItem(actual)
         menu.addItem(.separator())
         for z in [0.25, 0.5, 1, 2, 4, 8] as [CGFloat] {
-            let item = NSMenuItem(title: "\(Int(z * 100))%", action: #selector(zoomPreset(_:)), keyEquivalent: "")
+            let item = NSMenuItem(title: "\(Int(z * 100)) %", action: #selector(zoomPreset(_:)), keyEquivalent: "")
             item.representedObject = z
             item.target = self
             menu.addItem(item)
         }
-        zoomMenu.menu = menu
+    }
+
+    func showZoomMenu(from view: NSView) {
+        zoomMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height + 4), in: view)
     }
 
     @objc func zoomPreset(_ sender: NSMenuItem) {
@@ -83,8 +82,6 @@ extension EditorWindowController {
     }
 
     func updateZoomTitle() {
-        let title = "\(Int((zoom * 100).rounded()))%"
-        zoomTitleItem?.title = title
-        zoomMenu.setTitle(title)
+        toolbarController.actionBar?.setZoomTitle("\(Int((zoom * 100).rounded())) %")
     }
 }

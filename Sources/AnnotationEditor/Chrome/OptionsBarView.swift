@@ -1,5 +1,6 @@
 import AnnotationKit
 import AppKit
+import ShotzUI
 
 /// Context options under the tool strip. Shows the options of the selection
 /// (restyling it) or of the active tool (setting its defaults).
@@ -27,9 +28,9 @@ import AppKit
         self.model = model
         super.init(frame: .zero)
         stack.orientation = .horizontal
-        stack.spacing = 8
+        stack.spacing = ShotzUI.Space.s
         stack.alignment = .centerY
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 12)
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: ShotzUI.Space.l, bottom: 0, right: ShotzUI.Space.m)
         // Never widen the window: at narrow sizes, drop the optional controls, then clip.
         stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
         stack.setHuggingPriority(.defaultLow, for: .horizontal)
@@ -71,14 +72,12 @@ import AppKit
     // MARK: Build
 
     private var applyingOwnChange = false
-    private var swatches: [ColorSwatchControl] = []
     var widthField: NSTextField?
     var heightField: NSTextField?
 
     func rebuild() {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         controls.reset()
-        swatches = []
         widthField = nil
         heightField = nil
         let s = model.displayedSettings
@@ -120,11 +119,11 @@ import AppKit
         case .arrow:
             addColors(s)
             add(thickness(s))
-            add(controls.segmented(images: ArrowStyle.allCases.map { EditorGlyphs.image(.arrowStyle($0)) }, labels: ArrowStyle.allCases.map(Self.title),
+            add(controls.segmented(glyphs: ArrowStyle.allCases.map { .arrowStyle($0) }, labels: ArrowStyle.allCases.map(Self.title),
                                    selected: ArrowStyle.allCases.firstIndex(of: s.arrowStyle)) { [weak self] i in
                 self?.change(String(localized: "Arrow Style")) { $0.arrowStyle = ArrowStyle.allCases[i] }
             })
-            add(controls.toggleChip(title: String(localized: "Outline"), label: String(localized: "Contrast outline around the arrow"),
+            add(controls.toggleChip(title: String(localized: "Outline"), tooltip: String(localized: "Contrast outline around the arrow"),
                                     on: s.contrastOutline) { [weak self] on in
                 self?.change(String(localized: "Outline")) { $0.contrastOutline = on }
             })
@@ -133,7 +132,7 @@ import AppKit
             addColors(s)
             add(thickness(s))
             add(fillControl(s, modes: [.outline, .filled, .outlineTranslucentFill], ellipse: false))
-            addOptional(controls.sliderRow(value: s.cornerRadiusUnits, min: 0, max: 12, width: 64, label: String(localized: "Corner radius"),
+            addOptional(controls.slider(value: s.cornerRadiusUnits, min: 0, max: 12, width: 64, label: String(localized: "Corner radius"),
                                    glyph: .cornerRadius, format: { "\(Int($0.rounded()))" }) { [weak self] v, final in
                 self?.change(String(localized: "Corner Radius"), final: final) { $0.cornerRadiusUnits = v }
             })
@@ -147,7 +146,7 @@ import AppKit
             addColors(s)
             add(thickness(s))
             let dashes = ObjectStyle.Dash.allCases
-            add(controls.segmented(images: dashes.map { EditorGlyphs.image(.dash($0)) }, labels: [String(localized: "Solid"), String(localized: "Dashed")],
+            add(controls.segmented(glyphs: dashes.map { .dash($0) }, labels: [String(localized: "Solid"), String(localized: "Dashed")],
                                    selected: dashes.firstIndex(of: s.dash)) { [weak self] i in
                 self?.change(String(localized: "Line Style")) { $0.dash = dashes[i] }
             })
@@ -157,7 +156,7 @@ import AppKit
         case .highlighter:
             addColors(s)
             add(controls.segmented(
-                images: [EditorGlyphs.image(.highlightFreehand), EditorGlyphs.image(.highlightRect)],
+                glyphs: [.highlightFreehand, .highlightRect],
                 labels: [String(localized: "Freehand marker"), String(localized: "Rectangle highlight")],
                 selected: s.highlightRect ? 1 : 0
             ) { [weak self] i in
@@ -207,37 +206,27 @@ import AppKit
     }
 
     func addColors(_ s: ToolSettings) {
-        for (i, preset) in RGBAColor.presets.enumerated() {
-            let color = NSColor(cgColor: preset.cgColor) ?? .red
-            let swatch = controls.swatch(color, selected: preset == s.color, label: "\(Self.colorNames[i]) (\(i + 1))") { [weak self] in
-                self?.change(String(localized: "Colour")) { $0.color = preset }
-            }
-            swatches.append(swatch)
-            add(swatch)
-        }
-        let current = NSColor(cgColor: s.color.cgColor) ?? .red
-        let apply: (NSColor, Bool) -> Void = { [weak self] color, final in
-            guard let srgb = color.usingColorSpace(.sRGB) else { return }
-            let c = RGBAColor(red: srgb.redComponent, green: srgb.greenComponent, blue: srgb.blueComponent)
-            self?.change(String(localized: "Colour"), final: final, rebuild: false) { $0.color = c }
-            // Swatches are in preset order.
-            let preset = RGBAColor.presets.firstIndex(of: c)
-            for (i, swatch) in (self?.swatches ?? []).enumerated() { swatch.isSelected = i == preset }
-        }
-        let well = controls.colorWell(current, isCustom: !RGBAColor.presets.contains(s.color), label: String(localized: "Custom colour"), apply)
-        add(well)
-        let dropper = controls.eyedropper(label: String(localized: "Pick a colour from the screen")) { [weak well] color in
-            well?.color = color
-            well?.isCustom = true
-            apply(color, true)
-        }
-        addOptional(dropper)
+        let presets = RGBAColor.presets.map { NSColor(cgColor: $0.cgColor) ?? .red }
+        let preset = RGBAColor.presets.firstIndex(of: s.color)
+        let row = controls.colorRow(
+            presets: presets, names: Self.colorNames, selectedPreset: preset,
+            customColor: preset == nil ? NSColor(cgColor: s.color.cgColor) : nil,
+            onPreset: { [weak self] i in
+                self?.change(String(localized: "Colour")) { $0.color = RGBAColor.presets[i] }
+            },
+            onCustom: { [weak self] color, final in
+                guard let srgb = color.usingColorSpace(.sRGB) else { return }
+                let c = RGBAColor(red: srgb.redComponent, green: srgb.greenComponent, blue: srgb.blueComponent)
+                // Keep the row (the colour panel stays linked to it) while the colour changes.
+                self?.change(String(localized: "Colour"), final: final, rebuild: false) { $0.color = c }
+            })
+        add(row)
         add(EditorControls.separator())
     }
 
     private func thickness(_ s: ToolSettings) -> NSView {
         controls.segmented(
-            images: (0..<5).map { EditorGlyphs.image(.thickness($0)) },
+            glyphs: (0..<5).map { .thickness($0) },
             labels: [String(localized: "Extra thin"), String(localized: "Thin"), String(localized: "Medium"),
                      String(localized: "Thick"), String(localized: "Extra thick")],
             selected: s.thicknessStep
@@ -247,7 +236,7 @@ import AppKit
     }
 
     func addOpacity(_ s: ToolSettings) {
-        addOptional(controls.sliderRow(value: s.opacity, min: 0.1, max: 1, width: 64, label: String(localized: "Opacity"),
+        addOptional(controls.slider(value: s.opacity, min: 0.1, max: 1, width: 64, label: String(localized: "Opacity"),
                                glyph: .opacity, format: EditorControls.percent) { [weak self] v, final in
             self?.change(String(localized: "Opacity"), final: final) { $0.opacity = v }
         })
@@ -255,7 +244,7 @@ import AppKit
 
     private func fillControl(_ s: ToolSettings, modes: [ObjectStyle.FillMode], ellipse: Bool) -> NSView {
         let labels = [String(localized: "Outline"), String(localized: "Filled"), String(localized: "Outline with translucent fill")]
-        return controls.segmented(images: modes.map { EditorGlyphs.image(.fill($0, ellipse: ellipse)) }, labels: Array(labels.prefix(modes.count)),
+        return controls.segmented(glyphs: modes.map { .fill($0, ellipse: ellipse) }, labels: Array(labels.prefix(modes.count)),
                                   selected: modes.firstIndex(of: s.fill) ?? 0) { [weak self] i in
             self?.change(String(localized: "Fill")) { $0.fill = modes[i] }
         }

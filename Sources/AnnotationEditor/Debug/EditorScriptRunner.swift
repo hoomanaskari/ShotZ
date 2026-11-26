@@ -129,7 +129,8 @@ import ShotzCore
             default: controller.zoomOut(nil)
             }
         case "snapshot":
-            if let path = args.first { snapshot(to: URL(filePath: path)) }
+            // snapshot <path> [1|2]: render scale (default: the window's backing scale).
+            if let path = args.first { snapshot(to: URL(filePath: path), scale: args.count > 1 ? Double(args[1]).map { CGFloat($0) } : nil) }
         case "dump":
             if let path = args.first {
                 do { try controller.store.document.jsonData().write(to: URL(filePath: path)) } catch {
@@ -326,10 +327,10 @@ import ShotzCore
 
     // MARK: Snapshot
 
-    private func snapshot(to url: URL) {
+    private func snapshot(to url: URL, scale requested: CGFloat? = nil) {
         window?.displayIfNeeded()
         guard let view = window?.contentView?.superview ?? window?.contentView, let layer = view.layer else { return }
-        let scale = window?.backingScaleFactor ?? 2
+        let scale = requested ?? window?.backingScaleFactor ?? 2
         let size = view.bounds.size
         guard let ctx = CGContext(data: nil, width: Int(size.width * scale), height: Int(size.height * scale), bitsPerComponent: 8,
                                   bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),

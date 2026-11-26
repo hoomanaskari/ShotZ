@@ -2,6 +2,7 @@ import os
 import AnnotationKit
 import AppKit
 import ShotzCore
+import ShotzUI
 
 /// Everything an editor window needs from its coordinator.
 @MainActor struct EditorEnvironment {
@@ -46,8 +47,8 @@ import ShotzCore
     let keyHandler: EditorKeyHandler
     let exporterOut: EditorExporter
     let commandMenu = EditorMenu.build()
-    let zoomMenu = EditorControls.zoomMenu()
-    var zoomTitleItem: NSMenuItem?
+    /// Zoom presets, opened from the action bar's zoom value.
+    let zoomMenu = NSMenu(title: String(localized: "Zoom"))
     private(set) var backgroundPanel: BackgroundPanelView?
     let mainSplit = NSStackView()
     var changeTask: Task<Void, Never>?
@@ -56,7 +57,6 @@ import ShotzCore
     var perf: PerfProbe?
     var lastFitZoom: CGFloat = -1
     var isRecentering = false
-    var thumbnailWork: DispatchWorkItem?
     /// True once the window, content and bindings exist.
     var isSetUp = false
     let log = ShotzLog.logger("AnnotationEditor")
@@ -101,7 +101,7 @@ import ShotzCore
     /// Fits the image at ≤ 100 % within 80 % of the screen; minimum 720 × 480.
     static func initialContentSize(for extent: CGSize, scale: CGFloat) -> NSSize {
         let screen = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
-        let chrome = NSSize(width: 48, height: EditorMetrics.barHeight + 48)
+        let chrome = NSSize(width: 48, height: 2 * EditorMetrics.barHeight + 48)
         let points = NSSize(width: extent.width / max(scale, 1), height: extent.height / max(scale, 1))
         let fit = min(1, (screen.width * 0.8 - chrome.width) / max(points.width, 1), (screen.height * 0.8 - chrome.height - 80) / max(points.height, 1))
         return NSSize(width: max(720, points.width * fit + chrome.width), height: max(480, points.height * fit + chrome.height))
@@ -149,14 +149,32 @@ import ShotzCore
         mainSplit.addArrangedSubview(canvasArea)
         canvasArea.setContentHuggingPriority(.init(1), for: .horizontal)
 
-        mainSplit.translatesAutoresizingMaskIntoConstraints = false
+        // The action bar under the canvas: zoom leading; drag, More, Copy, Save and Done trailing.
+        let actionBar = toolbarController.makeActionBar()
+        let footer = NSVisualEffectView()
+        footer.material = .titlebar
+        footer.blendingMode = .withinWindow
+        let footerLine = EditorControls.horizontalSeparator(width: 10)
+        for v in [mainSplit, footer, footerLine, actionBar] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+        }
         content.addSubview(mainSplit)
+        content.addSubview(footer)
+        footer.addSubview(footerLine)
+        footer.addSubview(actionBar)
         NSLayoutConstraint.activate([
             mainSplit.leadingAnchor.constraint(equalTo: content.leadingAnchor), mainSplit.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            mainSplit.topAnchor.constraint(equalTo: content.topAnchor), mainSplit.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            mainSplit.topAnchor.constraint(equalTo: content.topAnchor), mainSplit.bottomAnchor.constraint(equalTo: footer.topAnchor),
+            footer.leadingAnchor.constraint(equalTo: content.leadingAnchor), footer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            footer.bottomAnchor.constraint(equalTo: content.bottomAnchor), footer.heightAnchor.constraint(equalToConstant: EditorMetrics.barHeight),
+            footerLine.leadingAnchor.constraint(equalTo: footer.leadingAnchor), footerLine.trailingAnchor.constraint(equalTo: footer.trailingAnchor),
+            footerLine.topAnchor.constraint(equalTo: footer.topAnchor), footerLine.heightAnchor.constraint(equalToConstant: 1),
+            actionBar.leadingAnchor.constraint(equalTo: footer.leadingAnchor, constant: ShotzUI.Space.m),
+            actionBar.trailingAnchor.constraint(equalTo: footer.trailingAnchor, constant: -ShotzUI.Space.m),
+            actionBar.centerYAnchor.constraint(equalTo: footer.centerYAnchor),
+            actionBar.heightAnchor.constraint(equalToConstant: EditorControls.size.hitHeight),
         ])
         setUpZoomMenu()
-        optionsBar.trailingView = zoomMenu
         // The options bar sits under the toolbar as part of the window's title bar.
         optionsBar.frame = NSRect(x: 0, y: 0, width: 720, height: EditorMetrics.barHeight)
         let accessory = NSTitlebarAccessoryViewController()

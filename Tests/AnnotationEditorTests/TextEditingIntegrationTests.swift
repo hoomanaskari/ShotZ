@@ -2,6 +2,7 @@ import AnnotationKit
 import AppKit
 import Foundation
 import ShotzCore
+import ShotzUI
 import Testing
 @testable import AnnotationEditor
 
@@ -137,16 +138,24 @@ extension EditorUITests {
         #expect(window.firstResponder === c.canvas)
     }
 
-    @Test func swatchesAreAccessibleAndPressable() throws {
-        var pressed = 0
-        let swatch = ColorSwatchControl(color: .systemBlue, selected: true, label: "Blue (5)") { pressed += 1 }
-        #expect(swatch.accessibilityRole() == .radioButton)
-        #expect(swatch.accessibilityLabel() == "Blue (5)")
-        #expect(swatch.accessibilityPerformPress())
-        let space = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
-                                                  context: nil, characters: " ", charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49))
-        swatch.keyDown(with: space)
-        #expect(pressed == 2)
+    /// The editor chrome is built from ShotzUI controls: tool strip, toggle, action bar, options.
+    @Test func chromeUsesShotzUIControls() throws {
+        let c = try makeController()
+        let window = try #require(c.window)
+        window.toolbar?.items.forEach { _ in } // forces items to be created
+        let bar = try #require(c.toolbarController.actionBar)
+        #expect(bar.done.role == .primary)
+        #expect(bar.copy.role == .secondary && bar.save.role == .secondary)
+        #expect(bar.copy.intrinsicContentSize.width == bar.save.intrinsicContentSize.width)
+        #expect(bar.more.role == .quiet && bar.drag.button.role == .quiet)
+        c.model.setTool(.arrow)
+        c.optionsBar.rebuild()
+        func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
+        let views = all(c.optionsBar)
+        #expect(views.contains { $0 is ShotzSwatchRow })
+        #expect(views.contains { $0 is ShotzSegmentedControl })
+        #expect(views.contains { $0 is ShotzSlider })
+        #expect(views.contains { $0 is ShotzToggleChip })
     }
 
     /// Emoji (with skin tone and a flag) survive in-place editing, the saved document and export.
@@ -184,8 +193,8 @@ extension EditorUITests {
         let c = try makeController()
         #expect(c.isSetUp)
         #expect(c.window?.delegate === c)
-        c.zoomMenu.menu?.removeAllItems()
-        c.updateZoomTitle() // must not raise
+        c.zoomMenu.removeAllItems()
+        c.updateZoomTitle() // must not raise (the title never comes from a menu item)
         c.windowDidChangeBackingProperties(Notification(name: NSWindow.didChangeBackingPropertiesNotification))
     }
 }

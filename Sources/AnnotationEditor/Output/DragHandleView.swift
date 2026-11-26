@@ -1,87 +1,75 @@
 import AppKit
+import ShotzCore
+import ShotzUI
 
-/// Drag-out handle in the toolbar: a chip with a grip and a live thumbnail of the
-/// annotated image, so it reads as "pick this up". Drags the flattened file into
-/// other apps; the file is rendered when the drag starts.
+/// Drag-out in the action area: a quiet ShotzUI icon button (drag handle) that starts a file
+/// drag of the flattened image instead of a click. The file is rendered when the drag starts.
+/// Hover and press are shown through the button's own ShotzUI states.
 @MainActor final class DragHandleView: NSView, NSDraggingSource {
     /// Produces the file to drag (rendered at full resolution).
     var makeFile: (() -> URL?)?
-    /// Small preview of the current result.
-    var thumbnail: NSImage? { didSet { needsDisplay = true } }
+    let button = ShotzButton(icon: .dragHandle, role: .quiet, size: EditorControls.size)
     private var mouseDownEvent: NSEvent?
-    private var hovering = false
     private var tracking: NSTrackingArea?
-    static let size = NSSize(width: 64, height: EditorMetrics.toolHeight - 4)
+    private var hovering = false { didSet { updateState() } }
+    private var pressing = false { didSet { updateState() } }
 
     override init(frame: NSRect) {
-        super.init(frame: NSRect(origin: .zero, size: Self.size))
-        translatesAutoresizingMaskIntoConstraints = false
-        widthAnchor.constraint(equalToConstant: Self.size.width).isActive = true
-        heightAnchor.constraint(equalToConstant: Self.size.height).isActive = true
-        toolTip = String(localized: "Drag the finished image into another app")
+        super.init(frame: frame)
+        button.frame = bounds
+        button.autoresizingMask = [.width, .height]
+        addSubview(button)
+        setShotzToolTip(String(localized: "Drag the image into another app"))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(localized: "Drag image"))
         setAccessibilityHelp(String(localized: "Drag the finished image into another app"))
+        button.setAccessibilityElement(false)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
+    override var intrinsicContentSize: NSSize { button.intrinsicContentSize }
     override var isFlipped: Bool { true }
 
-    override func draw(_ dirtyRect: NSRect) {
-        let r = bounds.insetBy(dx: 0.5, dy: 0.5)
-        let path = NSBezierPath(roundedRect: r, xRadius: EditorMetrics.corner, yRadius: EditorMetrics.corner)
-        (hovering ? NSColor.labelColor.withAlphaComponent(0.08) : NSColor.labelColor.withAlphaComponent(0.035)).setFill()
-        path.fill()
-        NSColor.separatorColor.setStroke()
-        path.lineWidth = 1
-        path.stroke()
-        // Grip.
-        let grip = EditorGlyphs.image(.drag, size: 16)
-        let gripRect = NSRect(x: 5, y: r.midY - 8, width: 16, height: 16)
-        NSImage(size: grip.size, flipped: false) { rr in
-            grip.draw(in: rr)
-            NSColor.tertiaryLabelColor.set()
-            rr.fill(using: .sourceAtop)
-            return true
-        }.draw(in: gripRect)
-        // Thumbnail of the result.
-        let thumbArea = NSRect(x: 23, y: 4, width: r.width - 27, height: r.height - 8)
-        if let thumbnail, thumbnail.size.width > 0, thumbnail.size.height > 0 {
-            let k = min(thumbArea.width / thumbnail.size.width, thumbArea.height / thumbnail.size.height)
-            let size = NSSize(width: thumbnail.size.width * k, height: thumbnail.size.height * k)
-            let t = NSRect(x: thumbArea.midX - size.width / 2, y: thumbArea.midY - size.height / 2, width: size.width, height: size.height)
-            NSGraphicsContext.saveGraphicsState()
-            NSBezierPath(roundedRect: t, xRadius: 2, yRadius: 2).addClip()
-            thumbnail.draw(in: t)
-            NSGraphicsContext.restoreGraphicsState()
-            NSColor.black.withAlphaComponent(0.15).setStroke()
-            NSBezierPath(roundedRect: t.insetBy(dx: 0.25, dy: 0.25), xRadius: 2, yRadius: 2).stroke()
-        }
+    /// The whole area is the drag source (the button only draws).
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        frame.contains(point) ? self : nil
+    }
+
+    private func updateState() {
+        button.stateOverride = hovering || pressing ? ShotzUI.ControlState(isHovered: hovering, isPressed: pressing) : nil
     }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let tracking { removeTrackingArea(tracking) }
-        let t = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self, userInfo: nil)
+        let t = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
         addTrackingArea(t)
         tracking = t
     }
 
-    override func mouseEntered(with event: NSEvent) { hovering = true; needsDisplay = true }
-    override func mouseExited(with event: NSEvent) { hovering = false; needsDisplay = true }
-
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) { hovering = false }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
 
-    override func mouseDown(with event: NSEvent) { mouseDownEvent = event }
+    override func mouseDown(with event: NSEvent) {
+        mouseDownEvent = event
+        pressing = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        pressing = false
+        mouseDownEvent = nil
+    }
 
     override func mouseDragged(with event: NSEvent) {
         guard let down = mouseDownEvent else { return }
         let d = hypot(event.locationInWindow.x - down.locationInWindow.x, event.locationInWindow.y - down.locationInWindow.y)
         guard d >= 3 else { return }
         mouseDownEvent = nil
+        pressing = false
         startDrag(with: down, from: self)
     }
 
