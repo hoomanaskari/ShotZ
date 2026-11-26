@@ -21,7 +21,10 @@ enum EditorMetrics {
 /// track (style pickers). Segments can be split into groups. Each segment is a
 /// VoiceOver radio button with its own label; arrow keys move the selection when focused.
 @MainActor final class GlyphSegmentedControl: NSControl {
-    enum Style { case tools, options }
+    /// `.tools`: one selected tool, accent-filled. `.toggle`: an on/off panel switch in the
+    /// toolbar, tinted outline when on (so it never reads as a second selected tool).
+    /// `.options`: style pickers, raised chip in a track.
+    enum Style { case tools, toggle, options }
 
     struct Segment {
         var image: NSImage?
@@ -66,11 +69,11 @@ enum EditorMetrics {
 
     private var segmentWidth: CGFloat {
         switch style {
-        case .tools: 36
+        case .tools, .toggle: 36
         case .options: segments.contains { $0.title != nil } ? 0 : 30
         }
     }
-    private var height: CGFloat { style == .tools ? EditorMetrics.toolHeight : EditorMetrics.optionHeight }
+    private var height: CGFloat { style == .options ? EditorMetrics.optionHeight : EditorMetrics.toolHeight }
     private let groupGap: CGFloat = 9
 
     private func width(of i: Int) -> CGFloat {
@@ -115,7 +118,7 @@ enum EditorMetrics {
                 NSRect(x: f.minX - groupGap / 2 - 0.5, y: f.minY + 7, width: 1, height: f.height - 14).fill()
             }
             let selected = i == selectedIndex
-            let chip = f.insetBy(dx: style == .tools ? 1 : 1.5, dy: style == .tools ? 0 : 1)
+            let chip = f.insetBy(dx: style == .options ? 1.5 : 1, dy: style == .options ? 1 : 0)
             let path = NSBezierPath(roundedRect: chip, xRadius: EditorMetrics.corner - 1.5, yRadius: EditorMetrics.corner - 1.5)
             var glyphColor = NSColor.secondaryLabelColor
             switch (style, selected) {
@@ -123,6 +126,14 @@ enum EditorMetrics {
                 accent.setFill()
                 path.fill()
                 glyphColor = .white
+            case (.toggle, true):
+                accent.withAlphaComponent(0.14).setFill()
+                path.fill()
+                accent.withAlphaComponent(0.9).setStroke()
+                let ring = NSBezierPath(roundedRect: chip.insetBy(dx: 0.75, dy: 0.75), xRadius: EditorMetrics.corner - 2, yRadius: EditorMetrics.corner - 2)
+                ring.lineWidth = 1.5
+                ring.stroke()
+                glyphColor = accent
             case (.options, true):
                 EditorMetrics.chip.setFill()
                 let shadow = NSShadow()
@@ -139,10 +150,10 @@ enum EditorMetrics {
                     (i == pressed ? EditorMetrics.press : EditorMetrics.hover).setFill()
                     path.fill()
                 }
-                glyphColor = style == .tools ? .labelColor.withAlphaComponent(0.82) : .secondaryLabelColor
+                glyphColor = style == .options ? .secondaryLabelColor : .labelColor.withAlphaComponent(0.82)
             }
             if let image = segments[i].image {
-                let size: CGFloat = style == .tools ? 18 : 16
+                let size: CGFloat = style == .options ? 16 : 18
                 let r = NSRect(x: f.midX - size / 2, y: f.midY - size / 2, width: size, height: size)
                 tinted(image, glyphColor).draw(in: r)
             } else if let title = segments[i].title {

@@ -124,7 +124,8 @@ import AppKit
                                    selected: ArrowStyle.allCases.firstIndex(of: s.arrowStyle)) { [weak self] i in
                 self?.change(String(localized: "Arrow Style")) { $0.arrowStyle = ArrowStyle.allCases[i] }
             })
-            add(controls.toggleChip(.textDecoration(.outlined), label: String(localized: "Contrast outline"), on: s.contrastOutline) { [weak self] on in
+            add(controls.toggleChip(title: String(localized: "Outline"), label: String(localized: "Contrast outline around the arrow"),
+                                    on: s.contrastOutline) { [weak self] on in
                 self?.change(String(localized: "Outline")) { $0.contrastOutline = on }
             })
             addOpacity(s)
@@ -132,7 +133,7 @@ import AppKit
             addColors(s)
             add(thickness(s))
             add(fillControl(s, modes: [.outline, .filled, .outlineTranslucentFill], ellipse: false))
-            add(controls.sliderRow(value: s.cornerRadiusUnits, min: 0, max: 12, width: 64, label: String(localized: "Corner radius"),
+            addOptional(controls.sliderRow(value: s.cornerRadiusUnits, min: 0, max: 12, width: 64, label: String(localized: "Corner radius"),
                                    glyph: .cornerRadius, format: { "\(Int($0.rounded()))" }) { [weak self] v, final in
                 self?.change(String(localized: "Corner Radius"), final: final) { $0.cornerRadiusUnits = v }
             })

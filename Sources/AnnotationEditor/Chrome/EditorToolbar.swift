@@ -46,7 +46,8 @@ import AppKit
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.toolsID, Self.backgroundID, .flexibleSpace, Self.dragID, Self.saveID, Self.copyID, Self.moreID]
+        // Copy, the primary action, sits last on the right.
+        [Self.toolsID, Self.backgroundID, .flexibleSpace, Self.moreID, Self.dragID, Self.saveID, Self.copyID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -68,7 +69,7 @@ import AppKit
             return item(id, String(localized: "Tools"), String(localized: "Tools"), strip)
         case Self.backgroundID:
             let toggle = GlyphSegmentedControl(
-                style: .tools,
+                style: .toggle,
                 segments: [.init(image: EditorGlyphs.image(.background, size: 18, label: String(localized: "Background")), title: nil,
                                  label: String(localized: "Background"), shortcut: "G")],
                 selected: nil, label: String(localized: "Background"))
@@ -85,13 +86,15 @@ import AppKit
         case Self.dragID:
             return item(id, String(localized: "Drag"), dragHandle.toolTip ?? "", dragHandle)
         case Self.moreID:
-            let more = NSMenuToolbarItem(itemIdentifier: id)
-            more.image = EditorGlyphs.image(.more, size: 16, label: String(localized: "More"))
-            more.menu = commandMenu
-            more.showsIndicator = false
-            more.label = String(localized: "More")
-            more.toolTip = String(localized: "More commands")
-            return more
+            // A full-size button (not a bare glyph) that opens the command menu.
+            let b = NSButton(image: EditorGlyphs.image(.more, size: 16, label: String(localized: "More commands")),
+                             target: self, action: #selector(morePressed(_:)))
+            b.bezelStyle = .push
+            b.controlSize = .large
+            b.imagePosition = .imageOnly
+            b.widthAnchor.constraint(equalToConstant: 36).isActive = true
+            b.setAccessibilityLabel(String(localized: "More commands"))
+            return item(id, String(localized: "More"), String(localized: "More commands: Save As, Print, Arrange, Zoom…"), b)
         default:
             return nil
         }
@@ -108,6 +111,9 @@ import AppKit
 
     /// Copy is the primary action (accent-filled); Save sits beside it.
     private func actionButton(_ title: String, glyph: EditorGlyph, prominent: Bool, action: Selector) -> NSButton {
+        if prominent {
+            return ProminentButton(title: title, image: EditorGlyphs.image(glyph, size: 16, label: title), target: self, action: action)
+        }
         let b = NSButton(title: title, image: EditorGlyphs.image(glyph, size: 16, label: title), target: self, action: action)
         b.bezelStyle = .push
         b.controlSize = .large
@@ -120,6 +126,10 @@ import AppKit
         }
         b.setAccessibilityLabel(title)
         return b
+    }
+
+    @objc private func morePressed(_ sender: NSButton) {
+        commandMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
     }
 
     @objc private func toggleBackground() { onToggleBackground?() }

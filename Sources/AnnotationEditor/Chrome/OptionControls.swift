@@ -53,6 +53,20 @@ import AppKit
         return c
     }
 
+    /// A labelled on/off chip ("Outline") in the picker style.
+    func toggleChip(title: String, label: String, on: Bool, _ handler: @escaping (Bool) -> Void) -> GlyphSegmentedControl {
+        let c = GlyphSegmentedControl(style: .options, segments: [.init(image: nil, title: title, label: label, shortcut: nil)],
+                                      selected: on ? 0 : nil, label: label)
+        c.setAccessibilityRole(.checkBox)
+        var state = on
+        c.onSelect = { [weak c] _ in
+            state.toggle()
+            c?.selectedIndex = state ? 0 : nil
+            handler(state)
+        }
+        return c
+    }
+
     /// Glyph, slider and value readout in one row.
     func sliderRow(
         value: Double, min: Double, max: Double, width: CGFloat = 80, label: String, glyph: EditorGlyph?,
@@ -108,9 +122,15 @@ import AppKit
         return b
     }
 
+    func prominentButton(_ title: String, _ handler: @escaping () -> Void) -> NSButton {
+        let b = ProminentButton(title: title, image: nil, target: nil, action: nil, height: 22)
+        bind(b) { _ in handler() }
+        return b
+    }
+
     func button(_ title: String, _ handler: @escaping () -> Void) -> NSButton {
         let b = NSButton(title: title, target: nil, action: nil)
-        b.controlSize = .small
+        b.controlSize = .regular
         b.bezelStyle = .push
         bind(b) { _ in handler() }
         return b
@@ -142,6 +162,7 @@ import AppKit
     func numberField(_ value: Int, width: CGFloat = 54, label: String, _ handler: @escaping (Int) -> Void) -> NSTextField {
         let f = NSTextField(string: String(value))
         f.controlSize = .small
+        f.bezelStyle = .roundedBezel
         f.font = .monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
         f.alignment = .right
         f.widthAnchor.constraint(equalToConstant: width).isActive = true
