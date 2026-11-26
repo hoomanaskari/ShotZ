@@ -68,9 +68,13 @@ extension EditorModel {
     /// A new, empty text object in the Text tool's style (not yet in the document).
     func newTextObject(at origin: CGPoint, wrapWidth: CGFloat?) -> AnnotationObject {
         let s = settings(for: .text)
+        let style = style(for: .text)
+        // The click marks where the first glyph starts; the box begins one inset earlier.
+        let inset = wrapWidth == nil ? TextLayout.insets(fontSize: style.fontSize) : .zero
+        let boxOrigin = CGPoint(x: origin.x - inset.width, y: origin.y - inset.height)
         return AnnotationObject(
-            shape: .text(TextBox(origin: origin, wrapWidth: wrapWidth, string: "", style: s.textStyle)),
-            style: style(for: .text)
+            shape: .text(TextBox(origin: boxOrigin, wrapWidth: wrapWidth, string: "", style: s.textStyle)),
+            style: style
         )
     }
 

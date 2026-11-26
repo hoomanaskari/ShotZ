@@ -16,12 +16,16 @@ import AppKit
     weak var keyHandler: CanvasKeyHandling?
     /// Called after the extent or image placement changed.
     var onLayoutChange: (() -> Void)?
+    /// Called after every mouse-up (drags commit without a document change event).
+    var onInteractionEnded: (() -> Void)?
     private(set) lazy var text = TextEditSession(canvas: self)
 
     private let root = CALayer()
-    private let backgroundLayer = CAGradientLayer()
-    private let shadowLayer = CALayer()
+    /// Background fill and drop shadow, one small bitmap (GPU-scaled).
+    private let backgroundLayer = CALayer()
     private let clipLayer = CALayer()
+    private let baseImage: CGImage
+    private var backgroundKey: (CanvasLayout, AnnotationDocument)?
     private(set) var canvasLayout: CanvasLayout
     /// Opaque content bounds of window captures (transparent margins), for auto-balance.
     let opaqueBounds: CGRect?
@@ -32,21 +36,20 @@ import AppKit
     init(model: EditorModel, base: BaseImageProvider, image: CGImage) {
         self.model = model
         layers = ObjectLayerStore(base: base)
-        opaqueBounds = OpaqueBounds.compute(image)
+        baseImage = image
+        opaqueBounds = base.visibleContentBounds()
         canvasLayout = CanvasLayout.make(document: model.document, editingCrop: false, opaqueBounds: opaqueBounds)
         super.init(frame: NSRect(origin: .zero, size: canvasLayout.extent))
         wantsLayer = true
         layerContentsRedrawPolicy = .never
         guard let layer else { return }
-        for l in [root, backgroundLayer, shadowLayer, clipLayer] {
-            l.actions = ObjectLayerStore.noActions.merging(["colors": NSNull(), "startPoint": NSNull(), "endPoint": NSNull(),
-                                                             "cornerRadius": NSNull(), "shadowPath": NSNull(),
-                                                             "shadowOpacity": NSNull(), "backgroundColor": NSNull()]) { a, _ in a }
+        for l in [root, backgroundLayer, clipLayer] {
+            l.actions = ObjectLayerStore.noActions.merging(["cornerRadius": NSNull()]) { a, _ in a }
             l.anchorPoint = .zero
         }
+        backgroundLayer.contentsGravity = .resize
         layer.addSublayer(root)
         root.addSublayer(backgroundLayer)
-        root.addSublayer(shadowLayer)
         root.addSublayer(clipLayer)
         clipLayer.masksToBounds = true
         clipLayer.addSublayer(layers.world)
@@ -103,42 +106,22 @@ import AppKit
     }
 
     private func applyBackground() {
+        let doc = model.document
         guard let bg = canvasLayout.background else {
             backgroundLayer.isHidden = true
-            shadowLayer.isHidden = true
+            backgroundLayer.contents = nil
+            backgroundKey = nil
             clipLayer.cornerRadius = 0
             return
         }
         backgroundLayer.isHidden = false
         backgroundLayer.frame = CGRect(origin: .zero, size: canvasLayout.extent)
-        switch bg.fill {
-        case .none:
-            backgroundLayer.colors = nil
-            backgroundLayer.backgroundColor = nil
-        case .solid(let c):
-            backgroundLayer.colors = nil
-            backgroundLayer.backgroundColor = c.cgColor
-        case .gradient(let g):
-            backgroundLayer.backgroundColor = nil
-            backgroundLayer.colors = [g.from.cgColor, g.to.cgColor]
-            let (s, e) = GradientGeometry.points(angle: g.angle)
-            backgroundLayer.startPoint = s
-            backgroundLayer.endPoint = e
-        }
-        // Window captures carry their own transparent shadow: no extra shadow or rounding.
-        let isWindow = opaqueBounds != nil
-        let radius = isWindow ? 0 : min(bg.cornerRadius, min(canvasLayout.imageFrame.width, canvasLayout.imageFrame.height) / 2)
-        clipLayer.cornerRadius = radius
-        shadowLayer.isHidden = isWindow || bg.shadow == .off
-        shadowLayer.frame = canvasLayout.imageFrame
-        shadowLayer.shadowPath = CGPath(roundedRect: CGRect(origin: .zero, size: canvasLayout.imageFrame.size),
-                                        cornerWidth: radius, cornerHeight: radius, transform: nil)
-        let long = max(canvasLayout.imageFrame.width, canvasLayout.imageFrame.height)
-        shadowLayer.shadowColor = NSColor.black.cgColor
-        shadowLayer.shadowOpacity = bg.shadow == .strong ? 0.45 : 0.25
-        shadowLayer.shadowRadius = long * (bg.shadow == .strong ? 0.025 : 0.015)
-        // The root is top-left; a positive y offset casts the shadow downwards.
-        shadowLayer.shadowOffset = CGSize(width: 0, height: (root.isGeometryFlipped ? 1 : -1) * long * 0.008)
+        // The image group is clipped with the corner radius, as in the export.
+        let visible = doc.imageRect
+        clipLayer.cornerRadius = min(bg.cornerRadius, min(visible.width, visible.height) / 2)
+        if let key = backgroundKey, key.0 == canvasLayout, key.1.background == doc.background, key.1.imageRect == doc.imageRect { return }
+        backgroundKey = (canvasLayout, doc)
+        backgroundLayer.contents = BackgroundPreview.render(document: doc, layout: canvasLayout, image: baseImage)
     }
 
     // MARK: Coordinates
@@ -190,6 +173,7 @@ import AppKit
             return
         }
         model.tool.mouseUp(toolEvent(event))
+        onInteractionEnded?()
         updateCursor(event)
     }
 

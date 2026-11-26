@@ -7,6 +7,7 @@ extension EditorWindowController {
         canvas.keyHandler = self
         keyHandler.onToggleBackground = { [weak self] in self?.toggleBackgroundPanelVisibility() }
         canvas.onLayoutChange = { [weak self] in self?.layoutChanged() }
+        canvas.onInteractionEnded = { [weak self] in self?.interactionEnded() }
 
         toolbarController.onSelectTool = { [weak self] kind in
             self?.model.setTool(kind)
@@ -77,9 +78,9 @@ extension EditorWindowController {
             canvas.layers.sync(doc, rerenderRedactions: true)
             backgroundPanel?.scheduleRebuild()
         } else if change.reordered {
-            canvas.layers.sync(doc)
+            canvas.layers.sync(doc, interactive: store.isInteractive)
         } else {
-            canvas.layers.sync(doc, changed: change.objectIDs)
+            canvas.layers.sync(doc, changed: change.objectIDs, interactive: store.isInteractive)
         }
         perf?.recordUpdate(ContinuousClock.now - start, reason: change.reason)
         model.pruneSelection()
@@ -88,11 +89,17 @@ extension EditorWindowController {
         case .undo, .redo:
             optionsBar.scheduleRebuild()
             backgroundPanel?.scheduleRebuild()
-        case .interactive:
-            return // Persist after the drag commits.
         default:
             break
         }
+        schedulePersist()
+    }
+
+    /// A mouse gesture finished: a drag commits without a change event, so
+    /// finalise preview-quality layers and schedule the save here.
+    func interactionEnded() {
+        guard !store.isInteractive else { return }
+        canvas.layers.finishInteraction(store.document)
         schedulePersist()
     }
 
@@ -137,16 +144,17 @@ extension EditorWindowController {
 
     func refreshOverlay() {
         var content = OverlayView.Content()
+        let several = model.selection.count > 1
         for object in model.selectedObjects where !model.hiddenObjectIDs.contains(object.id) {
             switch object.shape {
-            case .line, .arrow:
+            case .line where !several, .arrow where !several:
                 break
             case .counter(let c):
                 let r = object.style.fontSize
                 let circle = CGRect(x: c.center.x - r, y: c.center.y - r, width: 2 * r, height: 2 * r)
                 content.selectionOutlines.append(CGPath(ellipseIn: overlayRect(circle).insetBy(dx: -3, dy: -3), transform: nil))
             default:
-                content.selectionOutlines.append(CGPath(rect: overlayRect(model.snapBounds(of: object)).insetBy(dx: -0.5, dy: -0.5), transform: nil))
+                content.selectionOutlines.append(CGPath(rect: overlayRect(model.frame(of: object)).insetBy(dx: -0.5, dy: -0.5), transform: nil))
             }
             for h in model.handles(for: object) {
                 content.handles.append((Handle(kind: h.kind, position: overlayPoint(h.position)), h.kind == .control || h.kind == .tail))
@@ -155,9 +163,9 @@ extension EditorWindowController {
         for g in model.guides {
             switch g.axis {
             case .vertical:
-                content.guides.append((overlayPoint(CGPoint(x: g.position, y: g.from)), overlayPoint(CGPoint(x: g.position, y: g.to))))
+                content.guides.append((overlayPoint(CGPoint(x: g.position, y: g.start)), overlayPoint(CGPoint(x: g.position, y: g.end))))
             case .horizontal:
-                content.guides.append((overlayPoint(CGPoint(x: g.from, y: g.position)), overlayPoint(CGPoint(x: g.to, y: g.position))))
+                content.guides.append((overlayPoint(CGPoint(x: g.start, y: g.position)), overlayPoint(CGPoint(x: g.end, y: g.position))))
             }
         }
         content.marquee = model.marquee.map(overlayRect)
@@ -174,7 +182,11 @@ extension EditorWindowController {
     func schedulePersist() {
         guard documentURL != nil else { return }
         saveWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.persistNow() }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            // Never save half a drag; try again once it ends.
+            if self.store.isInteractive { self.schedulePersist() } else { self.persistNow() }
+        }
         saveWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
     }

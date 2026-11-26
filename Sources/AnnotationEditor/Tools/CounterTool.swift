@@ -17,7 +17,7 @@ import CoreGraphics
         guard let model else { return nil }
         let s = model.settings(for: .counter)
         // The value is fixed when the counter is first placed.
-        var value = CounterNumberingShim.nextValue(in: model.document, numbering: s.counterNumbering, start: s.counterStart)
+        var value = model.document.nextCounterValue(start: s.counterStart)
         if let id = creatingID, let existing = model.document[id: id], case .counter(let c) = existing.shape {
             value = c.value
         }

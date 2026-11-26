@@ -2,7 +2,7 @@ import AnnotationKit
 import Foundation
 import ShotzCore
 
-/// Built-in gradients (Shotz's own) and the user's named background presets.
+/// The user's named background presets and the last-used background.
 /// Keys: `editor.background.last`, `editor.background.presets`.
 @MainActor final class BackgroundPresets {
     struct Named: Codable, Equatable {
@@ -20,23 +20,8 @@ import ShotzCore
         self.defaults = defaults
     }
 
-    static let gradients: [BackgroundStyle.GradientFill] = {
-        func c(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> RGBAColor { RGBAColor(red: r, green: g, blue: b) }
-        return [
-            .init(from: c(0.98, 0.76, 0.55), to: c(0.93, 0.45, 0.55), angle: 135),
-            .init(from: c(0.30, 0.78, 0.85), to: c(0.20, 0.40, 0.85), angle: 135),
-            .init(from: c(0.62, 0.88, 0.48), to: c(0.18, 0.62, 0.52), angle: 135),
-            .init(from: c(0.42, 0.30, 0.80), to: c(0.90, 0.42, 0.62), angle: 45),
-            .init(from: c(0.99, 0.62, 0.25), to: c(0.86, 0.22, 0.25), angle: 90),
-            .init(from: c(0.86, 0.93, 0.98), to: c(0.62, 0.74, 0.92), angle: 90),
-            .init(from: c(0.36, 0.40, 0.47), to: c(0.16, 0.18, 0.22), angle: 90),
-            .init(from: c(0.99, 0.90, 0.40), to: c(0.98, 0.60, 0.30), angle: 135),
-            .init(from: c(0.93, 0.66, 0.92), to: c(0.60, 0.45, 0.92), angle: 135),
-            .init(from: c(0.20, 0.42, 0.30), to: c(0.08, 0.20, 0.18), angle: 135),
-            .init(from: c(0.96, 0.90, 0.80), to: c(0.84, 0.74, 0.62), angle: 90),
-            .init(from: c(0.12, 0.16, 0.36), to: c(0.36, 0.18, 0.48), angle: 45),
-        ]
-    }()
+    /// AnnotationKit's 12 built-in gradients.
+    static var gradients: [BackgroundStyle.GradientFill] { GradientPreset.all.map(\.fill) }
 
     static var defaultStyle: BackgroundStyle {
         BackgroundStyle(fill: .gradient(gradients[1]))

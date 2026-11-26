@@ -183,8 +183,9 @@ import AppKit
     }
 
     private func gradientGrid(selected: AnnotationKit.BackgroundStyle.GradientFill) -> NSView {
-        let buttons: [NSButton] = BackgroundPresets.gradients.enumerated().map { i, g in
-            controls.imageButton(Self.gradientSwatch(g, selected: g == selected), label: String(localized: "Gradient \(i + 1)")) { [weak self] in
+        let buttons: [NSButton] = GradientPreset.all.map { preset in
+            let g = preset.fill
+            return controls.imageButton(Self.gradientSwatch(g, selected: g == selected), label: preset.name) { [weak self] in
                 self?.update { $0.fill = .gradient(g) }
             }
         }
@@ -275,9 +276,13 @@ import AppKit
     static func gradientSwatch(_ g: AnnotationKit.BackgroundStyle.GradientFill, selected: Bool) -> NSImage {
         NSImage(size: NSSize(width: 32, height: 24), flipped: true) { r in
             let inner = r.insetBy(dx: 2, dy: 2)
-            let path = NSBezierPath(roundedRect: inner, xRadius: 5, yRadius: 5)
-            if let from = NSColor(cgColor: g.from.cgColor), let to = NSColor(cgColor: g.to.cgColor) {
-                NSGradient(starting: from, ending: to)?.draw(in: path, angle: g.angle)
+            if let ctx = NSGraphicsContext.current?.cgContext {
+                // The image is flipped (top-left), as AnnotationKit's fill expects.
+                ctx.saveGState()
+                ctx.addPath(CGPath(roundedRect: inner, cornerWidth: 5, cornerHeight: 5, transform: nil))
+                ctx.clip()
+                AnnotationRenderer.drawBackgroundFill(.gradient(g), in: inner, ctx: ctx)
+                ctx.restoreGState()
             }
             if selected {
                 NSColor.controlAccentColor.setStroke()

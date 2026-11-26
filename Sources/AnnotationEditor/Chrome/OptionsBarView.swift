@@ -148,7 +148,7 @@ import AppKit
             addRedactOptions(s)
         case .counter:
             addColors(s)
-            add(controls.segmented(titles: ["S", "M", "L"], selected: s.sizeStep) { [weak self] i in
+            add(controls.segmented(titles: ["S", "M", "L", "XL"], selected: s.sizeStep) { [weak self] i in
                 self?.change(String(localized: "Counter Size")) { $0.sizeStep = i }
             })
             add(controls.segmented(titles: ["1 2 3", "A B C"], selected: s.counterNumbering == .numeric ? 0 : 1) { [weak self] i in

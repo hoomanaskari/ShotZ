@@ -94,7 +94,7 @@ import Foundation
     func settings(for kind: ToolKind) -> ToolSettings { library.settings(for: kind) }
 
     func style(for kind: ToolKind) -> ObjectStyle {
-        settings(for: kind).objectStyle(for: kind, unit: unit)
+        settings(for: kind).objectStyle(for: kind, pixelSize: document.pixelSize, scale: document.scale)
     }
 
     // MARK: Selection
@@ -133,15 +133,11 @@ import Foundation
         return HitTesting.object(at: point, in: doc, tolerance: tolerance)
     }
 
-    /// A handle of a selected object under `point`.
+    /// A handle of the selected object under `point`.
     func hitHandle(at point: CGPoint) -> (AnnotationObject.ID, Handle)? {
+        guard selection.count == 1, let object = selectedObjects.first else { return nil }
         let radius = 7 / max(pointsPerPixel, 0.0001)
-        for object in selectedObjects.reversed() {
-            for handle in handles(for: object) where hypot(handle.position.x - point.x, handle.position.y - point.y) <= radius {
-                return (object.id, handle)
-            }
-        }
-        return nil
+        return HitTesting.handle(at: point, for: object, tolerance: radius).map { (object.id, $0) }
     }
 
     /// Handles shown for an object. With several objects selected only move is offered.
@@ -154,34 +150,25 @@ import Foundation
 
     var isSnappingEnabled: Bool { snappingSetting() }
 
-    /// Snap candidates: the visible image rect and every object not being moved.
-    func snapCandidates(excluding ids: Set<AnnotationObject.ID>) -> [CGRect] {
-        [document.imageRect] + document.objects.filter { !ids.contains($0.id) }.map { snapBounds(of: $0) }
-    }
+    /// Selection box, snapping and marquee frame (no stroke padding).
+    func frame(of object: AnnotationObject) -> CGRect { ObjectGeometry.frame(of: object) }
 
-    /// Visual bounds used for snapping (without stroke padding for box shapes).
-    func snapBounds(of object: AnnotationObject) -> CGRect {
-        switch object.shape {
-        case .rectangle(let r, _), .ellipse(let r), .redact(let r, _), .highlight(.rect(let r)):
-            return r.standardized
-        default:
-            return AnnotationRenderer.bounds(of: object)
-        }
-    }
+    /// Snap threshold: 6 screen points, in pixels.
+    var snapThreshold: CGFloat { Snapping.defaultThresholdPoints / max(pointsPerPixel, 0.0001) }
 
-    /// Snap correction for a moving rect, updating the guides. ⌘ disables snapping.
+    /// Snap correction for a moving frame, updating the guides. ⌘ disables snapping.
     func snapOffset(for rect: CGRect, excluding ids: Set<AnnotationObject.ID>, modifiers: ToolModifiers) -> CGVector {
         guard isSnappingEnabled, !modifiers.contains(.command) else { guides = []; return .zero }
-        let result = SnappingShim.snap(moving: rect, candidates: snapCandidates(excluding: ids), tolerance: tolerance)
+        let result = Snapping.snap(frame: rect, to: Snapping.targets(in: document, excluding: ids), threshold: snapThreshold)
         guides = result.guides
         return result.offset
     }
 
     func snapPoint(_ point: CGPoint, excluding ids: Set<AnnotationObject.ID>, modifiers: ToolModifiers) -> CGPoint {
         guard isSnappingEnabled, !modifiers.contains(.command) else { guides = []; return point }
-        let (p, g) = SnappingShim.snap(point: point, candidates: snapCandidates(excluding: ids), tolerance: tolerance)
-        guides = g
-        return p
+        let result = Snapping.snap(point: point, to: Snapping.targets(in: document, excluding: ids), threshold: snapThreshold)
+        guides = result.guides
+        return result.point
     }
 }
 

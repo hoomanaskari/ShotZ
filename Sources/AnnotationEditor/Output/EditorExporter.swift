@@ -9,13 +9,16 @@ import UniformTypeIdentifiers
 @MainActor final class EditorExporter {
     private let exporter: ExportService
     private let settings: SettingsStore
+    /// The window's provider, so exports reuse its decoded image and redaction cache.
+    private let base: BaseImageProvider
     private let log = ShotzLog.logger("AnnotationEditor")
     /// The previous Save of this document; Save overwrites it.
     private(set) var lastExportURL: URL?
 
-    init(exporter: ExportService, settings: SettingsStore) {
+    init(exporter: ExportService, settings: SettingsStore, base: BaseImageProvider) {
         self.exporter = exporter
         self.settings = settings
+        self.base = base
     }
 
     enum Failure: LocalizedError {
@@ -34,7 +37,7 @@ import UniformTypeIdentifiers
         let url = dir.appending(path: FileNaming.sanitize(name) + ".png", directoryHint: .notDirectory)
         let start = ContinuousClock.now
         do {
-            try DocumentExport.write(document, to: url, format: .png, quality: 1, scale: scale)
+            try DocumentExport.write(document, base: base, to: url, format: .png, quality: 1, scale: scale)
         } catch {
             throw Failure.render(String(describing: error))
         }
@@ -53,7 +56,7 @@ import UniformTypeIdentifiers
         if let previous = lastExportURL, FileManager.default.fileExists(atPath: previous.path(percentEncoded: false)) {
             let format = ImageFormat.allCases.first { $0.fileExtension == previous.pathExtension.lowercased() } ?? settings.exportFormat
             let scale: CGFloat = settings.retinaScale == .downscaleTo1x ? 1 / max(document.scale, 1) : 1
-            try DocumentExport.write(document, to: previous, format: format, quality: 0.9, scale: scale)
+            try DocumentExport.write(document, base: base, to: previous, format: format, quality: 0.9, scale: scale)
             return previous
         }
         let url = try renderTemporaryPNG(document, name: name)
@@ -75,7 +78,7 @@ import UniformTypeIdentifiers
         guard response == .OK, let url = panel.url else { return nil }
         // 1× = one pixel per point; 2× = two (the native size of Retina captures).
         let outputScale = CGFloat(accessory.scaleFactor) / max(document.scale, 0.0001)
-        try DocumentExport.write(document, to: url, format: accessory.format, quality: accessory.quality, scale: outputScale)
+        try DocumentExport.write(document, base: base, to: url, format: accessory.format, quality: accessory.quality, scale: outputScale)
         return url
     }
 

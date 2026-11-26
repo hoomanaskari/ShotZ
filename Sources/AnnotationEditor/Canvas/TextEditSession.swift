@@ -16,7 +16,7 @@ import AppKit
 
     var isEditingText: Bool { textView != nil }
 
-    /// Shared with the renderer's expectations: system font, no padding.
+    /// The renderer's font: the system UI font (emphasized when bold).
     static func font(for object: AnnotationObject, box: TextBox) -> NSFont {
         NSFont.systemFont(ofSize: object.style.fontSize, weight: box.style.isBold ? .bold : .regular)
     }
@@ -47,10 +47,12 @@ import AppKit
         }
         tv.string = box.string
         tv.isVerticallyResizable = true
-        if let wrap = box.wrapWidth {
+        // Glyphs sit where AnnotationKit lays them out (TextLayout.textRect).
+        let layout = TextLayout(box: box, fontSize: object.style.fontSize)
+        if box.wrapWidth != nil {
             tv.isHorizontallyResizable = false
             tv.textContainer?.widthTracksTextView = true
-            tv.frame = NSRect(x: 0, y: 0, width: wrap, height: object.style.fontSize * 1.3)
+            tv.frame = NSRect(x: 0, y: 0, width: layout.textRect.width, height: object.style.fontSize * 1.3)
         } else {
             tv.isHorizontallyResizable = true
             tv.textContainer?.widthTracksTextView = false
@@ -61,7 +63,7 @@ import AppKit
         tv.wantsLayer = true
         tv.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.8).cgColor
         tv.layer?.borderWidth = 1 / max(canvas.model.pointsPerPixel, 0.01)
-        let origin = canvas.canvasLayout.toCanvas(box.origin)
+        let origin = canvas.canvasLayout.toCanvas(layout.textRect.origin)
         tv.setFrameOrigin(origin)
         canvas.addSubview(tv)
         textView = tv

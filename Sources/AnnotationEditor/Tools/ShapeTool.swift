@@ -10,11 +10,11 @@ import CoreGraphics
         let s = model.settings(for: kind)
         switch kind {
         case .arrow:
-            let end = modifiers.contains(.shift) ? HandleGeometryShim.snapAngle(current, around: start) : current
+            let end = modifiers.contains(.shift) ? AngleSnapping.snap(current, around: start) : current
             let control = s.arrowStyle == .curved ? ArrowCurve.defaultControl(start: start, end: end) : nil
             return .arrow(ArrowGeometry(start: start, end: end, control: control, style: s.arrowStyle))
         case .line:
-            let end = modifiers.contains(.shift) ? HandleGeometryShim.snapAngle(current, around: start) : current
+            let end = modifiers.contains(.shift) ? AngleSnapping.snap(current, around: start) : current
             return .line(start: start, end: end)
         case .rectangle:
             return .rectangle(Self.box(start, current, modifiers), cornerRadius: s.cornerRadiusUnits * model.unit)

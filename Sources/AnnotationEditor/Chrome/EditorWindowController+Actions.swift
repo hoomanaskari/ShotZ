@@ -93,9 +93,10 @@ extension EditorWindowController: EditorCommands, NSMenuItemValidation {
     }
 
     @objc func paste(_ sender: Any?) {
-        guard let payload = ObjectPasteboard.read(), !payload.objects.isEmpty else { return }
-        let offset = ObjectPasteboard.placementOffset(for: payload.objects, in: store.document, step: model.unit * 4)
-        model.insert(payload.objects, offset: offset, actionName: String(localized: "Paste"))
+        let objects = ObjectPasteboard.read()
+        guard !objects.isEmpty else { return }
+        let offset = ObjectPasteboard.placementOffset(for: objects, in: store.document, step: store.document.defaultPasteOffset.dx)
+        model.insert(objects, offset: offset, actionName: String(localized: "Paste"))
     }
 
     @objc func delete(_ sender: Any?) { model.deleteSelection() }
@@ -107,7 +108,7 @@ extension EditorWindowController: EditorCommands, NSMenuItemValidation {
 
     private func writeSelectionToPasteboard() {
         do {
-            try ObjectPasteboard.write(model.selectedObjects, sourcePixelSize: store.document.pixelSize)
+            try ObjectPasteboard.write(store.document.objects(withIDs: Set(model.selection)))
         } catch { present(error) }
     }
 

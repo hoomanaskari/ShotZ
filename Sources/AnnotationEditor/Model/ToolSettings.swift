@@ -7,10 +7,10 @@ import Foundation
 struct ToolSettings: Codable, Equatable, Sendable {
     var color: RGBAColor = .red
     var opacity: CGFloat = 1
-    /// Index into `ToolSettings.thicknessMultipliers`.
-    var thicknessStep: Int = 2
-    /// Index into `textSizeMultipliers` / `counterSizeMultipliers`.
-    var sizeStep: Int = 1
+    /// Index into `ObjectStyle.thicknessSteps` (0…4).
+    var thicknessStep: Int = ObjectStyle.defaultThicknessStep
+    /// Index into `ObjectStyle.textSizeSteps` (text) or `counterSizeSteps` (counter).
+    var sizeStep: Int = ObjectStyle.defaultTextSizeStep
     var fill: ObjectStyle.FillMode = .outline
     var dash: ObjectStyle.Dash = .solid
     var contrastOutline = false
@@ -23,27 +23,19 @@ struct ToolSettings: Codable, Equatable, Sendable {
     var counterNumbering: CounterGeometry.Numbering = .numeric
     var counterStart = 1
 
-    static let thicknessMultipliers = ObjectStyle.thicknessSteps
-    static let textSizeMultipliers: [CGFloat] = [3, 4.5, 6, 8, 11]
-    static let counterSizeMultipliers: [CGFloat] = [2.5, 3.5, 5]
-    /// Highlighter marks are much wider than strokes.
-    static let highlighterWidthFactor: CGFloat = 5
+    /// Highlighter marks are much wider than strokes (6 × the thickness, as AnnotationKit's default).
+    static let highlighterWidthFactor: CGFloat = 6
 
-    /// Defaults per tool (first launch).
+    /// Defaults per tool (first launch), from AnnotationKit's default styles.
     static func defaults(for kind: ToolKind) -> ToolSettings {
         var s = ToolSettings()
         switch kind {
         case .highlighter:
             s.color = .yellow
-            s.thicknessStep = 2
-        case .pen:
-            s.thicknessStep = 1
-        case .text:
-            s.sizeStep = 1
         case .redact:
             s.color = .black
-        case .rectangle:
-            s.cornerRadiusUnits = 0
+        case .counter:
+            s.sizeStep = ObjectStyle.defaultCounterSizeStep
         default:
             break
         }
@@ -52,30 +44,31 @@ struct ToolSettings: Codable, Equatable, Sendable {
 
     // MARK: Pixel values for a document
 
-    func lineWidth(for kind: ToolKind, unit: CGFloat) -> CGFloat {
-        let step = Self.thicknessMultipliers[Self.clamp(thicknessStep, Self.thicknessMultipliers.count)]
-        return unit * step * (kind == .highlighter ? Self.highlighterWidthFactor : 1)
+    func lineWidth(for kind: ToolKind, pixelSize: CGSize) -> CGFloat {
+        let width = ObjectStyle.lineWidth(step: thicknessStep, pixelSize: pixelSize)
+        return kind == .highlighter ? width * Self.highlighterWidthFactor : width
     }
 
-    func fontSize(for kind: ToolKind, unit: CGFloat) -> CGFloat {
-        let table = kind == .counter ? Self.counterSizeMultipliers : Self.textSizeMultipliers
-        return unit * table[Self.clamp(sizeStep, table.count)]
+    func fontSize(for kind: ToolKind, pixelSize: CGSize, scale: CGFloat) -> CGFloat {
+        kind == .counter
+            ? ObjectStyle.counterRadius(step: sizeStep, pixelSize: pixelSize)
+            : ObjectStyle.textFontSize(step: sizeStep, pixelSize: pixelSize, scale: scale)
     }
 
-    func objectStyle(for kind: ToolKind, unit: CGFloat) -> ObjectStyle {
+    func objectStyle(for kind: ToolKind, pixelSize: CGSize, scale: CGFloat) -> ObjectStyle {
         ObjectStyle(
             color: color,
             opacity: opacity,
-            lineWidth: lineWidth(for: kind, unit: unit),
+            lineWidth: lineWidth(for: kind, pixelSize: pixelSize),
             fill: fill,
             dash: dash,
-            fontSize: fontSize(for: kind, unit: unit),
+            fontSize: fontSize(for: kind, pixelSize: pixelSize, scale: scale),
             contrastOutline: contrastOutline
         )
     }
 
     /// Reads the settings back from an existing object (for the options bar).
-    static func from(_ object: AnnotationObject, unit: CGFloat, base: ToolSettings) -> ToolSettings {
+    static func from(_ object: AnnotationObject, pixelSize: CGSize, scale: CGFloat, base: ToolSettings) -> ToolSettings {
         let kind = ToolKind.forShape(object.shape)
         var s = base
         let style = object.style
@@ -85,9 +78,12 @@ struct ToolSettings: Codable, Equatable, Sendable {
         s.dash = style.dash
         s.contrastOutline = style.contrastOutline
         let widthFactor = kind == .highlighter ? highlighterWidthFactor : 1
-        s.thicknessStep = nearestIndex(style.lineWidth / max(unit * widthFactor, 0.0001), in: thicknessMultipliers)
-        let sizeTable = kind == .counter ? counterSizeMultipliers : textSizeMultipliers
-        s.sizeStep = nearestIndex(style.fontSize / max(unit, 0.0001), in: sizeTable)
+        s.thicknessStep = ObjectStyle.thicknessStep(forLineWidth: style.lineWidth / widthFactor, pixelSize: pixelSize)
+        let sizes: [CGFloat] = kind == .counter
+            ? ObjectStyle.counterSizeSteps.indices.map { ObjectStyle.counterRadius(step: $0, pixelSize: pixelSize) }
+            : ObjectStyle.textSizeSteps.indices.map { ObjectStyle.textFontSize(step: $0, pixelSize: pixelSize, scale: scale) }
+        s.sizeStep = nearestIndex(style.fontSize, in: sizes)
+        let unit = ObjectStyle.thicknessUnit(for: pixelSize)
         switch object.shape {
         case .arrow(let g): s.arrowStyle = g.style
         case .rectangle(_, let r): s.cornerRadiusUnits = r / max(unit, 0.0001)

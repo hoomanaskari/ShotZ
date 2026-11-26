@@ -47,7 +47,7 @@ import Foundation
         downPoint = event.point
         started = false
         let originals = model.selectedObjects
-        let bounds = originals.map(model.snapBounds(of:)).reduce(CGRect.null) { $0.union($1) }
+        let bounds = originals.map(model.frame(of:)).reduce(CGRect.null) { $0.union($1) }
         mode = .move(originals: originals, start: event.point, bounds: bounds, duplicate: event.modifiers.contains(.option))
     }
 
@@ -61,9 +61,7 @@ import Foundation
         switch self.mode {
         case .move(let originals, let start, let bounds, _):
             var d = CGVector(dx: event.point.x - start.x, dy: event.point.y - start.y)
-            if event.modifiers.contains(.shift) {
-                if abs(d.dx) > abs(d.dy) { d.dy = 0 } else { d.dx = 0 }
-            }
+            if event.modifiers.contains(.shift) { d = AngleSnapping.axisConstrained(d) }
             let ids = Set(model.selection)
             let snap = model.snapOffset(for: bounds.offsetBy(dx: d.dx, dy: d.dy), excluding: ids, modifiers: event.modifiers)
             if event.modifiers.contains(.shift) {
@@ -73,16 +71,16 @@ import Foundation
             }
             model.store.updateInteractive { doc in
                 for original in originals {
-                    doc[id: original.id]?.shape = original.shape.offset(by: d)
+                    doc[id: original.id] = ObjectGeometry.moved(original, by: d)
                 }
             }
         case .resize(let original, let handle, let grab):
             var p = CGPoint(x: event.point.x + grab.dx, y: event.point.y + grab.dy)
             p = model.snapPoint(p, excluding: [original.id], modifiers: event.modifiers)
-            let resized = HandleGeometryShim.apply(
-                handle, to: original, dragTo: p,
-                keepAspect: event.modifiers.contains(.shift), fromCenter: event.modifiers.contains(.option)
-            )
+            var mods: TransformModifiers = []
+            if event.modifiers.contains(.shift) { mods.insert(.constrain) }
+            if event.modifiers.contains(.option) { mods.insert(.fromCenter) }
+            let resized = ObjectGeometry.resized(original, handle: handle, to: p, modifiers: mods)
             model.store.updateInteractive { doc in doc[id: original.id] = resized }
         case nil:
             break
@@ -130,7 +128,7 @@ import Foundation
     func cursor(at point: CGPoint) -> ToolCursor? {
         guard let model else { return nil }
         if let (id, handle) = model.hitHandle(at: point), let object = model.document[id: id] {
-            let c = AnnotationRenderer.bounds(of: object)
+            let c = ObjectGeometry.frame(of: object)
             return .resize(angle: atan2(handle.position.y - c.midY, handle.position.x - c.midX))
         }
         if let hit = model.hitObject(at: point), model.selection.contains(hit) { return .move }

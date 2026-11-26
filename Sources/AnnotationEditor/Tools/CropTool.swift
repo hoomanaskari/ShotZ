@@ -50,7 +50,9 @@ import Foundation
         switch drag {
         case .handle(let kind, let original):
             let p = clamp(model.snapPoint(event.point, excluding: [], modifiers: event.modifiers))
-            var r = HandleGeometryShim.resize(original, kind, p, ratio != nil, event.modifiers.contains(.option))
+            var mods: TransformModifiers = ratio != nil ? [.constrain] : []
+            if event.modifiers.contains(.option) { mods.insert(.fromCenter) }
+            var r = ObjectGeometry.resizedRect(original, handle: kind, to: p, modifiers: mods)
             if let ratio { r = Self.constrain(r, ratio: ratio, handle: kind) }
             model.cropDraft = Self.clipped(r, ratio: ratio, to: bounds)
         case .move(let original, let start):

@@ -56,7 +56,7 @@ import ShotzCore
         optionsBar = OptionsBarView(model: model)
         toolbarController = EditorToolbar(model: model, commandMenu: commandMenu)
         keyHandler = EditorKeyHandler(model: model)
-        exporterOut = EditorExporter(exporter: env.exporter, settings: env.settings)
+        exporterOut = EditorExporter(exporter: env.exporter, settings: env.settings, base: base)
 
         let window = EditorWindow(
             contentRect: NSRect(origin: .zero, size: Self.initialContentSize(for: canvas.canvasLayout.extent, scale: store.document.scale)),

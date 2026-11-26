@@ -14,6 +14,7 @@ import ShotzCore
         var rendered: AnnotationObject
         var renderedFrame: CGRect
         var rasterScale: CGFloat
+        var quality: RenderQuality
     }
 
     /// Base-image pixel space (origin top-left). Hosts base, redactions, objects.
@@ -26,6 +27,7 @@ import ShotzCore
     private var entries: [AnnotationObject.ID: Entry] = [:]
     private var order: [AnnotationObject.ID] = []
     private var hidden: Set<AnnotationObject.ID> = []
+    private var quality: RenderQuality = .final
     /// Bitmap pixels per image pixel.
     private(set) var rasterScale: CGFloat = 1
     /// Counts bitmap renders (for performance logging and tests).
@@ -69,7 +71,10 @@ import ShotzCore
 
     /// Brings the layers in line with `document`. `changed` limits the work
     /// to those ids (nil = check everything).
-    func sync(_ document: AnnotationDocument, changed: Set<AnnotationObject.ID>? = nil, rerenderRedactions: Bool = false) {
+    /// `interactive`: a drag is in progress; redactions render at preview quality.
+    func sync(_ document: AnnotationDocument, changed: Set<AnnotationObject.ID>? = nil, rerenderRedactions: Bool = false,
+              interactive: Bool = false) {
+        quality = interactive ? .preview : .final
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
@@ -94,7 +99,7 @@ import ShotzCore
 
     private func update(_ object: AnnotationObject, document: AnnotationDocument, force: Bool) {
         if let entry = entries[object.id] {
-            if !force, entry.rendered == object, entry.rasterScale == rasterScale { return }
+            if !force, entry.rendered == object, entry.rasterScale == rasterScale, entry.quality == .final || quality == .preview { return }
             if !force, entry.rasterScale == rasterScale, let d = ShapeTranslation.delta(from: entry.rendered, to: object) {
                 // Moved only: shift the existing bitmap.
                 entry.layer.frame = entry.renderedFrame.offsetBy(dx: d.dx, dy: d.dy)
@@ -106,10 +111,6 @@ import ShotzCore
             let layer = CALayer()
             layer.actions = Self.noActions
             layer.anchorPoint = .zero
-            if case .highlight = object.shape {
-                // Multiply so the text underneath stays readable.
-                layer.compositingFilter = "multiplyBlendMode"
-            }
             layer.isHidden = hidden.contains(object.id)
             render(object, into: layer, document: document)
             // Placed by the order pass in `sync`.
@@ -121,7 +122,7 @@ import ShotzCore
         let frame = AnnotationRenderer.bounds(of: object).insetBy(dx: -2, dy: -2).integral
         guard !frame.isNull, !frame.isInfinite, frame.width > 0, frame.height > 0 else {
             layer.contents = nil
-            entries[object.id] = Entry(layer: layer, rendered: object, renderedFrame: .zero, rasterScale: rasterScale)
+            entries[object.id] = Entry(layer: layer, rendered: object, renderedFrame: .zero, rasterScale: rasterScale, quality: .final)
             return
         }
         let scale = min(rasterScale, Self.maxBitmapSide / frame.width, Self.maxBitmapSide / frame.height)
@@ -139,11 +140,38 @@ import ShotzCore
         ctx.translateBy(x: 0, y: CGFloat(h))
         ctx.scaleBy(x: CGFloat(w) / frame.width, y: -CGFloat(h) / frame.height)
         ctx.translateBy(x: -frame.minX, y: -frame.minY)
-        AnnotationRenderer.draw(object, in: ctx, document: document, base: base)
+        let q: RenderQuality = object.isRedaction ? quality : .final
+        AnnotationRenderer.draw(object, in: ctx, document: document, base: base, quality: q)
         layer.contents = ctx.makeImage()
         layer.frame = frame
+        updateBlend(object, layer: layer, document: document)
         renderCount += 1
-        entries[object.id] = Entry(layer: layer, rendered: object, renderedFrame: frame, rasterScale: rasterScale)
+        entries[object.id] = Entry(layer: layer, rendered: object, renderedFrame: frame, rasterScale: rasterScale, quality: q)
+    }
+
+    /// Highlights multiply over light content and screen over dark (AnnotationKit's rule);
+    /// a separate layer can only blend with the image through its compositing filter.
+    private func updateBlend(_ object: AnnotationObject, layer: CALayer, document: AnnotationDocument) {
+        guard case .highlight = object.shape else { return }
+        let mode = AnnotationRenderer.blendMode(for: object, document: document, base: base)
+        let filter = mode == .screen ? "screenBlendMode" : "multiplyBlendMode"
+        if (layer.compositingFilter as? String) != filter { layer.compositingFilter = filter }
+    }
+
+    /// After a drag: final-quality redactions and re-checked highlight blends.
+    func finishInteraction(_ document: AnnotationDocument) {
+        quality = .final
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        for object in document.objects {
+            guard let entry = entries[object.id] else { continue }
+            if entry.quality == .preview || entry.rendered != object {
+                render(object, into: entry.layer, document: document)
+            } else if case .highlight = object.shape {
+                updateBlend(object, layer: entry.layer, document: document)
+            }
+        }
+        CATransaction.commit()
     }
 
     // MARK: Zoom and visibility

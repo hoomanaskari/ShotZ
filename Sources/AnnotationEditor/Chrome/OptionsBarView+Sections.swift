@@ -5,7 +5,7 @@ import AppKit
 extension OptionsBarView {
     func addTextOptions(_ s: ToolSettings) {
         addColors(s)
-        add(controls.popup(["S", "M", "L", "XL", "XXL"], selected: s.sizeStep, label: String(localized: "Text size")) { [weak self] i in
+        add(controls.popup(ObjectStyle.textSizeSteps.map { "\(Int($0)) pt" }, selected: s.sizeStep, label: String(localized: "Text size")) { [weak self] i in
             self?.change(String(localized: "Text Size")) { $0.sizeStep = i }
         })
         let decorations = TextStyle.Decoration.allCases

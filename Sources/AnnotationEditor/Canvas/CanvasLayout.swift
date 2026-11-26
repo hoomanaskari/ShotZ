@@ -16,6 +16,7 @@ struct CanvasLayout: Equatable {
     var imageFrame: CGRect
 
     /// - Parameter editingCrop: the crop tool shows the whole image without background.
+    /// - Parameter opaqueBounds: `BaseImageProvider.visibleContentBounds()` (window captures).
     static func make(document: AnnotationDocument, editingCrop: Bool, opaqueBounds: CGRect? = nil) -> CanvasLayout {
         let full = CGRect(origin: .zero, size: document.pixelSize)
         if editingCrop {
@@ -23,8 +24,13 @@ struct CanvasLayout: Equatable {
         }
         let visible = document.imageRect
         if let bg = document.background {
-            let local = opaqueBounds.map { $0.offsetBy(dx: -visible.minX, dy: -visible.minY).intersection(CGRect(origin: .zero, size: visible.size)) }
-            let l = BackgroundLayoutShim.layout(imageSize: visible.size, style: bg, opaqueBounds: local)
+            // Same layout as the exported file (AnnotationRenderer).
+            var content: CGRect?
+            if bg.autoBalance, let opaque = opaqueBounds {
+                let r = opaque.intersection(visible)
+                if !r.isEmpty { content = r.offsetBy(dx: -visible.minX, dy: -visible.minY) }
+            }
+            let l = BackgroundLayout(document: document, visibleContent: content)
             return CanvasLayout(
                 extent: l.canvasSize,
                 offset: CGVector(dx: l.imageFrame.minX - visible.minX, dy: l.imageFrame.minY - visible.minY),

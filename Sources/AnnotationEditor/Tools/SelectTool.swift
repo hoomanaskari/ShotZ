@@ -41,9 +41,8 @@ import CoreGraphics
             width: abs(event.point.x - start.x), height: abs(event.point.y - start.y)
         )
         model.marquee = rect
-        let inside = model.document.objects
-            .filter { !model.hiddenObjectIDs.contains($0.id) && AnnotationRenderer.bounds(of: $0).intersects(rect) }
-            .map(\.id)
+        let inside = HitTesting.objects(intersecting: rect, in: model.document)
+            .filter { !model.hiddenObjectIDs.contains($0) }
         model.select(marqueeBase + inside.filter { !marqueeBase.contains($0) })
     }
 

@@ -24,9 +24,8 @@ import CoreGraphics
     override func finalize(_ object: AnnotationObject) -> AnnotationObject? {
         defer { points = [] }
         guard let model, points.count >= 2 else { return nil }
-        let tolerance = max(0.6 / max(model.pointsPerPixel, 0.0001), object.style.lineWidth * 0.08)
         var o = object
-        o.shape = shape(points.count > 2 ? StrokeSmoothingShim.smooth(points, tolerance: tolerance) : points)
+        o.shape = shape(StrokeSmoothing.smooth(points, minDistance: 1.5 / max(model.pointsPerPixel, 0.0001)))
         return o
     }
 

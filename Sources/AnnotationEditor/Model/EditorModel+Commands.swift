@@ -12,7 +12,7 @@ extension EditorModel {
         let ids = Set(selection)
         guard !ids.isEmpty else { return }
         store.perform(String(localized: "Delete")) { doc in
-            CounterNumberingShim.remove(ids, from: &doc)
+            doc.removeObjects(ids)
         }
         clearSelection()
     }
@@ -23,34 +23,30 @@ extension EditorModel {
         guard !ids.isEmpty else { return }
         store.perform(String(localized: "Move")) { doc in
             for id in ids {
-                guard let i = doc.index(of: id) else { continue }
-                doc.objects[i].shape = doc.objects[i].shape.offset(by: CGVector(dx: dx, dy: dy))
+                guard let object = doc[id: id] else { continue }
+                doc[id: id] = ObjectGeometry.moved(object, by: CGVector(dx: dx, dy: dy))
             }
         }
     }
 
     /// ⌘D: duplicates the selection, offset so the copy is visible.
     func duplicateSelection() {
-        let objects = selectedObjects
-        guard !objects.isEmpty else { return }
-        insert(objects, offset: CGVector(dx: unit * 4, dy: unit * 4), actionName: String(localized: "Duplicate"))
+        let ids = Set(selection)
+        guard !ids.isEmpty else { return }
+        var copies: [AnnotationObject.ID] = []
+        store.perform(String(localized: "Duplicate")) { doc in
+            copies = doc.duplicate(ids, offset: doc.defaultPasteOffset)
+        }
+        select(copies)
     }
 
     /// Inserts copies (fresh ids) on top and selects them.
     func insert(_ objects: [AnnotationObject], offset: CGVector, actionName: String) {
-        var copies: [AnnotationObject] = []
+        var copies: [AnnotationObject.ID] = []
         store.perform(actionName) { doc in
-            for object in objects {
-                var copy = object.duplicated(offsetBy: offset)
-                if case .counter(var c) = copy.shape {
-                    c.value = CounterNumberingShim.nextValue(in: doc, numbering: c.numbering, start: c.value)
-                    copy.shape = .counter(c)
-                }
-                doc.objects.append(copy)
-                copies.append(copy)
-            }
+            copies = doc.paste(objects, offset: offset)
         }
-        select(copies.map(\.id))
+        select(copies)
     }
 
     // MARK: Z-order
@@ -67,31 +63,12 @@ extension EditorModel {
         case .back: String(localized: "Send to Back")
         }
         store.perform(name) { doc in
-            doc.objects = Self.arranged(doc.objects, ids: ids, arrangement)
-        }
-    }
-
-    static func arranged(
-        _ objects: [AnnotationObject], ids: Set<AnnotationObject.ID>, _ arrangement: Arrangement
-    ) -> [AnnotationObject] {
-        var objs = objects
-        switch arrangement {
-        case .front:
-            return objs.filter { !ids.contains($0.id) } + objs.filter { ids.contains($0.id) }
-        case .back:
-            return objs.filter { ids.contains($0.id) } + objs.filter { !ids.contains($0.id) }
-        case .forward:
-            var i = objs.count - 2
-            while i >= 0 {
-                if ids.contains(objs[i].id), !ids.contains(objs[i + 1].id) { objs.swapAt(i, i + 1) }
-                i -= 1
+            switch arrangement {
+            case .forward: doc.bringForward(ids)
+            case .backward: doc.sendBackward(ids)
+            case .front: doc.bringToFront(ids)
+            case .back: doc.sendToBack(ids)
             }
-            return objs
-        case .backward:
-            for i in 1..<max(objs.count, 1) where ids.contains(objs[i].id) && !ids.contains(objs[i - 1].id) {
-                objs.swapAt(i, i - 1)
-            }
-            return objs
         }
     }
 
@@ -110,7 +87,7 @@ extension EditorModel {
     var displayedSettings: ToolSettings {
         if let first = selectedObjects.first {
             let kind = ToolKind.forShape(first.shape)
-            return ToolSettings.from(first, unit: unit, base: settings(for: kind))
+            return ToolSettings.from(first, pixelSize: document.pixelSize, scale: document.scale, base: settings(for: kind))
         }
         return settings(for: toolKind)
     }
@@ -124,15 +101,15 @@ extension EditorModel {
             notify(.toolSettings)
             return
         }
-        let unit = self.unit
         let library = self.library
         let apply: (inout AnnotationDocument) -> Void = { doc in
             for object in objects {
                 guard let i = doc.index(of: object.id) else { continue }
                 let kind = ToolKind.forShape(object.shape)
-                var s = ToolSettings.from(doc.objects[i], unit: unit, base: library.settings(for: kind))
+                var s = ToolSettings.from(doc.objects[i], pixelSize: doc.pixelSize, scale: doc.scale, base: library.settings(for: kind))
+                let before = s
                 change(&s)
-                doc.objects[i] = Self.restyled(doc.objects[i], with: s, kind: kind, unit: unit)
+                doc.objects[i] = Self.restyled(doc.objects[i], from: before, to: s, kind: kind, document: doc)
             }
         }
         if store.isInteractive { store.updateInteractive(apply) } else { store.perform(name, apply) }
@@ -140,14 +117,21 @@ extension EditorModel {
         notify(.toolSettings)
     }
 
-    /// Applies settings to an existing object, keeping its geometry.
-    static func restyled(_ object: AnnotationObject, with s: ToolSettings, kind: ToolKind, unit: CGFloat) -> AnnotationObject {
+    /// Applies changed settings to an existing object, keeping its geometry, and
+    /// keeping sizes that were set freely (handles) unless their step changed.
+    static func restyled(
+        _ object: AnnotationObject, from before: ToolSettings, to s: ToolSettings, kind: ToolKind, document: AnnotationDocument
+    ) -> AnnotationObject {
         var o = object
-        o.style = s.objectStyle(for: kind, unit: unit)
-        // Keep a font size that was scaled freely with the corner handles
-        // unless the size step itself changed.
-        let oldStep = ToolSettings.from(object, unit: unit, base: s).sizeStep
-        if oldStep == s.sizeStep { o.style.fontSize = object.style.fontSize }
+        let fresh = s.objectStyle(for: kind, pixelSize: document.pixelSize, scale: document.scale)
+        o.style.color = fresh.color
+        o.style.opacity = fresh.opacity
+        o.style.fill = fresh.fill
+        o.style.dash = fresh.dash
+        o.style.contrastOutline = fresh.contrastOutline
+        if s.thicknessStep != before.thicknessStep { o.style.lineWidth = fresh.lineWidth }
+        if s.sizeStep != before.sizeStep { o.style.fontSize = fresh.fontSize }
+        let unit = ObjectStyle.thicknessUnit(for: document.pixelSize)
         switch o.shape {
         case .arrow(var g):
             if g.style != s.arrowStyle {
