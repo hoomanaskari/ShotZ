@@ -274,6 +274,9 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
     folder, builds a `CaptureResult` (kind area, real pixel size, scale 2, main
     display), adds it to history and presents it in the stack.
   - `--debug-edit <png>`: opens the image in the editor (`openEditor(imageAt:)`).
+  - `--debug-snapshot-ui <dir>`: renders every Settings tab, onboarding step
+    and the status item to PNGs in `<dir>` (plus the status menu as text),
+    for reviewing the shell UI without clicking through it.
   - Example: `swift scripts/make-sample.swift 5120 2880 build/sample-5k.png &&
     scripts/run.sh --dev-hotkeys --debug-present build/sample-5k.png`.
 
@@ -315,5 +318,8 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   No `print`. No analytics, no network.
 - User-facing strings via `String(localized:)`; English only for now.
 - Original assets only. Never copy icons, sounds, text or layouts from other apps.
+- Testing must not disturb the person using the Mac: never post synthetic
+  global key or mouse events and never bring Shotz to the front uninvited;
+  drive features through debug launch flags and in-process hooks instead.
 - Git: small commits, imperative subject (`QuickAccess: add drag-out`), one
   branch per engineer (`eng/<area>`), rebase on `main`, never push.
