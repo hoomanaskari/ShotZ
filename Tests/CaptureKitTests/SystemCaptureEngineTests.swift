@@ -1,4 +1,5 @@
 import CoreGraphics
+import ImageIO
 import Foundation
 import Testing
 @testable import CaptureKit
@@ -68,6 +69,52 @@ final class SystemCaptureEngineTests {
         #expect(try visibleFiles() == ["Test 2027.png"])
         #expect(try incomingFiles().isEmpty)
         #expect(try recordedArgs().hasPrefix("-D 2 -x -t png "))
+    }
+
+    /// A PNG shaped like a window capture: rounded opaque body on a clear canvas
+    /// (`margin` > 0 adds a shadow-like transparent border).
+    static func writeWindowLikePNG(width: Int, height: Int, margin: CGFloat, to url: URL) throws {
+        guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { throw CaptureError.failed("ctx") }
+        ctx.clear(CGRect(x: 0, y: 0, width: width, height: height))
+        let body = CGRect(x: 0, y: 0, width: width, height: height).insetBy(dx: margin, dy: margin)
+        ctx.addPath(CGPath(roundedRect: body, cornerWidth: 20, cornerHeight: 20, transform: nil))
+        ctx.setFillColor(CGColor(gray: 0.9, alpha: 1))
+        ctx.fillPath()
+        guard let image = ctx.makeImage(),
+              let dest = CGImageDestinationCreateWithURL(url as CFURL, "public.png" as CFString, 1, nil) else { throw CaptureError.failed("png") }
+        CGImageDestinationAddImage(dest, image, nil)
+        guard CGImageDestinationFinalize(dest) else { throw CaptureError.failed("finalize") }
+    }
+
+    @Test func areaCaptureWithAlphaChannelStaysArea() async throws {
+        // Opaque edge to edge, but the PNG has an alpha channel.
+        let e = engine(try tool("cp \"\(fixture.path)\" \"$OUT\""))
+        let result = try #require(try await e.capture(.area, options: options))
+        #expect(result.kind == .area)
+    }
+
+    @Test(arguments: [CGFloat(0), 40])
+    func windowLikeCaptureInAreaModeIsWindow(margin: CGFloat) async throws {
+        let window = root.appending(path: "window-\(Int(margin)).png")
+        try Self.writeWindowLikePNG(width: 400, height: 300, margin: margin, to: window)
+        let e = engine(try tool("cp \"\(window.path)\" \"$OUT\""))
+        #expect(try #require(try await e.capture(.area, options: options)).kind == .window)
+        #expect(try #require(try await e.capture(.allInOne, options: options)).kind == .window)
+        // Fullscreen never turns into a window, whatever the pixels.
+        #expect(try #require(try await e.capture(.fullscreen, options: options)).kind == .fullscreen)
+    }
+
+    @Test func shadowFlagReachesTheTool() async throws {
+        let e = engine(try tool("cp \"\(fixture.path)\" \"$OUT\""))
+        var opts = options
+        opts.includeWindowShadow = false
+        _ = try await e.capture(.window, options: opts)
+        #expect(try recordedArgs().hasPrefix("-i -W -o -x -t png "))
+        opts.includeWindowShadow = true
+        _ = try await e.capture(.window, options: opts)
+        #expect(try recordedArgs().hasPrefix("-i -W -x -t png "))
     }
 
     @Test func collisionAppendsCounter() async throws {

@@ -17,7 +17,7 @@ import ShotzCore
     private let focusRecorder = RecordingFocusHost()
 
     static func makeIfRequested(controller: QuickAccessController) -> StackSelfTest? {
-        guard let path = UserDefaults.standard.string(forKey: "QuickAccessSelfTest"), !path.isEmpty else { return nil }
+        guard let path = DevProfile.defaults.string(forKey: "QuickAccessSelfTest"), !path.isEmpty else { return nil }
         return StackSelfTest(controller: controller, dir: URL(filePath: path, directoryHint: .isDirectory))
     }
 
@@ -76,6 +76,7 @@ import ShotzCore
         let withBackdrop = qa.cards.values.filter(\.hasBackdrop).count
         check("blurred backdrop on letterboxed cards only", !backdrops.isEmpty && backdrops.allSatisfy { $0 }, "\(withBackdrop) of \(backdrops.count) cards")
         snapshot("01-initial")
+        await captureExclusion()
         await hoverAndStyle()
         await focusRules()
         await drag()
@@ -101,6 +102,18 @@ import ShotzCore
         let byPosition = visibleNewestFirst.map(\.capture.id)
         let byModel = Array(qa.model.order.reversed().prefix(byPosition.count))
         check(name, byPosition == byModel && !byPosition.isEmpty, "\(byPosition.count) visible, newest at bottom")
+    }
+
+    private func captureExclusion() async {
+        guard StackCaptureProbe.requested else { return note("capture exclusion not checked (add -QuickAccessSelfTestCapture YES)") }
+        guard let card = newest, let panel = card.window as? NSPanel else { return check("capture probe", false, "no card") }
+        guard panel.sharingType == .none else { return note("capture exclusion skipped: -QuickAccessDebug makes the stack shareable") }
+        guard let r = await StackCaptureProbe.run(panel: panel, cardFrameInPanel: card.frame, output: dir.appending(path: "capture-probe.png")) else {
+            return note("capture exclusion skipped: no Screen Recording permission or capture failed")
+        }
+        check("capture probe saw its own backdrop", r.backgroundSeen)
+        check("system capture does not include the stack", r.backgroundSeen && !r.cardSeen)
+        note("region capture PNG has alpha channel: \(r.pngHasAlpha) (area-style capture; kind heuristic checks corners, not the channel)")
     }
 
     private func hoverAndStyle() async {
