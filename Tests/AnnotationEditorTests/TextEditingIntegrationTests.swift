@@ -176,4 +176,15 @@ struct TextEditingIntegrationTests {
         #expect(!a.isEmpty)
         #expect(a != b)
     }
+
+    /// Regression: a backing-scale change during window setup reached the zoom menu before it
+    /// had items, and `NSMenu.item(at:)` raised (signal 6 in CI on some display setups).
+    @Test func windowNotificationsBeforeSetupAreHarmless() throws {
+        let c = try makeController()
+        #expect(c.isSetUp)
+        #expect(c.window?.delegate === c)
+        c.zoomMenu.menu?.removeAllItems()
+        c.updateZoomTitle() // must not raise
+        c.windowDidChangeBackingProperties(Notification(name: NSWindow.didChangeBackingPropertiesNotification))
+    }
 }

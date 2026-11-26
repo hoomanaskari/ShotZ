@@ -86,7 +86,8 @@ extension EditorWindowController {
 
     func updateZoomTitle() {
         let title = "\(Int((zoom * 100).rounded()))%"
-        zoomMenu.item(at: 0)?.title = title
+        // `item(at:)` raises for an empty menu (e.g. a backing change during window setup).
+        if zoomMenu.numberOfItems > 0 { zoomMenu.item(at: 0)?.title = title }
         zoomMenu.setTitle(title)
     }
 }

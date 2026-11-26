@@ -192,6 +192,9 @@ import ShotzCore
 
     func isOpen(_ id: CaptureResult.ID) -> Bool { windows[.capture(id)] != nil }
 
+    /// The open editor of an image opened from a file, if any.
+    func controller(forFile url: URL) -> EditorWindowController? { windows[.file(url.standardizedFileURL)] }
+
     /// The open editor of a capture, if any.
     func controller(for id: CaptureResult.ID) -> EditorWindowController? { windows[.capture(id)] }
 }
