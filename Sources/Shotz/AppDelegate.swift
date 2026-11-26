@@ -2,17 +2,31 @@ import AppKit
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
+    private var termSource: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let coordinator = AppCoordinator()
         self.coordinator = coordinator
         coordinator.start()
+        installTermHandler()
+    }
+
+    /// SIGTERM (logout, `kill`, scripts/run.sh) quits through AppKit so the
+    /// coordinator's clean shutdown runs.
+    private func installTermHandler() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler {
+            MainActor.assumeIsolated { NSApp.terminate(nil) }
+        }
+        source.resume()
+        termSource = source
     }
 
     /// Launching Shotz again (Finder/Spotlight) opens Settings, so the app
     /// is reachable even with the menu-bar icon hidden.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        coordinator?.openSettings()
+        coordinator?.handleReopen()
         return false
     }
 

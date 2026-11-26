@@ -1,12 +1,14 @@
 import Foundation
 
 /// Debug-only launch arguments for exercising features without Screen Recording:
-/// `--debug-present <png> [<png>...]` and `--debug-edit <png>`.
+/// `--debug-present <png> [<png>...]`, `--debug-edit <png>` and
+/// `--debug-snapshot-ui <dir>` (renders Settings/onboarding/status item to PNGs).
 struct DebugLaunchArguments: Equatable {
     var present: [URL] = []
     var edit: URL?
+    var snapshotUI: URL?
 
-    var isEmpty: Bool { present.isEmpty && edit == nil }
+    var isEmpty: Bool { present.isEmpty && edit == nil && snapshotUI == nil }
 
     init(
         arguments: [String] = Array(ProcessInfo.processInfo.arguments.dropFirst()),
@@ -28,6 +30,12 @@ struct DebugLaunchArguments: Equatable {
                 i += 1
                 if i < arguments.endIndex, !arguments[i].hasPrefix("-") {
                     edit = url(arguments[i])
+                    i += 1
+                }
+            case "--debug-snapshot-ui":
+                i += 1
+                if i < arguments.endIndex, !arguments[i].hasPrefix("-") {
+                    snapshotUI = URL(filePath: arguments[i], directoryHint: .isDirectory, relativeTo: currentDirectory).standardizedFileURL
                     i += 1
                 }
             default:
