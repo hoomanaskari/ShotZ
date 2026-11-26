@@ -3,6 +3,28 @@
     <channel>
         <title>ShotZ</title>
         <item>
+            <title>0.1.1</title>
+            <pubDate>Thu, 26 Nov 2026 16:43:16 -0500</pubDate>
+            <link>https://github.com/hoomanaskari/ShotZ</link>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# ShotZ 0.1.1
+
+A small follow-up to the first release.
+
+- New app icon.
+- Clicking a switch, button or other control no longer leaves a blue focus ring around it. The ring now appears only when you move between controls with the keyboard (Tab).
+- The Screen Recording step now explains what to do if ShotZ appears twice in System Settings after updating from an earlier build.
+- Settings ▸ Advanced shows the new version, 0.1.1.
+- Internal: release checks for the signing team, and safer tests.
+]]></description>
+            <enclosure url="https://github.com/hoomanaskari/ShotZ/releases/download/v0.1.1/ShotZ-0.1.1.zip" length="6691612" type="application/octet-stream" sparkle:edSignature="7DOeca/JNMpuKnBYB7L/ZAnl0Hjh+WO82/TpjpnXHmlqP89OgWimZaM8ty9rHQr8gbWmOT0ylQiKDjnXr/CTDQ=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/hoomanaskari/ShotZ/releases/download/v0.1.1/ShotZ2-1.delta" sparkle:deltaFrom="1" length="1985226" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976432" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="05XDGPYTz+dvZCdpQt6HMFSKmsSWizQjjuVda9UB3Ozbs2tOxZKlO9HKyxQHIYIQLEqY/ILSMSqlNa9o7hDnDg=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>0.1.0</title>
             <pubDate>Thu, 26 Nov 2026 15:23:07 -0500</pubDate>
             <link>https://github.com/hoomanaskari/ShotZ</link>
