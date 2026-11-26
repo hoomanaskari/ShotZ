@@ -26,8 +26,8 @@ import ShotzCore
     private let recordExport: @Sendable (CaptureResult.ID, URL) async -> Void
     let log = ShotzLog.logger("AnnotationEditor")
     /// Where a capture's flattened, annotated PNG goes when its editor closes
-    /// (`HistoryStore.renderedURL(for:)`); nil = no rendering.
-    var renderedURL: ((CaptureResult.ID) -> URL)?
+    /// (`HistoryStore.renderedURL(for:)`).
+    var renderedURL: (CaptureResult.ID) -> URL
     /// False in unit tests: windows are created but never shown.
     var presentsWindows = true
 
@@ -41,7 +41,7 @@ import ShotzCore
         documentURL: @escaping (CaptureResult.ID) -> URL,
         previousExport: @escaping @Sendable (CaptureResult.ID) async -> URL? = { _ in nil },
         recordExport: @escaping @Sendable (CaptureResult.ID, URL) async -> Void = { _, _ in },
-        renderedURL: ((CaptureResult.ID) -> URL)? = nil
+        renderedURL: @escaping (CaptureResult.ID) -> URL = EditorCoordinator.temporaryRenderedURL
     ) {
         self.renderedURL = renderedURL
         self.settings = settings
@@ -185,7 +185,15 @@ import ShotzCore
 
     var openWindowCount: Int { windows.count }
 
+    /// Fallback until the app passes history's location: the temp folder.
+    public nonisolated static func temporaryRenderedURL(_ id: CaptureResult.ID) -> URL {
+        ShotzPaths.default.temporary.appending(path: "Rendered/\(id.uuidString).png", directoryHint: .notDirectory)
+    }
+
     func isOpen(_ id: CaptureResult.ID) -> Bool { windows[.capture(id)] != nil }
+
+    /// The open editor of an image opened from a file, if any.
+    func controller(forFile url: URL) -> EditorWindowController? { windows[.file(url.standardizedFileURL)] }
 
     /// The open editor of a capture, if any.
     func controller(for id: CaptureResult.ID) -> EditorWindowController? { windows[.capture(id)] }

@@ -7,13 +7,15 @@ import AppKit
     @objc func fire(_ sender: NSControl) { handler(sender) }
 }
 
-/// Builders for the small, consistent controls of the options bar and background panel.
-@MainActor final class OptionControls {
+/// The one place the editor chrome creates its controls (toolbar, options bar, background
+/// panel). Every surface asks this factory, so the whole chrome can move to the shared
+/// ShotzUI controls by changing only this type.
+@MainActor final class EditorControls {
     private(set) var actions: [ControlAction] = []
 
     func reset() { actions.removeAll() }
 
-    private func bind(_ control: NSControl, _ handler: @escaping (NSControl) -> Void) {
+    func bind(_ control: NSControl, _ handler: @escaping (NSControl) -> Void) {
         let a = ControlAction(handler)
         actions.append(a)
         control.target = a
@@ -42,6 +44,20 @@ import AppKit
     func toggleChip(_ glyph: EditorGlyph, label: String, on: Bool, _ handler: @escaping (Bool) -> Void) -> GlyphSegmentedControl {
         let c = GlyphSegmentedControl(style: .options,
                                       segments: [.init(image: EditorGlyphs.image(glyph, label: label), title: nil, label: label, shortcut: nil)],
+                                      selected: on ? 0 : nil, label: label)
+        c.setAccessibilityRole(.checkBox)
+        var state = on
+        c.onSelect = { [weak c] _ in
+            state.toggle()
+            c?.selectedIndex = state ? 0 : nil
+            handler(state)
+        }
+        return c
+    }
+
+    /// A labelled on/off chip ("Outline") in the picker style.
+    func toggleChip(title: String, label: String, on: Bool, _ handler: @escaping (Bool) -> Void) -> GlyphSegmentedControl {
+        let c = GlyphSegmentedControl(style: .options, segments: [.init(image: nil, title: title, label: label, shortcut: nil)],
                                       selected: on ? 0 : nil, label: label)
         c.setAccessibilityRole(.checkBox)
         var state = on
@@ -108,9 +124,15 @@ import AppKit
         return b
     }
 
+    func prominentButton(_ title: String, _ handler: @escaping () -> Void) -> NSButton {
+        let b = ProminentButton(title: title, image: nil, target: nil, action: nil, height: 22)
+        bind(b) { _ in handler() }
+        return b
+    }
+
     func button(_ title: String, _ handler: @escaping () -> Void) -> NSButton {
         let b = NSButton(title: title, target: nil, action: nil)
-        b.controlSize = .small
+        b.controlSize = .regular
         b.bezelStyle = .push
         bind(b) { _ in handler() }
         return b
@@ -120,11 +142,19 @@ import AppKit
         let p = NSPopUpButton(frame: .zero, pullsDown: false)
         p.controlSize = .small
         p.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        p.addItems(withTitles: titles)
-        p.selectItem(at: selected)
+        // Items carry their index as a tag; selection is read from the item, not its position.
+        for (i, title) in titles.enumerated() {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.tag = i
+            p.menu?.addItem(item)
+        }
+        p.selectItem(withTag: selected)
         p.setAccessibilityLabel(label)
         p.toolTip = label
-        bind(p) { handler(($0 as? NSPopUpButton)?.indexOfSelectedItem ?? 0) }
+        bind(p) { control in
+            guard let tag = (control as? NSPopUpButton)?.selectedItem?.tag else { return }
+            handler(tag)
+        }
         return p
     }
 
@@ -134,6 +164,7 @@ import AppKit
     func numberField(_ value: Int, width: CGFloat = 54, label: String, _ handler: @escaping (Int) -> Void) -> NSTextField {
         let f = NSTextField(string: String(value))
         f.controlSize = .small
+        f.bezelStyle = .roundedBezel
         f.font = .monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
         f.alignment = .right
         f.widthAnchor.constraint(equalToConstant: width).isActive = true

@@ -147,7 +147,7 @@ import AppKit
         slider.widthAnchor.constraint(equalToConstant: width).isActive = true
         addArrangedSubview(slider)
         valueLabel.font = .monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
-        valueLabel.textColor = .secondaryLabelColor
+        valueLabel.textColor = .labelColor
         valueLabel.alignment = .right
         valueLabel.widthAnchor.constraint(equalToConstant: 34).isActive = true
         addArrangedSubview(valueLabel)

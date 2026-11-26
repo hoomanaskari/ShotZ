@@ -150,23 +150,9 @@ extension EditorWindowController: EditorCommands, NSMenuItemValidation {
     /// A brief confirmation over the canvas.
     func flash(_ text: String) {
         guard let host = overlay.superview else { return }
-        let label = NSTextField(labelWithString: text)
-        label.font = .systemFont(ofSize: 13, weight: .semibold)
-        label.textColor = .labelColor
-        let box = NSVisualEffectView()
-        box.material = .hudWindow
-        box.state = .active
-        box.wantsLayer = true
-        box.layer?.cornerRadius = 10
-        box.translatesAutoresizingMaskIntoConstraints = false
-        label.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(label)
+        let box = EditorControls.toast(text)
         host.addSubview(box)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: 16),
-            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -16),
-            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 8),
-            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -8),
             box.centerXAnchor.constraint(equalTo: host.centerXAnchor),
             box.bottomAnchor.constraint(equalTo: host.bottomAnchor, constant: -24),
         ])

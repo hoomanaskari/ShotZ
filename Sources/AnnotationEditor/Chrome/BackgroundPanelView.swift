@@ -6,7 +6,7 @@ import AppKit
 @MainActor final class BackgroundPanelView: NSView {
     private let model: EditorModel
     private let presets: BackgroundPresets
-    private let controls = OptionControls()
+    private let controls = EditorControls()
     private let stack = NSStackView()
     private var rebuildScheduled = false
     static let width: CGFloat = 288
@@ -85,27 +85,16 @@ import AppKit
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         controls.reset()
 
-        let title = NSTextField(labelWithString: String(localized: "Background"))
-        title.font = .systemFont(ofSize: NSFont.systemFontSize + 1, weight: .semibold)
-        let toggle = NSSwitch()
-        toggle.state = style == nil ? .off : .on
-        toggle.controlSize = .small
-        toggle.setAccessibilityLabel(String(localized: "Background on"))
-        let toggleAction = ControlAction { [weak self] c in
+        let title = EditorControls.panelTitle(String(localized: "Background"))
+        let toggle = controls.panelSwitch(on: style != nil, label: String(localized: "Background on")) { [weak self] on in
             guard let self else { return }
-            self.set((c as? NSSwitch)?.state == .on ? self.presets.last : nil)
+            self.set(on ? self.presets.last : nil)
         }
-        toggle.target = toggleAction
-        toggle.action = #selector(ControlAction.fire(_:))
-        retained = [toggleAction]
         stack.addArrangedSubview(row([title, spacer(), toggle]))
 
         guard let s = style else {
-            let note = NSTextField(wrappingLabelWithString: String(localized: "Wraps the image in padding, a fill and a shadow for presenting."))
-            note.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-            note.textColor = .secondaryLabelColor
-            note.preferredMaxLayoutWidth = Self.contentWidth
-            stack.addArrangedSubview(note)
+            stack.addArrangedSubview(EditorControls.note(String(localized: "Wraps the image in padding, a fill and a shadow for presenting."),
+                                                         width: Self.contentWidth))
             return
         }
         divider()
@@ -142,7 +131,6 @@ import AppKit
         addPresets(s)
     }
 
-    private var retained: [ControlAction] = []
 
     /// Panel layout: a right-aligned label column and a control column.
     static let labelWidth: CGFloat = 56
@@ -150,11 +138,7 @@ import AppKit
     static var sliderWidth: CGFloat { contentWidth - labelWidth - 8 - 40 }
 
     private func formRow(_ label: String, _ control: NSView) {
-        let l = NSTextField(labelWithString: label)
-        l.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        l.textColor = .secondaryLabelColor
-        l.alignment = .right
-        l.widthAnchor.constraint(equalToConstant: Self.labelWidth).isActive = true
+        let l = EditorControls.formLabel(label, width: Self.labelWidth)
         let r = NSStackView(views: [l, control])
         r.orientation = .horizontal
         r.spacing = 8
@@ -190,7 +174,7 @@ import AppKit
         })
         switch s.fill {
         case .none:
-            formRow("", OptionControls.caption(String(localized: "Transparent around the image")))
+            formRow("", EditorControls.caption(String(localized: "Transparent around the image")))
         case .solid(let c):
             formRow(String(localized: "Colour"), controls.colorWell(NSColor(cgColor: c.cgColor) ?? .white, label: String(localized: "Fill colour")) { [weak self] color, final in
                 self?.update(final: final) { $0.fill = .solid(Self.rgba(color)) }
@@ -276,7 +260,7 @@ import AppKit
         popup.isEnabled = !saved.isEmpty
         let save = controls.button(String(localized: "Save…")) { [weak self] in self?.promptSave(s) }
         let delete = controls.button(String(localized: "Delete…")) { [weak self, weak popup] in
-            guard let self, let i = popup?.indexOfSelectedItem, i >= 0, i < saved.count else { return }
+            guard let self, let i = popup?.selectedItem?.tag, i >= 0, i < saved.count else { return }
             self.confirmDelete(saved[i].name)
         }
         delete.isEnabled = !saved.isEmpty

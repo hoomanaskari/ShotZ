@@ -176,7 +176,7 @@ import ShotzCore
                 log.error("SCRIPT capture needs <png> <uuid> <document.json>")
                 break
             }
-            let capture = CaptureResult(id: id, fileURL: URL(filePath: args[0]), displayName: "Shotz harness capture", kind: .area,
+            let capture = CaptureResult(id: id, fileURL: URL(filePath: args[0]), displayName: "ShotZ harness capture", kind: .area,
                                         pixelSize: info.pixelSize, scale: info.scale, displayID: 0)
             if let opened = coordinator?.openEditor(for: capture, documentURL: URL(filePath: args[2])) {
                 controller = opened

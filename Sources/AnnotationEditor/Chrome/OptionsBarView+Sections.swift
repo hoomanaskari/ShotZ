@@ -5,9 +5,13 @@ import AppKit
 extension OptionsBarView {
     func addTextOptions(_ s: ToolSettings) {
         addColors(s)
-        add(controls.popup(ObjectStyle.textSizeSteps.map { "\(Int($0)) pt" }, selected: s.sizeStep, label: String(localized: "Text size")) { [weak self] i in
+        // Text size as a picker of point sizes (same control as every other option).
+        let sizes = controls.segmented(titles: ObjectStyle.textSizeSteps.map { "\(Int($0))" }, selected: s.sizeStep,
+                                       label: String(localized: "Text size in points")) { [weak self] i in
             self?.change(String(localized: "Text Size")) { $0.sizeStep = i }
-        })
+        }
+        sizes.toolTip = String(localized: "Text size (points)")
+        add(sizes)
         let decorations = TextStyle.Decoration.allCases
         add(controls.segmented(
             images: decorations.map { EditorGlyphs.image(.textDecoration($0)) },
@@ -20,7 +24,7 @@ extension OptionsBarView {
             self?.change(String(localized: "Bold")) { $0.textStyle.isBold = on }
         })
         let alignments = TextStyle.Alignment.allCases
-        add(controls.segmented(
+        addOptional(controls.segmented(
             images: alignments.map { EditorGlyphs.image(.textAlign($0)) },
             labels: [String(localized: "Align left"), String(localized: "Align centre"), String(localized: "Align right")],
             selected: alignments.firstIndex(of: s.textStyle.alignment)
@@ -46,7 +50,7 @@ extension OptionsBarView {
             addColors(s)
         } else {
             add(controls.sliderRow(value: s.redactMode.strength, min: 0.2, max: 1, width: 90, label: String(localized: "Strength"),
-                                   glyph: .strength, format: OptionControls.percent) { [weak self] v, final in
+                                   glyph: .strength, format: EditorControls.percent) { [weak self] v, final in
                 self?.change(String(localized: "Strength"), final: final) { $0.redactMode.strength = v }
             })
         }
@@ -54,12 +58,12 @@ extension OptionsBarView {
 
     func addCropControls() {
         let aspects = CropAspect.allCases
-        add(OptionControls.caption(String(localized: "Aspect")))
-        add(controls.popup(aspects.map(\.title), selected: aspects.firstIndex(of: model.cropAspect) ?? 0,
-                                  label: String(localized: "Crop aspect")) { [weak self] i in
+        add(controls.segmented(titles: aspects.map(\.title), selected: aspects.firstIndex(of: model.cropAspect),
+                               label: String(localized: "Crop aspect")) { [weak self] i in
             self?.model.cropAspect = aspects[i]
             self?.onCropAspect?()
         })
+        add(EditorControls.separator())
         let draft = model.cropDraft ?? model.imageBounds
         let w = controls.numberField(Int(draft.width), label: String(localized: "Width in pixels")) { [weak self] v in
             self?.onCropSize?(CGFloat(v), nil)
@@ -68,18 +72,17 @@ extension OptionsBarView {
             self?.onCropSize?(nil, CGFloat(v))
         }
         setCropFields(w, h)
+        add(EditorControls.caption("W"))
         add(w)
-        add(OptionControls.caption("×"))
+        add(EditorControls.caption("H"))
         add(h)
-        add(OptionControls.caption(String(localized: "px")))
-        add(OptionControls.separator())
+        add(EditorControls.separator())
         let cancel = controls.button(String(localized: "Cancel")) { [weak self] in self?.onCropCancel?() }
-        let apply = controls.button(String(localized: "Apply Crop")) { [weak self] in self?.onCropApply?() }
-        apply.keyEquivalent = ""
-        apply.bezelColor = .controlAccentColor
+        cancel.toolTip = String(localized: "Cancel  Esc")
+        let apply = controls.prominentButton(String(localized: "Apply")) { [weak self] in self?.onCropApply?() }
+        apply.toolTip = String(localized: "Apply crop  Return")
         add(cancel)
         add(apply)
-        add(OptionControls.caption(String(localized: "Return applies, Esc cancels")))
     }
 }
 

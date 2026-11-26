@@ -46,7 +46,8 @@ import ShotzCore
     let keyHandler: EditorKeyHandler
     let exporterOut: EditorExporter
     let commandMenu = EditorMenu.build()
-    let zoomMenu = NSPopUpButton(frame: .zero, pullsDown: true)
+    let zoomMenu = EditorControls.zoomMenu()
+    var zoomTitleItem: NSMenuItem?
     private(set) var backgroundPanel: BackgroundPanelView?
     let mainSplit = NSStackView()
     var changeTask: Task<Void, Never>?
@@ -56,6 +57,8 @@ import ShotzCore
     var lastFitZoom: CGFloat = -1
     var isRecentering = false
     var thumbnailWork: DispatchWorkItem?
+    /// True once the window, content and bindings exist.
+    var isSetUp = false
     let log = ShotzLog.logger("AnnotationEditor")
 
     init(store: DocumentStore, image: CGImage, base: BaseImageProvider, title: String, documentURL: URL?, env: EditorEnvironment) {
@@ -85,6 +88,10 @@ import ShotzCore
         setUpWindow(window)
         setUpContent(window)
         bind()
+        // Last: window notifications (a backing-scale change can arrive while the window is
+        // being created) must only reach a fully built controller.
+        window.delegate = self
+        isSetUp = true
         if ProcessInfo.processInfo.environment["SHOTZ_EDITOR_PERF"] == "1" { perf = PerfProbe(view: canvas, log: log) }
     }
 
@@ -110,7 +117,6 @@ import ShotzCore
         window.commandMenu = commandMenu
         window.undoTarget = self
         window.autorecalculatesKeyViewLoop = true
-        window.delegate = self
         window.tabbingMode = .disallowed
         window.setFrameAutosaveName("")
         window.center()
@@ -197,7 +203,10 @@ import ShotzCore
         window?.makeFirstResponder(canvas.text.isEditingText ? window?.firstResponder : canvas)
     }
 
-    func windowDidChangeBackingProperties(_ notification: Notification) { rasterizeForZoom() }
+    func windowDidChangeBackingProperties(_ notification: Notification) {
+        guard isSetUp else { return }
+        rasterizeForZoom()
+    }
 
     /// Title-bar proxy icon: drag the flattened image, not the private original.
     func window(_ window: NSWindow, shouldDragDocumentWith event: NSEvent, from dragImageLocation: NSPoint, with pasteboard: NSPasteboard) -> Bool {

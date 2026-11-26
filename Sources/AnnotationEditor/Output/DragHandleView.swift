@@ -39,8 +39,8 @@ import AppKit
         path.lineWidth = 1
         path.stroke()
         // Grip.
-        let grip = EditorGlyphs.image(.drag, size: 14)
-        let gripRect = NSRect(x: 6, y: r.midY - 7, width: 14, height: 14)
+        let grip = EditorGlyphs.image(.drag, size: 16)
+        let gripRect = NSRect(x: 5, y: r.midY - 8, width: 16, height: 16)
         NSImage(size: grip.size, flipped: false) { rr in
             grip.draw(in: rr)
             NSColor.tertiaryLabelColor.set()

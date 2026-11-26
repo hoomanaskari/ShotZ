@@ -37,8 +37,12 @@ import ShotzCore
         ])
         view = container
         super.init()
-        formatPopup.addItems(withTitles: ["PNG", "JPEG", "HEIC"])
-        formatPopup.selectItem(at: ImageFormat.allCases.firstIndex(of: format) ?? 0)
+        for f in ImageFormat.allCases {
+            let item = NSMenuItem(title: f.rawValue.uppercased(), action: nil, keyEquivalent: "")
+            item.representedObject = f.rawValue
+            formatPopup.menu?.addItem(item)
+        }
+        formatPopup.selectItem(at: formatPopup.indexOfItem(withRepresentedObject: format.rawValue))
         formatPopup.target = self
         formatPopup.action = #selector(formatChanged)
         scaleControl.selectedSegment = 1
@@ -46,7 +50,7 @@ import ShotzCore
     }
 
     @objc private func formatChanged() {
-        format = ImageFormat.allCases[max(formatPopup.indexOfSelectedItem, 0)]
+        format = (formatPopup.selectedItem?.representedObject as? String).flatMap(ImageFormat.init(rawValue:)) ?? .png
         panel?.allowedContentTypes = [format.utType]
         if let panel {
             let base = (panel.nameFieldStringValue as NSString).deletingPathExtension

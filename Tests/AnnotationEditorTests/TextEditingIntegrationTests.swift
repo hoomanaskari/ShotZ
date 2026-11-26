@@ -6,8 +6,9 @@ import Testing
 @testable import AnnotationEditor
 
 /// Drives a real editor window (never shown) with NSEvents sent to the window itself.
+extension EditorUITests {
 @MainActor
-struct TextEditingIntegrationTests {
+@Suite struct TextEditingIntegrationTests {
     private func makeController() throws -> EditorWindowController {
         _ = NSApplication.shared
         let defaults = try #require(UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)"))
@@ -176,4 +177,16 @@ struct TextEditingIntegrationTests {
         #expect(!a.isEmpty)
         #expect(a != b)
     }
+
+    /// Regression: a backing-scale change during window setup reached the zoom menu before it
+    /// had items, and `NSMenu.item(at:)` raised (signal 6 in CI on some display setups).
+    @Test func windowNotificationsBeforeSetupAreHarmless() throws {
+        let c = try makeController()
+        #expect(c.isSetUp)
+        #expect(c.window?.delegate === c)
+        c.zoomMenu.menu?.removeAllItems()
+        c.updateZoomTitle() // must not raise
+        c.windowDidChangeBackingProperties(Notification(name: NSWindow.didChangeBackingPropertiesNotification))
+    }
+}
 }

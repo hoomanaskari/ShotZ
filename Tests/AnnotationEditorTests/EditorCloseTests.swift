@@ -7,8 +7,9 @@ import Testing
 @testable import AnnotationEditor
 
 /// Closing a capture's editor hands it back with the annotated result (SPEC §4.6).
+extension EditorUITests {
 @MainActor
-struct EditorCloseTests {
+@Suite struct EditorCloseTests {
     /// A stand-in for AppCoordinator.
     private final class Box: AnnotationEditingDelegate {
         var calls: [(CaptureResult, URL?, UInt32?)] = []
@@ -135,7 +136,9 @@ struct EditorCloseTests {
         defer { try? FileManager.default.removeItem(at: f.dir) } // best-effort cleanup
         f.coordinator.openEditor(imageAt: f.capture.fileURL)
         #expect(f.coordinator.openWindowCount == 1)
-        for window in NSApp.windows where window is EditorWindow { window.close() }
+        // Close only this test's window: other suites run alongside and own theirs.
+        f.coordinator.controller(forFile: f.capture.fileURL)?.window?.close()
+        #expect(f.coordinator.openWindowCount == 0)
         try await Task.sleep(for: .milliseconds(300))
         #expect(f.box.calls.isEmpty)
     }
@@ -150,4 +153,5 @@ struct EditorCloseTests {
         c.isTerminating = true
         c.window?.close()
     }
+}
 }
