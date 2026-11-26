@@ -106,4 +106,21 @@ struct TextEditingIntegrationTests {
         #expect(c.store.document.objects.isEmpty)
         #expect(!c.store.canUndo)
     }
+
+    @Test func livePreviewShowsTheDecorationWhileTyping() throws {
+        let c = try makeController()
+        c.model.library.update(.text) { $0.textStyle.decoration = .solidPill }
+        let tv = try startTyping(c, "Pill")
+        #expect(tv.textColor == .clear) // glyphs come from AnnotationKit's rendering
+        let preview = c.canvas.text.previewLayer
+        #expect(preview.contents != nil)
+        #expect(preview.superlayer === c.canvas.layers.world)
+        // The preview covers the whole pill, not just the glyphs.
+        guard case .text(var box) = c.model.newTextObject(at: CGPoint(x: 100, y: 100), wrapWidth: nil).shape else { return }
+        box.string = "Pill"
+        let pill = TextLayout(box: box, fontSize: c.model.style(for: .text).fontSize).frame
+        #expect(preview.frame.contains(pill))
+        try key(c, "\r", 36, [.command])
+        #expect(preview.superlayer == nil)
+    }
 }

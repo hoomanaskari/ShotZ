@@ -4,11 +4,18 @@ import AppKit
 /// In-place text editing on the canvas (SPEC §5.3 Text): an `NSTextView` in
 /// the magnified document view, so it scales with the zoom. Return = new line;
 /// ⌘Return, Esc or a click elsewhere commits; empty text is discarded.
+///
+/// What you see while typing is AnnotationKit's own rendering of the draft (with its
+/// pill or outline), in a layer under the text view; the text view itself draws only
+/// the caret and selection (its glyphs are clear), so the look never changes on commit.
 @MainActor final class TextEditSession: NSObject, TextEditingHost, NSTextViewDelegate {
     private weak var canvas: CanvasView?
     private var textView: CommitTextView?
     private var object: AnnotationObject?
     private var isNew = false
+    /// The draft as the renderer draws it, and a thin frame around the text object.
+    let previewLayer = CALayer()
+    private let frameLayer = CALayer()
 
     init(canvas: CanvasView) {
         self.canvas = canvas
@@ -37,9 +44,11 @@ import AppKit
         tv.textContainerInset = .zero
         tv.textContainer?.lineFragmentPadding = 0
         tv.font = Self.font(for: object, box: box)
-        let color = object.style.color.withAlpha(object.style.color.alpha * object.style.opacity)
-        tv.textColor = NSColor(cgColor: color.cgColor) ?? .systemRed
-        tv.insertionPointColor = tv.textColor ?? .systemRed
+        // Glyphs come from the preview layer; the caret takes the rendered text colour.
+        tv.textColor = .clear
+        let glyphColor = box.style.decoration == .solidPill || box.style.decoration == .translucentPill
+            ? object.style.color.contrastingTextColor : object.style.color.withAlpha(1)
+        tv.insertionPointColor = NSColor(cgColor: glyphColor.cgColor) ?? .systemRed
         tv.alignment = switch box.style.alignment {
         case .left: .left
         case .center: .center
@@ -68,14 +77,19 @@ import AppKit
             tv.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
         }
         tv.minSize = NSSize(width: object.style.fontSize * 0.6, height: object.style.fontSize * 1.2)
-        tv.wantsLayer = true
-        tv.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.8).cgColor
-        tv.layer?.borderWidth = 1 / max(canvas.model.pointsPerPixel, 0.01)
+        for l in [previewLayer, frameLayer] {
+            l.actions = ObjectLayerStore.noActions.merging(["borderWidth": NSNull()]) { a, _ in a }
+            l.anchorPoint = .zero
+            canvas.layers.world.addSublayer(l)
+        }
+        frameLayer.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.8).cgColor
+        frameLayer.borderWidth = 1 / max(canvas.model.pointsPerPixel, 0.01)
         let origin = canvas.canvasLayout.toCanvas(layout.textRect.origin)
         tv.setFrameOrigin(origin)
         canvas.addSubview(tv)
         textView = tv
         resize()
+        updatePreview()
         canvas.window?.makeFirstResponder(tv)
         tv.selectAll(nil)
         canvas.model.notify(.tool)
@@ -87,6 +101,9 @@ import AppKit
         self.object = nil
         let string = tv.string
         tv.removeFromSuperview()
+        previewLayer.removeFromSuperlayer()
+        previewLayer.contents = nil
+        frameLayer.removeFromSuperlayer()
         canvas.window?.makeFirstResponder(canvas)
         canvas.model.commitText(object, string: string, isNew: isNew)
         canvas.model.notify(.tool)
@@ -104,7 +121,33 @@ import AppKit
         tv.setFrameSize(size)
     }
 
-    func textDidChange(_ notification: Notification) { resize() }
+    func textDidChange(_ notification: Notification) {
+        resize()
+        updatePreview()
+    }
+
+    /// The draft with the typed string, as it will be committed.
+    private var draft: AnnotationObject? {
+        guard let tv = textView, var object, case .text(var box) = object.shape else { return nil }
+        box.string = tv.string
+        object.shape = .text(box)
+        return object
+    }
+
+    /// Re-renders the draft through AnnotationRenderer (pill, outline, colour, opacity).
+    private func updatePreview() {
+        guard let canvas, let draft, case .text(let box) = draft.shape else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        frameLayer.frame = TextLayout(box: box, fontSize: draft.style.fontSize).frame
+        if !box.string.isEmpty, let bitmap = canvas.layers.bitmap(for: draft, document: canvas.model.document) {
+            previewLayer.contents = bitmap.image
+            previewLayer.frame = bitmap.frame
+        } else {
+            previewLayer.contents = nil
+        }
+    }
 
     func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
         if selector == #selector(NSResponder.cancelOperation(_:)) {
@@ -116,7 +159,9 @@ import AppKit
 
     /// Updates the zoom-dependent border width.
     func zoomChanged(pointsPerPixel: CGFloat) {
-        textView?.layer?.borderWidth = 1 / max(pointsPerPixel, 0.01)
+        guard textView != nil else { return }
+        frameLayer.borderWidth = 1 / max(pointsPerPixel, 0.01)
+        updatePreview() // crisp at the new zoom
     }
 }
 

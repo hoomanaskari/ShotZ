@@ -121,12 +121,25 @@ import ShotzCore
     }
 
     private func render(_ object: AnnotationObject, into layer: CALayer, document: AnnotationDocument) {
-        let frame = AnnotationRenderer.bounds(of: object).insetBy(dx: -2, dy: -2).integral
-        guard !frame.isNull, !frame.isInfinite, frame.width > 0, frame.height > 0 else {
+        guard let bitmap = bitmap(for: object, document: document, quality: quality) else {
             layer.contents = nil
             entries[object.id] = Entry(layer: layer, rendered: object, renderedFrame: .zero, rasterScale: rasterScale, quality: .final)
             return
         }
+        layer.contents = bitmap.image
+        layer.frame = bitmap.frame
+        updateBlend(object, layer: layer, document: document)
+        renderCount += 1
+        entries[object.id] = Entry(layer: layer, rendered: object, renderedFrame: bitmap.frame, rasterScale: rasterScale,
+                                   quality: bitmap.isPreview ? .preview : .final)
+    }
+
+    /// One object drawn by AnnotationRenderer into its own bitmap at the current raster
+    /// scale; `frame` is where it goes in base-image pixels. Also used for the live text preview.
+    func bitmap(for object: AnnotationObject, document: AnnotationDocument, quality: RenderQuality = .final)
+        -> (image: CGImage, frame: CGRect, isPreview: Bool)? {
+        let frame = AnnotationRenderer.bounds(of: object).insetBy(dx: -2, dy: -2).integral
+        guard !frame.isNull, !frame.isInfinite, frame.width > 0, frame.height > 0 else { return nil }
         var scale = min(rasterScale, Self.maxBitmapSide / frame.width, Self.maxBitmapSide / frame.height)
         // While dragging, a huge object renders at a capped size (GPU-scaled, slightly soft)
         // and is re-rendered sharp when the drag ends.
@@ -146,20 +159,16 @@ import ShotzCore
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else {
             log.error("Cannot create bitmap \(w)x\(h) for object layer")
-            return
+            return nil
         }
         // Top-left origin pixel space, as AnnotationRenderer expects.
         ctx.translateBy(x: 0, y: CGFloat(h))
         ctx.scaleBy(x: CGFloat(w) / frame.width, y: -CGFloat(h) / frame.height)
         ctx.translateBy(x: -frame.minX, y: -frame.minY)
         let q: RenderQuality = object.isRedaction ? quality : .final
-        let entryQuality: RenderQuality = (object.isRedaction && quality == .preview) || capped ? .preview : .final
         AnnotationRenderer.draw(object, in: ctx, document: document, base: base, quality: q)
-        layer.contents = ctx.makeImage()
-        layer.frame = frame
-        updateBlend(object, layer: layer, document: document)
-        renderCount += 1
-        entries[object.id] = Entry(layer: layer, rendered: object, renderedFrame: frame, rasterScale: rasterScale, quality: entryQuality)
+        guard let image = ctx.makeImage() else { return nil }
+        return (image, frame, (object.isRedaction && quality == .preview) || capped)
     }
 
     /// Highlights multiply over light content and screen over dark (AnnotationKit's rule);
