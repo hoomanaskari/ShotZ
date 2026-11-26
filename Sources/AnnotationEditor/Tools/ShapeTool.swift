@@ -8,6 +8,12 @@ import CoreGraphics
     override func makeShape(from start: CGPoint, to current: CGPoint, modifiers: ToolModifiers) -> AnnotationObject.Shape? {
         guard let model else { return nil }
         let s = model.settings(for: kind)
+        // The dragged corner/end snaps to the image and other objects (⌘ disables);
+        // ⇧-constrained angles and squares take precedence.
+        var current = current
+        if !modifiers.contains(.shift) {
+            current = model.snapPoint(current, excluding: creatingID.map { [$0] } ?? [], modifiers: modifiers)
+        }
         switch kind {
         case .arrow:
             let end = modifiers.contains(.shift) ? AngleSnapping.snap(current, around: start) : current
