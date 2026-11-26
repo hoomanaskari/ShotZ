@@ -45,7 +45,15 @@ import AppKit
         case .center: .center
         case .right: .right
         }
+        if box.style.decoration == .outlined {
+            // Outlined text is laid out with open tracking (AnnotationKit's TextLayout); match it
+            // so the caret and the committed text line up. Mirrors max(fontSize × 0.075, 1) × 1.1.
+            tv.typingAttributes[.kern] = max(object.style.fontSize * 0.075, 1) * 1.1
+        }
         tv.string = box.string
+        if let kern = tv.typingAttributes[.kern] {
+            tv.textStorage?.addAttribute(.kern, value: kern, range: NSRange(location: 0, length: (tv.string as NSString).length))
+        }
         tv.isVerticallyResizable = true
         // Glyphs sit where AnnotationKit lays them out (TextLayout.textRect).
         let layout = TextLayout(box: box, fontSize: object.style.fontSize)
