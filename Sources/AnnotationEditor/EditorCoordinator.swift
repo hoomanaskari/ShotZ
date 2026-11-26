@@ -20,16 +20,25 @@ import ShotzCore
     private var windows: [Key: EditorWindowController] = [:]
     private let library: ToolSettingsLibrary
     private let backgroundPresets: BackgroundPresets
+    private let previousExport: @Sendable (CaptureResult.ID) async -> URL?
+    private let recordExport: @Sendable (CaptureResult.ID, URL) async -> Void
     private let log = ShotzLog.logger("AnnotationEditor")
 
+    /// - Parameters:
+    ///   - previousExport: the export path stored with a capture's history item (Save overwrites it).
+    ///   - recordExport: stores a capture's new export path after Save or Save As.
     public init(
         settings: SettingsStore,
         exporter: ExportService,
-        documentURL: @escaping (CaptureResult.ID) -> URL
+        documentURL: @escaping (CaptureResult.ID) -> URL,
+        previousExport: @escaping @Sendable (CaptureResult.ID) async -> URL? = { _ in nil },
+        recordExport: @escaping @Sendable (CaptureResult.ID, URL) async -> Void = { _, _ in }
     ) {
         self.settings = settings
         self.exporter = exporter
         self.documentURL = documentURL
+        self.previousExport = previousExport
+        self.recordExport = recordExport
         library = ToolSettingsLibrary(defaults: settings.defaults)
         backgroundPresets = BackgroundPresets(defaults: settings.defaults)
     }
@@ -55,7 +64,8 @@ import ShotzCore
                 log.error("Ignoring unreadable editor document for \(capture.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
         }
-        return open(document, title: capture.displayName, key: key, documentURL: url)
+        let record = ExportRecord(captureID: capture.id, previous: previousExport, record: recordExport)
+        return open(document, title: capture.displayName, key: key, documentURL: url, exportRecord: record)
     }
 
     public func openEditor(imageAt url: URL) {
@@ -106,7 +116,9 @@ import ShotzCore
     }
 
     @discardableResult
-    private func open(_ document: AnnotationDocument, title: String, key: Key, documentURL: URL?) -> EditorWindowController? {
+    private func open(
+        _ document: AnnotationDocument, title: String, key: Key, documentURL: URL?, exportRecord: ExportRecord? = nil
+    ) -> EditorWindowController? {
         let start = ContinuousClock.now
         let base = BaseImageProvider(url: document.baseImageURL)
         let image: CGImage
@@ -121,7 +133,8 @@ import ShotzCore
         let env = EditorEnvironment(
             settings: settings, exporter: exporter, library: library, backgroundPresets: backgroundPresets,
             openImage: { [weak self] url in self?.openEditor(imageAt: url) },
-            openClipboard: { [weak self] in self?.openFromClipboard() }
+            openClipboard: { [weak self] in self?.openFromClipboard() },
+            exportRecord: exportRecord
         )
         let controller = EditorWindowController(
             store: DocumentStore(document: document), image: image, base: base, title: title, documentURL: documentURL, env: env

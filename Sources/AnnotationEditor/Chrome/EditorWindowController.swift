@@ -12,6 +12,8 @@ import ShotzCore
     /// Open an image file / clipboard image in a new editor.
     let openImage: (URL) -> Void
     let openClipboard: () -> Void
+    /// History's export path for a capture, read and written by Save (nil for images opened from files).
+    var exportRecord: ExportRecord? = nil
 }
 
 /// One editor window per capture (SPEC §5.1, ARCHITECTURE §6).
@@ -56,7 +58,7 @@ import ShotzCore
         optionsBar = OptionsBarView(model: model)
         toolbarController = EditorToolbar(model: model, commandMenu: commandMenu)
         keyHandler = EditorKeyHandler(model: model)
-        exporterOut = EditorExporter(exporter: env.exporter, settings: env.settings, base: base)
+        exporterOut = EditorExporter(exporter: env.exporter, settings: env.settings, base: base, record: env.exportRecord)
 
         let window = EditorWindow(
             contentRect: NSRect(origin: .zero, size: Self.initialContentSize(for: canvas.canvasLayout.extent, scale: store.document.scale)),
