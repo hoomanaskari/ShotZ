@@ -127,7 +127,7 @@ extension AnnotationDocument {
 /// Clipboard format for objects copied between editor windows (⌘C / ⌘V).
 public enum AnnotationPasteboard {
     /// UTI-style pasteboard type string for `NSPasteboard.PasteboardType(rawValue:)`.
-    public static let typeIdentifier = "app.shotz.annotation-objects"
+    public static let typeIdentifier = "com.pixelforty.shotz.annotation-objects"
 
     private struct Payload: Codable {
         var version = 1

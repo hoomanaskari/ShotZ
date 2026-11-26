@@ -2,8 +2,8 @@ import Foundation
 
 /// Shared on-disk locations. Inject a custom root in tests.
 public struct ShotzPaths: Sendable, Equatable {
-    /// `~/Library/Application Support/Shotz` (`ShotZ Dev` for the development
-    /// app, `<name> Test Runs` for test runs)
+    /// `~/Library/Application Support/com.pixelforty.shotz` (`com.pixelforty.shotz.dev`
+    /// for the development app, `<bundle id>.testrun` for test runs)
     public let root: URL
     /// Folder name under the temporary directory for scratch files.
     public let scratchName: String

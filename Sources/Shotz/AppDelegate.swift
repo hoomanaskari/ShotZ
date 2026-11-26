@@ -1,10 +1,14 @@
 import AppKit
+import AppShell
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
     private var termSource: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Before anything reads settings or history: data from the pre-release
+        // app.shotz.Shotz identity moves to com.pixelforty.shotz (not in test runs).
+        LegacyDataMigration.runAtLaunch()
         let coordinator = AppCoordinator()
         self.coordinator = coordinator
         coordinator.start()

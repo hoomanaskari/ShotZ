@@ -34,6 +34,6 @@ struct FakeCaptureEngineTests {
     @Test func paths() {
         let p = ShotzPaths(root: URL(filePath: "/x/Shotz", directoryHint: .isDirectory))
         #expect(p.captures.path(percentEncoded: false).hasSuffix("/x/Shotz/Captures/"))
-        #expect(ShotzPaths.default.root.path(percentEncoded: false).hasSuffix("Library/Application Support/Shotz/"))
+        #expect(ShotzPaths.default.root.path(percentEncoded: false).hasSuffix("Library/Application Support/com.pixelforty.shotz/"))
     }
 }

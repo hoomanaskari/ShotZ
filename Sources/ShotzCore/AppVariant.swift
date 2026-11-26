@@ -2,25 +2,32 @@ import Foundation
 
 /// Which Shotz this is, decided by the bundle id (SPEC §1, ARCHITECTURE §8).
 ///
-/// - `production`: `ShotZ.app`, `app.shotz.Shotz`, ⌘⇧3/4/5, data in
-///   `Application Support/Shotz`. The one the owner installs.
-/// - `development`: `ShotZ Dev.app`, `app.shotz.Shotz.dev`, ⌃⌥⌘3/4/5, data in
-///   `Application Support/ShotZ Dev`. Built by `scripts/run.sh` for trying
-///   changes next to the installed app.
+/// - `production`: `ShotZ.app`, `com.pixelforty.shotz`, ⌘⇧3/4/5, data in
+///   `Application Support/com.pixelforty.shotz`. The one the owner installs.
+/// - `development`: `ShotZ Dev.app`, `com.pixelforty.shotz.dev`, ⌃⌥⌘3/4/5, data in
+///   `Application Support/com.pixelforty.shotz.dev`. Built by `scripts/run.sh`
+///   for trying changes next to the installed app.
+///
+/// The bundle ids live here for Swift and in `Resources/Info.plist` for the
+/// scripts (production there; `bundle.sh` appends `.dev`); a test keeps the
+/// two equal. Data folders are named by bundle id, which avoids the
+/// "Shotz"/"ShotZ" collision on case-insensitive volumes. Earlier builds used
+/// `app.shotz.Shotz[.dev]` and `Application Support/Shotz` (`ShotZ Dev`);
+/// `LegacyDataMigration` moves that data on first launch.
 ///
 /// Each variant has its own bundle id, so its own preferences domain
 /// (`UserDefaults.standard`), login item and Screen Recording permission.
 ///
 /// A *test run* (`--no-hotkeys`, any `--debug-*` flag, `-QuickAccessSelfTest`
 /// or `SHOTZ_EDITOR_SCRIPT`) is hermetic: its own preferences suite
-/// (`<bundle id>.testrun`) and data folder (`<name> Test Runs`), so engineer
+/// (`<bundle id>.testrun`) and data folder (`<bundle id>.testrun`), so engineer
 /// and test launches never touch the owner's settings or captures.
 public enum AppVariant: String, Sendable, CaseIterable {
     case production
     case development
 
-    public static let productionBundleID = "app.shotz.Shotz"
-    public static let developmentBundleID = "app.shotz.Shotz.dev"
+    public static let productionBundleID = "com.pixelforty.shotz"
+    public static let developmentBundleID = productionBundleID + ".dev"
 
     /// This process's variant. Anything that is not the dev bundle id
     /// (including unit tests) is production.
@@ -45,17 +52,29 @@ public enum AppVariant: String, Sendable, CaseIterable {
         }
     }
 
-    /// Folder name under Application Support and the temporary directory.
-    /// Production keeps the original "Shotz" folder (existing history).
-    public var dataDirectoryName: String {
+    /// Folder name under Application Support and the temporary directory: the bundle id.
+    public var dataDirectoryName: String { bundleIdentifier }
+
+    /// Data folder name for hermetic test runs.
+    public var testRunDirectoryName: String { testRunSuiteName }
+
+    // MARK: Before com.pixelforty.shotz
+
+    /// The bundle id earlier builds used (its preferences domain is migrated once).
+    public var legacyBundleIdentifier: String {
+        switch self {
+        case .production: "app.shotz.Shotz"
+        case .development: "app.shotz.Shotz.dev"
+        }
+    }
+
+    /// The data folder earlier builds used under Application Support.
+    public var legacyDataDirectoryName: String {
         switch self {
         case .production: "Shotz"
         case .development: "ShotZ Dev"
         }
     }
-
-    /// Data folder name for hermetic test runs.
-    public var testRunDirectoryName: String { "\(displayName) Test Runs" }
 
     /// Preferences suite for hermetic test runs.
     public var testRunSuiteName: String { bundleIdentifier + ".testrun" }

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Builds one of the two Shotz apps (ARCHITECTURE §8):
-#   scripts/bundle.sh dev       → build/ShotZ Dev.app  (app.shotz.Shotz.dev, debug build)
-#   scripts/bundle.sh release   → build/ShotZ.app      (app.shotz.Shotz, release build)
+#   scripts/bundle.sh dev       → build/ShotZ Dev.app  (<id>.dev, debug build)
+#   scripts/bundle.sh release   → build/ShotZ.app      (<id>, release build)
+# <id> is CFBundleIdentifier in Resources/Info.plist (com.pixelforty.shotz), the one
+# place scripts read it from; Swift has the same value in AppVariant (a test checks).
 # `debug` is accepted as an alias for `dev`. The two apps are separate: own
 # bundle id, name, icon, preferences, data folder, login item, default
 # shortcuts and Screen Recording permission. Building one never touches the other.
@@ -23,8 +25,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VARIANT="${1:-dev}"
 case "$VARIANT" in
-  dev|debug) VARIANT=dev; CONFIG=debug; APP_NAME="ShotZ Dev"; OLD_NAME="Shotz Dev"; APP_ID="app.shotz.Shotz.dev"; ICON="AppIcon-Dev.icns" ;;
-  release) CONFIG=release; APP_NAME="ShotZ"; OLD_NAME="Shotz"; APP_ID="app.shotz.Shotz"; ICON="AppIcon.icns" ;;
+  dev|debug) VARIANT=dev; CONFIG=debug; APP_NAME="ShotZ Dev"; OLD_NAME="Shotz Dev"; ID_SUFFIX=".dev"; ICON="AppIcon-Dev.icns" ;;
+  release) CONFIG=release; APP_NAME="ShotZ"; OLD_NAME="Shotz"; ID_SUFFIX=""; ICON="AppIcon.icns" ;;
   *) echo "usage: $0 [dev|release]" >&2; exit 64 ;;
 esac
 
@@ -33,10 +35,11 @@ plist() { /usr/libexec/PlistBuddy -c "Print :$1" "$PLIST" 2>/dev/null || true; }
 BUNDLE_ID="$(plist CFBundleIdentifier)"
 VERSION="$(plist CFBundleShortVersionString)"
 BUILD="$(plist CFBundleVersion)"
-if [[ "$BUNDLE_ID" != "app.shotz.Shotz" || -z "$VERSION" || -z "$BUILD" ]]; then
-  echo "Resources/Info.plist: need CFBundleIdentifier app.shotz.Shotz, CFBundleShortVersionString and CFBundleVersion" >&2
+if [[ -z "$BUNDLE_ID" || "$BUNDLE_ID" == *.dev || -z "$VERSION" || -z "$BUILD" ]]; then
+  echo "Resources/Info.plist: need the production CFBundleIdentifier, CFBundleShortVersionString and CFBundleVersion" >&2
   exit 65
 fi
+APP_ID="$BUNDLE_ID$ID_SUFFIX"
 
 cd "$ROOT"
 swift build -c "$CONFIG" --product Shotz

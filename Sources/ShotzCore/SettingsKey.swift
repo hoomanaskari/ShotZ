@@ -1,5 +1,11 @@
 /// All `UserDefaults` keys Shotz uses. Keep in sync with SPEC §7.
 public enum SettingsKey {
+    /// Every preference ShotZ writes starts with one of these (the editor's and quick
+    /// access's own keys included). Anything else in the domain belongs to AppKit.
+    public static let ownedPrefixes = ["general.", "shortcuts.", "quickAccess.", "capture.", "editor.", "advanced."]
+
+    public static func isOwned(_ key: String) -> Bool { ownedPrefixes.contains { key.hasPrefix($0) } }
+
     // General
     public static let launchAtLogin = "general.launchAtLogin"
     public static let showMenuBarIcon = "general.showMenuBarIcon"
