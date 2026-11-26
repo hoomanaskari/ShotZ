@@ -33,6 +33,8 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
     case pinOff, quit, loginItem, permission
     // Settings, menus and onboarding
     case general, advanced, welcome, allInOne, restoreLastClosed, editor
+    // Control glyphs (pop-up and menu buttons)
+    case chevronDown, chevronUpDown
 
     /// The five thickness glyphs in order (index = thickness step).
     public static let thicknessSteps: [ShotzIcon] = [.thickness1, .thickness2, .thickness3, .thickness4, .thickness5]
@@ -104,6 +106,8 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .allInOne: "squares-four"
         case .restoreLastClosed: "arrow-counter-clockwise"
         case .editor: "pen-nib"
+        case .chevronDown: "caret-down"
+        case .chevronUpDown: "caret-up-down"
         case .loginItem: "rocket-launch"
         case .permission: "shield-check"
         default: nil
@@ -206,6 +210,8 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .allInOne: String(localized: "All-in-one")
         case .restoreLastClosed: String(localized: "Restore last closed")
         case .editor: String(localized: "Editor")
+        case .chevronDown: String(localized: "Show menu")
+        case .chevronUpDown: String(localized: "Choose")
         case .loginItem: String(localized: "Launch at login")
         case .permission: String(localized: "Permission")
         }

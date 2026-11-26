@@ -53,35 +53,6 @@ extension ToggleStyle where Self == ShotzToggleChipStyle {
     public static func shotzChip(icon: ShotzIcon?, size: ShotzUI.ControlSize = .compact) -> ShotzToggleChipStyle { ShotzToggleChipStyle(icon: icon, size: size) }
 }
 
-/// SwiftUI wrapper of `ShotzSegmentedControl` (identical look; the AppKit control draws).
-public struct ShotzSegmentedPicker: NSViewRepresentable {
-    let segments: [ShotzSegmentedControl.Segment]
-    @Binding var selection: Int
-    let size: ShotzUI.ControlSize
-
-    public init(_ segments: [ShotzSegmentedControl.Segment], selection: Binding<Int>, size: ShotzUI.ControlSize = .regular) {
-        self.segments = segments
-        self._selection = selection
-        self.size = size
-    }
-
-    public func makeNSView(context: Context) -> ShotzSegmentedControl {
-        let c = ShotzSegmentedControl(segments: segments, selectedIndex: selection, size: size)
-        c.onChange = { selection = $0 }
-        return c
-    }
-
-    public func updateNSView(_ view: ShotzSegmentedControl, context: Context) {
-        if view.segments != segments { view.segments = segments }
-        if view.selectedIndex != selection { view.select(selection) }
-        view.onChange = { selection = $0 }
-    }
-
-    public func sizeThatFits(_ proposal: ProposedViewSize, nsView: ShotzSegmentedControl, context: Context) -> CGSize? {
-        nsView.intrinsicContentSize
-    }
-}
-
 /// SwiftUI wrapper of `ShotzSlider`.
 public struct ShotzSliderView: NSViewRepresentable {
     @Binding var value: Double

@@ -110,9 +110,9 @@ extension ShotzUI {
 
 extension ShotzUI.Palette {
     /// Faint inner edge of the primary fill (definition on light backgrounds).
-    static var accentEdge: NSColor { dynamic("accentEdge", black(0.10), white(0.10), black(0.35), white(0.40)) }
+    public static var accentEdge: NSColor { dynamic("accentEdge", black(0.10), white(0.10), black(0.35), white(0.40)) }
     /// Thin light edge of glass controls so they separate from dark image content.
-    static var glassEdge: NSColor { dynamic("glassEdge", white(0.16), white(0.16), white(0.5), white(0.5)) }
+    public static var glassEdge: NSColor { dynamic("glassEdge", white(0.16), white(0.16), white(0.5), white(0.5)) }
 }
 
 extension NSColor {
