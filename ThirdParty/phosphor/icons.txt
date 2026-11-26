@@ -6,6 +6,8 @@ arrow-u-up-left
 arrow-u-up-right
 camera
 cards
+caret-down
+caret-up-down
 check
 check-circle
 checkerboard

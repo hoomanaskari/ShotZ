@@ -27,11 +27,20 @@ struct GoldenTests {
         return sheet
     }
 
+    static func keyControls2() -> GallerySheet {
+        let sheet = GallerySheet(width: 760, columnWidth: 180)
+        let n = ShotzNumberField(value: 1920, in: 1...9999, label: "Width", size: .compact); n.suffix = "px"
+        sheet.row("Fields", [ShotzSegmentedControl.thicknessPicker(selected: 2), n, ShotzPopUpButton(items: ["16:9"], size: .compact)])
+        sheet.row("Feedback", [ShotzToast("Copied"), ShotzKeyCaps(["⌘", "⇧", "4"])])
+        sheet.finish()
+        return sheet
+    }
+
     @Test(arguments: ["light", "dark"]) func goldens(_ appearanceName: String) throws {
         ShotzUI.Palette.accentOverride = GalleryOutput.blue
         defer { ShotzUI.Palette.accentOverride = nil }
         let appearance = NSAppearance(named: appearanceName == "dark" ? .darkAqua : .aqua)!
-        for (name, sheet) in [("tokens", TokensSheet.make()), ("key-controls", Self.keyControls())] {
+        for (name, sheet) in [("tokens", TokensSheet.make()), ("key-controls", Self.keyControls()), ("key-controls-2", Self.keyControls2())] {
             let image = sheet.render(appearance: appearance, scale: 2)
             let url = Self.directory.appending(path: "\(name)-\(appearanceName)@2x.png")
             if Self.recording {
