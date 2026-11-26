@@ -11,6 +11,8 @@ import ShotzCore
     public let clearHistory: () async -> Void
     /// Opens onboarding (optionally at the Screen Recording step).
     public let showOnboarding: (_ permissionStep: Bool) -> Void
+    /// Software updates (available in the production app only).
+    public let updates: SoftwareUpdates
 
     public init(
         settings: SettingsStore,
@@ -18,7 +20,10 @@ import ShotzCore
         loginItem: LoginItemController,
         screenRecording: ScreenRecordingStatus,
         clearHistory: @escaping () async -> Void,
-        showOnboarding: @escaping (_ permissionStep: Bool) -> Void
+        showOnboarding: @escaping (_ permissionStep: Bool) -> Void,
+        updates: SoftwareUpdates = SoftwareUpdates(availability: .unavailable(.testRun)) { _ in
+            preconditionFailure("an unavailable updater never builds a backend")
+        }
     ) {
         self.settings = settings
         self.hotkeys = hotkeys
@@ -26,6 +31,7 @@ import ShotzCore
         self.screenRecording = screenRecording
         self.clearHistory = clearHistory
         self.showOnboarding = showOnboarding
+        self.updates = updates
     }
 }
 

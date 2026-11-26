@@ -55,8 +55,15 @@ import SwiftUI
 
     /// For `--debug-snapshot-ui`: one tab in its own off-screen window (never
     /// ordered in), in the given appearance.
-    public func debugRender(tab: SettingsTab, appearance: NSAppearance.Name = .aqua, scale: CGFloat = 2) async -> Data? {
-        let tabs = SettingsTabViewController(context: context, presentsAsNormalRun: true)
+    /// Snapshots show the installed app's updates section (`SoftwareUpdates.preview`),
+    /// not the test run's "updates are off" note; `updates` overrides that.
+    public func debugRender(tab: SettingsTab, appearance: NSAppearance.Name = .aqua, scale: CGFloat = 2,
+                            updates: SoftwareUpdates = .preview(.available)) async -> Data? {
+        let c = context
+        let shown = SettingsContext(settings: c.settings, hotkeys: c.hotkeys, loginItem: c.loginItem,
+                                    screenRecording: c.screenRecording, clearHistory: c.clearHistory,
+                                    showOnboarding: c.showOnboarding, updates: updates)
+        let tabs = SettingsTabViewController(context: shown, presentsAsNormalRun: true)
         let window = Self.makeWindow(tabs: tabs)
         window.appearance = NSAppearance(named: appearance)
         tabs.select(tab)
@@ -131,7 +138,7 @@ final class SettingsTabViewController: NSTabViewController {
         case .editor:
             EditorSettingsView(settings: context.settings)
         case .advanced:
-            AdvancedSettingsView(context: context, settings: context.settings)
+            AdvancedSettingsView(context: context, settings: context.settings, updates: context.updates)
         }
     }
 }

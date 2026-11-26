@@ -1,0 +1,6 @@
+name: Sparkle
+version: 2.10.1 (Swift Package Manager binary release, pinned in Package.resolved)
+url: https://github.com/sparkle-project/Sparkle
+files: Sparkle.framework (with Autoupdate, Updater.app and its XPC services), embedded in
+       ShotZ.app/Contents/Frameworks by scripts/bundle.sh; used by the production app only
+license: MIT, plus the external licences listed below (bsdiff/bspatch, sais-lite and others)

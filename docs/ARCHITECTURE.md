@@ -4,7 +4,8 @@ Native Swift 6 (strict concurrency), AppKit-first, macOS 15+. SwiftUI only for
 Settings and onboarding. One SwiftPM package, built from the command line and
 wrapped into `ShotZ.app` by a script (the product is "ShotZ"; modules,
 and the `Shotz` executable target keep their original spelling; bundle ids are
-`com.pixelforty.shotz[.dev]`). No third-party dependencies.
+`com.pixelforty.shotz[.dev]`). One third-party dependency: Sparkle 2, for
+software updates in the production app (see §8, "Updates").
 
 Behaviour is defined in [SPEC.md](SPEC.md). This file defines structure.
 
@@ -385,8 +386,40 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   same rule for both apps. A stable identity matters: it keeps the
   Screen Recording grant across rebuilds, so a release build refuses ad-hoc
   unless `SHOTZ_ALLOW_ADHOC=1`. Hardened runtime on for release (verified after
-  signing), `--timestamp=none` (no network). Version from `Resources/Info.plist`
-  (checked). No notarisation, no upload.
+  signing). Secure timestamp (`--timestamp`) only for a Developer ID identity
+  (notarisation needs it), `--timestamp=none` otherwise so development builds
+  sign offline; `SHOTZ_TIMESTAMP=1/0` forces it. Sparkle.framework is embedded
+  in `Contents/Frameworks` (rpath `@executable_path/../Frameworks`, build-folder
+  rpaths removed) and signed inside-out with the same identity: Installer.xpc,
+  Downloader.xpc, Autoupdate, Updater.app, the framework, then the app.
+  Release builds are universal (`--arch arm64 --arch x86_64`, every binary
+  checked with `lipo`); dev builds are host-only (`SHOTZ_UNIVERSAL` overrides).
+  A fully signed release for distribution:
+  `SHOTZ_SIGN_IDENTITY="Developer ID Application: … (TEAMID)" scripts/bundle.sh release`.
+  Notarisation and upload belong to `scripts/release.sh` (engineer C).
+- **Versioning:** one source, `CFBundleShortVersionString` (marketing, `1.2` or
+  `1.2.3`) and `CFBundleVersion` (build, a whole number that only goes up;
+  Sparkle compares it) in `Resources/Info.plist`. `scripts/bump-version.sh
+  <marketing> [build]` sets both (build defaults to current + 1 and must
+  increase); `--print` shows them. `bundle.sh` copies the plist into both apps;
+  `AppVersion` parses it for Settings ▸ Advanced ▸ About.
+- **Updates** (`AppShell/Updates/SoftwareUpdates.swift`): Sparkle 2's standard
+  updater and user driver, in the production app only. `UpdatePolicy` allows it
+  only for `.production`, outside test runs, with an https `SUFeedURL` and a
+  non-empty `SUPublicEDKey`; otherwise `SoftwareUpdates` never constructs the
+  updater, so ShotZ Dev and test runs make no network request. The feed is
+  `appcast.xml` at the repo root, served as
+  `https://raw.githubusercontent.com/hoomanaskari/ShotZ/main/appcast.xml`
+  (`SUFeedURL` in `Resources/Info.plist`). The public EdDSA key lives only in
+  `Resources/SparklePublicKey.txt`; `bundle.sh release` writes it into the
+  bundle's `SUPublicEDKey`. While that file is empty, Settings says updates are
+  unavailable. Automatic checks are on by default (`SUEnableAutomaticChecks`),
+  with a switch, the last-checked date and **Check for Updates…** in Settings ▸
+  Advanced, and **Check for Updates…** in the status menu. ShotZ is an
+  LSUIElement app, so it activates itself before any Sparkle window. A
+  background check that finds an update doesn't pop a window: it waits as
+  **Update Available (x)…** in the menu (Sparkle's gentle reminders). This is
+  the only network access in ShotZ.
 - `install.sh`: main checkout only; stages and verifies the release next to
   `/Applications/ShotZ.app`, quits only the installed copy (resolved
   executable path; SIGTERM, then SIGKILL after 5 s), swaps with two renames
@@ -422,7 +455,7 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 - Errors are typed and surfaced; never swallowed with `try?` unless the
   failure is genuinely irrelevant (comment why).
 - Logging through `os.Logger` (subsystem `com.pixelforty.shotz` for both apps, category = module).
-  No `print`. No analytics, no network.
+  No `print`. No analytics; no network except Sparkle's update checks in the production app.
 - User-facing strings via `String(localized:)`; English only for now.
 - Original assets only. Never copy icons, sounds, text or layouts from other apps.
 - Testing must not disturb the person using the Mac: never post synthetic

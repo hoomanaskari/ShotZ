@@ -5,7 +5,8 @@
 // Reads ThirdParty/phosphor/icons.txt (one upstream icon name per line). With --vendor, copies
 // exactly those SVGs from an upstream checkout into ThirdParty/phosphor/regular/ first. Then:
 //   - writes Sources/ShotzCore/Icons/PhosphorGlyphs.generated.swift (name → SVG path data),
-//   - rewrites THIRD-PARTY-NOTICES (licence text verbatim from ThirdParty/phosphor/LICENSE,
+//   - rewrites THIRD-PARTY-NOTICES (licence text verbatim from ThirdParty/phosphor/LICENSE, then every
+//     other ThirdParty/<name>/ with SOURCE + LICENSE, e.g. Sparkle;
 //     source details from ThirdParty/phosphor/SOURCE, and the list of icons used).
 // Run from the repository root.
 import Foundation
@@ -99,6 +100,30 @@ ShotZ's own custom glyphs (arrow styles, fill modes, text decorations, highlight
 modes, thickness steps and a few others in Sources/ShotzCore/Icons/CustomGlyphs.swift) are
 original work drawn for ShotZ in the same visual language and are covered by ShotZ's licence.
 
+\(otherNotices())
 """
+
+/// Every other vendored package in ThirdParty/<name>/ (SOURCE + LICENSE, licence verbatim),
+/// so regenerating the icons never drops them from THIRD-PARTY-NOTICES.
+func otherNotices() -> String {
+    let base = root.appending(path: "ThirdParty")
+    let names = ((try? FileManager.default.contentsOfDirectory(atPath: base.path(percentEncoded: false))) ?? [])
+        .filter { $0 != "phosphor" && !$0.hasPrefix(".") }.sorted()
+    return names.compactMap { name -> String? in
+        let dir = base.appending(path: name)
+        guard let source = try? String(contentsOf: dir.appending(path: "SOURCE"), encoding: .utf8),
+              let license = try? String(contentsOf: dir.appending(path: "LICENSE"), encoding: .utf8) else { return nil }
+        let title = source.split(separator: "\n").first { $0.hasPrefix("name: ") }.map { String($0.dropFirst(6)) } ?? name
+        return """
+        \(title)
+        \(String(repeating: "-", count: title.count))
+        \(source.trimmingCharacters(in: .whitespacesAndNewlines))
+
+        \(license.trimmingCharacters(in: .whitespacesAndNewlines))
+
+
+        """
+    }.joined()
+}
 do { try notices.write(to: root.appending(path: "THIRD-PARTY-NOTICES"), atomically: true, encoding: .utf8) } catch { fail("write notices: \(error)") }
 print("gen-icons: \(entries.count) Phosphor icons → PhosphorGlyphs.generated.swift, THIRD-PARTY-NOTICES")

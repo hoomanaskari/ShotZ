@@ -6,6 +6,7 @@ import SwiftUI
 struct AdvancedSettingsView: View {
     let context: SettingsContext
     @ObservedObject var settings: SettingsStore
+    @ObservedObject var updates: SoftwareUpdates
     @State private var confirmClear = false
     @State private var confirmReset = false
     @State private var clearing = false
@@ -14,6 +15,14 @@ struct AdvancedSettingsView: View {
 
     var body: some View {
         ShotzSettingsPane {
+            ShotzSettingsSection(String(localized: "About")) {
+                ShotzSettingsRow(name, help: AppVersion.displayString(.current()), icon: .info) {
+                    EmptyView()
+                }
+            }
+
+            UpdatesSection(updates: updates)
+
             ShotzSettingsSection(String(localized: "History"),
                                  footer: String(localized: "Older captures are removed when \(name) starts and once a day. Files you saved or exported are never touched.")) {
                 ShotzSettingsRow(String(localized: "Keep captures for"), icon: .history) {
@@ -65,5 +74,34 @@ struct AdvancedSettingsView: View {
         } message: {
             Text(String(localized: "Every setting, including shortcuts, goes back to its default."))
         }
+    }
+}
+
+/// Software updates: automatic checks, "Check for Updates…" with the last-checked date,
+/// or a note saying why updates are unavailable in this build.
+struct UpdatesSection: View {
+    @ObservedObject var updates: SoftwareUpdates
+
+    var body: some View {
+        ShotzSettingsSection(String(localized: "Updates")) {
+            if case .unavailable(let reason) = updates.availability {
+                ShotzBanner(reason.message, tone: .info)
+            } else {
+                ShotzSettingsRow(String(localized: "Check for updates automatically"),
+                                 help: String(localized: "ShotZ checks once a day and asks before installing anything.")) {
+                    RowSwitch(String(localized: "Check for updates automatically"),
+                              isOn: Binding(get: { updates.automaticallyChecks }, set: { updates.setAutomaticallyChecks($0) }))
+                }
+                ShotzSettingsRow(updates.pendingVersion.map { String(localized: "Version \($0) is available") }
+                                 ?? String(localized: "Software update"),
+                                 help: updates.lastCheckedText) {
+                    Button(updates.pendingVersion == nil ? String(localized: "Check for Updates…") : String(localized: "Update…")) {
+                        updates.checkForUpdates()
+                    }
+                    .buttonStyle(.shotz(updates.pendingVersion == nil ? .secondary : .primary, size: .compact))
+                }
+            }
+        }
+        .onAppear { updates.refresh() }
     }
 }

@@ -1,8 +1,9 @@
 # Installing ShotZ
 
 How to install ShotZ into `/Applications`, move your shortcuts over to it, and
-undo the install. Everything here happens on your Mac; ShotZ never uses the
-network.
+undo the install. Everything here happens on your Mac. The only time ShotZ
+uses the network is to check for updates (see "Updates" below); ShotZ Dev
+never does.
 
 ## 1. Install
 
@@ -40,6 +41,20 @@ Because macOS sees a new app, you need to allow Screen Recording once more
    still running.
 3. Open **ShotZ** from `/Applications` or Spotlight. With the menu-bar icon
    hidden, opening ShotZ again brings up its Settings.
+
+## Updates
+
+Once ShotZ is installed, new versions arrive through the app itself; you don't
+need to run the install script again.
+
+- ShotZ checks once a day by default. When a new version is found, **Update
+  Available…** appears in the ShotZ menu; choose it to see what's new and install.
+- **Check for Updates…** is in the ShotZ menu and in Settings ▸ Advanced ▸
+  Updates, next to the switch for automatic checks and the date of the last check.
+- Settings ▸ Advanced ▸ About shows the installed version and build.
+- Updates keep ShotZ's identity, so the Screen Recording permission carries over.
+- Until ShotZ's update signing key is set up, Settings says updates are
+  unavailable, and nothing is checked.
 
 ## 2. Screen Recording permission
 
