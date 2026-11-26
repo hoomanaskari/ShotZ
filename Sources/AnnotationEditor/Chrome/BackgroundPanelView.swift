@@ -276,7 +276,7 @@ import AppKit
         popup.isEnabled = !saved.isEmpty
         let save = controls.button(String(localized: "Save…")) { [weak self] in self?.promptSave(s) }
         let delete = controls.button(String(localized: "Delete…")) { [weak self, weak popup] in
-            guard let self, let i = popup?.indexOfSelectedItem, i >= 0, i < saved.count else { return }
+            guard let self, let i = popup?.selectedItem?.tag, i >= 0, i < saved.count else { return }
             self.confirmDelete(saved[i].name)
         }
         delete.isEnabled = !saved.isEmpty

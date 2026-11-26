@@ -120,11 +120,19 @@ import AppKit
         let p = NSPopUpButton(frame: .zero, pullsDown: false)
         p.controlSize = .small
         p.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
-        p.addItems(withTitles: titles)
-        p.selectItem(at: selected)
+        // Items carry their index as a tag; selection is read from the item, not its position.
+        for (i, title) in titles.enumerated() {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.tag = i
+            p.menu?.addItem(item)
+        }
+        p.selectItem(withTag: selected)
         p.setAccessibilityLabel(label)
         p.toolTip = label
-        bind(p) { handler(($0 as? NSPopUpButton)?.indexOfSelectedItem ?? 0) }
+        bind(p) { control in
+            guard let tag = (control as? NSPopUpButton)?.selectedItem?.tag else { return }
+            handler(tag)
+        }
         return p
     }
 

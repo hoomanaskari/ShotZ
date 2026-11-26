@@ -7,8 +7,9 @@ import Testing
 @testable import AnnotationEditor
 
 /// Closing a capture's editor hands it back with the annotated result (SPEC §4.6).
+extension EditorUITests {
 @MainActor
-struct EditorCloseTests {
+@Suite struct EditorCloseTests {
     /// A stand-in for AppCoordinator.
     private final class Box: AnnotationEditingDelegate {
         var calls: [(CaptureResult, URL?, UInt32?)] = []
@@ -152,4 +153,5 @@ struct EditorCloseTests {
         c.isTerminating = true
         c.window?.close()
     }
+}
 }

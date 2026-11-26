@@ -64,7 +64,10 @@ extension EditorWindowController {
         zoomMenu.setAccessibilityLabel(String(localized: "Zoom"))
         let menu = zoomMenu.menu ?? NSMenu()
         menu.removeAllItems()
-        menu.addItem(withTitle: "100%", action: nil, keyEquivalent: "")
+        // The pull-down's title item, kept by reference (never looked up by position).
+        let titleItem = NSMenuItem(title: "100%", action: nil, keyEquivalent: "")
+        menu.addItem(titleItem)
+        zoomTitleItem = titleItem
         let fit = NSMenuItem(title: String(localized: "Zoom to Fit"), action: #selector(EditorCommands.zoomToFit(_:)), keyEquivalent: "0")
         menu.addItem(fit)
         let actual = NSMenuItem(title: String(localized: "Actual Size"), action: #selector(EditorCommands.zoomToActualSize(_:)), keyEquivalent: "1")
@@ -86,8 +89,7 @@ extension EditorWindowController {
 
     func updateZoomTitle() {
         let title = "\(Int((zoom * 100).rounded()))%"
-        // `item(at:)` raises for an empty menu (e.g. a backing change during window setup).
-        if zoomMenu.numberOfItems > 0 { zoomMenu.item(at: 0)?.title = title }
+        zoomTitleItem?.title = title
         zoomMenu.setTitle(title)
     }
 }
