@@ -177,12 +177,19 @@ import AppKit
         updateCursor(event)
     }
 
-    override func mouseMoved(with event: NSEvent) { updateCursor(event) }
+    override func mouseMoved(with event: NSEvent) {
+        updateCursor(event)
+        model.hoveredObjectID = model.hitObject(at: imagePoint(for: event))
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        model.hoveredObjectID = nil
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let trackingArea { removeTrackingArea(trackingArea) }
-        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect, .cursorUpdate],
+        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect, .cursorUpdate],
                                   owner: self, userInfo: nil)
         addTrackingArea(area)
         trackingArea = area

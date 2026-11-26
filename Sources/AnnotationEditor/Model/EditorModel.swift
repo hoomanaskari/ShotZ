@@ -34,6 +34,8 @@ import Foundation
     var marquee: CGRect? { didSet { if marquee != oldValue { notify(.overlay) } } }
     var cropDraft: CGRect? { didSet { if cropDraft != oldValue { notify(.overlay) } } }
     var cropAspect: CropAspect = .free { didSet { notify(.toolSettings) } }
+    /// The object under the pointer (for hover outlines).
+    var hoveredObjectID: AnnotationObject.ID? { didSet { if hoveredObjectID != oldValue { notify(.overlay) } } }
     /// Objects hidden while they are edited in place.
     var hiddenObjectIDs: Set<AnnotationObject.ID> = [] { didSet { if hiddenObjectIDs != oldValue { notify(.overlay) } } }
 
@@ -123,6 +125,16 @@ import Foundation
     }
 
     // MARK: Hit testing
+
+    /// Redactions that need a dashed outline so they can be found: all of them while
+    /// the redact tool is active, otherwise the one under the pointer (unselected only).
+    /// A blur over a flat area is otherwise invisible. Overlay only, never exported.
+    var redactionHintIDs: [AnnotationObject.ID] {
+        document.objects.filter { object in
+            object.isRedaction && !selection.contains(object.id) && !hiddenObjectIDs.contains(object.id)
+                && (toolKind == .redact || hoveredObjectID == object.id)
+        }.map(\.id)
+    }
 
     func hitObject(at point: CGPoint) -> AnnotationObject.ID? {
         var doc = document

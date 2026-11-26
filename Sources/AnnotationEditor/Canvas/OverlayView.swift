@@ -7,6 +7,8 @@ import AppKit
 @MainActor final class OverlayView: NSView {
     struct Content {
         var selectionOutlines: [CGPath] = []
+        /// Dashed outlines that help find otherwise invisible objects (redactions).
+        var hintOutlines: [CGPath] = []
         var handles: [(Handle, isControl: Bool)] = []
         var guides: [(CGPoint, CGPoint)] = []
         var marquee: CGRect?
@@ -16,6 +18,7 @@ import AppKit
     }
 
     private let outlineLayer = CAShapeLayer()
+    private let hintLayer = CAShapeLayer()
     private let handleLayer = CAShapeLayer()
     private let controlHandleLayer = CAShapeLayer()
     private let guideLayer = CAShapeLayer()
@@ -28,12 +31,15 @@ import AppKit
         super.init(frame: frame)
         wantsLayer = true
         layer?.masksToBounds = true
-        for l in [cropDimLayer, cropFrameLayer, outlineLayer, guideLayer, marqueeLayer, handleLayer, controlHandleLayer] {
+        for l in [cropDimLayer, cropFrameLayer, hintLayer, outlineLayer, guideLayer, marqueeLayer, handleLayer, controlHandleLayer] {
             l.actions = ObjectLayerStore.noActions.merging(["path": NSNull(), "fillColor": NSNull()]) { a, _ in a }
             layer?.addSublayer(l)
         }
         outlineLayer.fillColor = nil
         outlineLayer.lineWidth = 1
+        hintLayer.fillColor = nil
+        hintLayer.lineWidth = 1
+        hintLayer.lineDashPattern = [4, 3]
         handleLayer.lineWidth = 1.5
         controlHandleLayer.lineWidth = 1.5
         guideLayer.lineWidth = 1
@@ -66,6 +72,7 @@ import AppKit
         effectiveAppearance.performAsCurrentDrawingAppearance {
             let accent = NSColor.controlAccentColor.cgColor
             outlineLayer.strokeColor = accent
+            hintLayer.strokeColor = NSColor.controlAccentColor.withAlphaComponent(0.75).cgColor
             handleLayer.strokeColor = accent
             handleLayer.fillColor = NSColor.white.cgColor
             controlHandleLayer.strokeColor = NSColor.white.cgColor
@@ -86,6 +93,9 @@ import AppKit
         let outline = CGMutablePath()
         content.selectionOutlines.forEach { outline.addPath($0) }
         outlineLayer.path = outline
+        let hints = CGMutablePath()
+        content.hintOutlines.forEach { hints.addPath($0) }
+        hintLayer.path = hints
 
         let handles = CGMutablePath(), controls = CGMutablePath()
         let r: CGFloat = 4.5

@@ -74,7 +74,7 @@ import Foundation
 
     func mouseUp(_ event: ToolEvent) {
         guard let model else { return }
-        defer { start = nil; clickedObject = nil; creatingID = nil }
+        defer { start = nil; clickedObject = nil; creatingID = nil; model.guides = [] }
         if manipulator.isActive {
             let dragged = manipulator.didDrag
             manipulator.end(event)

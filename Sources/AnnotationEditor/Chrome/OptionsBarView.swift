@@ -41,6 +41,8 @@ import AppKit
         model.observe { [weak self] event in
             switch event {
             case .tool, .selection: self?.scheduleRebuild()
+            // Options changed elsewhere (keys 1–8, A cycling arrow styles): refresh.
+            case .toolSettings where self?.applyingOwnChange == false: self?.scheduleRebuild()
             case .overlay where self?.model.toolKind == .crop: self?.updateCropFields()
             default: break
             }
@@ -62,12 +64,15 @@ import AppKit
 
     // MARK: Build
 
+    private var applyingOwnChange = false
+    private var swatches: [ColorSwatchControl] = []
     var widthField: NSTextField?
     var heightField: NSTextField?
 
     func rebuild() {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         controls.reset()
+        swatches = []
         widthField = nil
         heightField = nil
         let s = model.displayedSettings
@@ -173,31 +178,36 @@ import AppKit
         NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
     }
 
-    func change(_ name: String, final: Bool = true, _ apply: @escaping (inout ToolSettings) -> Void) {
+    /// - rebuild: false keeps the controls (the colour well must survive, or the
+    ///   colour panel detaches from it).
+    func change(_ name: String, final: Bool = true, rebuild: Bool = true, _ apply: @escaping (inout ToolSettings) -> Void) {
         if !final, !model.selection.isEmpty, !model.store.isInteractive {
             model.store.beginInteractiveChange(name)
         }
+        applyingOwnChange = true
         model.changeOption(name, apply)
+        applyingOwnChange = false
         if final {
             if model.store.isInteractive { model.store.commitInteractiveChange() }
-            scheduleRebuild()
+            if rebuild { scheduleRebuild() }
         }
     }
 
     func addColors(_ s: ToolSettings) {
         for (i, preset) in RGBAColor.presets.enumerated() {
             let color = NSColor(cgColor: preset.cgColor) ?? .red
-            let b = controls.imageButton(EditorIcons.swatch(color, selected: preset == s.color), label: Self.colorNames[i]) { [weak self] in
+            let swatch = ColorSwatchControl(color: color, selected: preset == s.color, label: "\(Self.colorNames[i]) (\(i + 1))") { [weak self] in
                 self?.change(String(localized: "Colour")) { $0.color = preset }
             }
-            b.toolTip = "\(Self.colorNames[i]) (\(i + 1))"
-            add(b)
+            swatches.append(swatch)
+            add(swatch)
         }
         let current = NSColor(cgColor: s.color.cgColor) ?? .red
         add(controls.colorWell(current, label: String(localized: "Custom colour")) { [weak self] color, final in
             guard let srgb = color.usingColorSpace(.sRGB) else { return }
             let c = RGBAColor(red: srgb.redComponent, green: srgb.greenComponent, blue: srgb.blueComponent)
-            self?.change(String(localized: "Colour"), final: final) { $0.color = c }
+            self?.change(String(localized: "Colour"), final: final, rebuild: false) { $0.color = c }
+            self?.swatches.forEach { $0.isSelected = false }
         })
         add(OptionControls.separator())
     }

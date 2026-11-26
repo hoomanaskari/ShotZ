@@ -100,3 +100,16 @@ struct DrawingToolTests {
         #expect(big.style(for: .arrow).lineWidth > small.style(for: .arrow).lineWidth * 3)
     }
 }
+
+@MainActor
+struct DrawingSnapTests {
+    @Test func newShapesSnapToTheImageEdgeAndCommandDisables() {
+        let m = makeModel(tool: .rectangle)
+        m.snappingSetting = { true }
+        m.drag(CGPoint(x: 1400, y: 100), CGPoint(x: 1597, y: 300))
+        #expect(rect(of: m.objects[0])?.maxX == 1600)
+        #expect(m.guides.isEmpty)
+        m.drag(CGPoint(x: 1400, y: 500), CGPoint(x: 1597, y: 700), [.command])
+        #expect(rect(of: m.objects[1])?.maxX == 1597)
+    }
+}

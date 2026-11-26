@@ -35,9 +35,15 @@ import ShotzCore
     }
 
     public func openEditor(for capture: CaptureResult) {
+        openEditor(for: capture, documentURL: documentURL(capture.id))
+    }
+
+    /// The stack's hand-off path, with the document location given explicitly
+    /// (the development harness uses a scratch location instead of history's).
+    @discardableResult
+    func openEditor(for capture: CaptureResult, documentURL url: URL) -> EditorWindowController? {
         let key = Key.capture(capture.id)
-        if bringToFront(key) { return }
-        let url = documentURL(capture.id)
+        if bringToFront(key) { return windows[key] }
         var document = AnnotationDocument(baseImageURL: capture.fileURL, pixelSize: capture.pixelSize, scale: capture.scale)
         if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
             do {
@@ -49,7 +55,7 @@ import ShotzCore
                 log.error("Ignoring unreadable editor document for \(capture.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
         }
-        open(document, title: capture.displayName, key: key, documentURL: url)
+        return open(document, title: capture.displayName, key: key, documentURL: url)
     }
 
     public func openEditor(imageAt url: URL) {
@@ -66,7 +72,7 @@ import ShotzCore
         if let debugDocument, let saved = try? AnnotationDocument.load(from: debugDocument) { // absent on first run
             document = saved
         }
-        open(document, title: url.deletingPathExtension().lastPathComponent, key: key, documentURL: debugDocument)
+        _ = open(document, title: url.deletingPathExtension().lastPathComponent, key: key, documentURL: debugDocument)
     }
 
     /// ⌘N: the image on the clipboard, in a new editor.
@@ -99,14 +105,15 @@ import ShotzCore
         return true
     }
 
-    private func open(_ document: AnnotationDocument, title: String, key: Key, documentURL: URL?) {
+    @discardableResult
+    private func open(_ document: AnnotationDocument, title: String, key: Key, documentURL: URL?) -> EditorWindowController? {
         let start = ContinuousClock.now
         let base = BaseImageProvider(url: document.baseImageURL)
         let image: CGImage
         do { image = try base.image() } catch {
             log.error("Cannot decode \(document.baseImageURL.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
             NSSound.beep()
-            return
+            return nil
         }
         let env = EditorEnvironment(
             settings: settings, exporter: exporter, library: library, backgroundPresets: backgroundPresets,
@@ -127,8 +134,9 @@ import ShotzCore
             controller.window?.makeKeyAndOrderFront(nil)
         }
         controller.zoomFit()
-        EditorScriptRunner.startIfRequested(for: controller)
+        EditorScriptRunner.startIfRequested(for: controller, coordinator: self)
         log.notice("Opened editor for \(title, privacy: .public) in \(ContinuousClock.now - start, privacy: .public)")
+        return controller
     }
 
     /// Pixel size and scale (from DPI) without decoding the image.

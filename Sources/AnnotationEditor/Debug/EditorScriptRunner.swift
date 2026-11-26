@@ -15,8 +15,8 @@ import ShotzCore
 ///   drag x1 y1 x2 y2 [steps] [shift] [option] [command]
 ///   click x y [shift] [option] [command] [double]
 ///   type <text>                type into the focused view (text editing)
-///   key escape|return|delete|left|right|up|down [shift]
-///   cmd <char> [shift] [option]   a ⌘ key equivalent
+///   key escape|return|delete|left|right|up|down [shift] [command] [option]
+///   cmd <char|return> [shift] [option]   a ⌘ shortcut (menu command, or a key press otherwise)
 ///   zoom fit|actual|in|out
 ///   snapshot <path.png>        render the window's layer tree
 ///   dump <path.json>           write the document JSON
@@ -24,23 +24,32 @@ import ShotzCore
 ///   background on [1:1|4:3|16:9|3:2] | off
 ///   export <path.png>          render the flattened document
 ///   dragfile                   log the drag-out file
+///   capture <png> <uuid> <doc.json>   open through openEditor(for:) and switch to that window
+///   hover x y                  move the pointer over the canvas
 ///   wait <ms>
 @MainActor final class EditorScriptRunner {
-    private let controller: EditorWindowController
+    /// The window commands act on (switches when `capture` opens another).
+    private var controller: EditorWindowController
     private var lines: [String]
     private let log = ShotzLog.logger("AnnotationEditor")
 
     static var isScripted: Bool { ProcessInfo.processInfo.environment["SHOTZ_EDITOR_SCRIPT"] != nil }
 
-    static func startIfRequested(for controller: EditorWindowController) {
+    /// Starts once per process, on the first editor window.
+    static func startIfRequested(for controller: EditorWindowController, coordinator: EditorCoordinator) {
+        guard !started else { return }
         guard let path = ProcessInfo.processInfo.environment["SHOTZ_EDITOR_SCRIPT"],
               let text = try? String(contentsOfFile: path, encoding: .utf8) else { return } // no readable script: normal run
         let runner = EditorScriptRunner(controller: controller, script: text)
+        runner.coordinator = coordinator
+        started = true
         current = runner
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { runner.next() }
     }
 
     private static var current: EditorScriptRunner?
+    private static var started = false
+    private weak var coordinator: EditorCoordinator?
 
     init(controller: EditorWindowController, script: String) {
         self.controller = controller
@@ -147,6 +156,26 @@ import ShotzCore
         case "dragfile":
             // The file the drag handle / proxy icon would drag.
             log.notice("SCRIPT dragfile \(self.controller.makeDragFile()?.path(percentEncoded: false) ?? "nil", privacy: .public)")
+        case "capture":
+            // capture <png> <uuid> <document.json>: the quick-access hand-off, openEditor(for:)
+            // with a real CaptureResult and an explicit document location. Later commands act on it.
+            guard args.count >= 3, let id = UUID(uuidString: args[1]),
+                  let info = EditorCoordinator.imageInfo(URL(filePath: args[0])) else {
+                log.error("SCRIPT capture needs <png> <uuid> <document.json>")
+                break
+            }
+            let capture = CaptureResult(id: id, fileURL: URL(filePath: args[0]), displayName: "Shotz harness capture", kind: .area,
+                                        pixelSize: info.pixelSize, scale: info.scale, displayID: 0)
+            if let opened = coordinator?.openEditor(for: capture, documentURL: URL(filePath: args[2])) {
+                controller = opened
+                log.notice("SCRIPT capture opened with \(opened.store.document.objects.count) objects")
+            }
+        case "hover":
+            // hover x y: the pointer moves over the canvas (tracking areas need the window server).
+            if nums.count >= 2, let window, let e = NSEvent.mouseEvent(
+                with: .mouseMoved, location: windowPoint(CGPoint(x: nums[0], y: nums[1])), modifierFlags: [],
+                timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0
+            ) { controller.canvas.mouseMoved(with: e) }
         case "close":
             window?.performClose(nil)
         default:
@@ -193,12 +222,19 @@ import ShotzCore
         tick()
     }
 
+    /// Delivers a key the way AppKit does: with ⌘ or ⌃, the window's key-equivalent pass
+    /// first, then keyDown to the first responder if nothing took it.
     private func sendKey(chars: String, keyCode: UInt16, flags: NSEvent.ModifierFlags = []) {
         guard let window else { return }
+        Self.deliverKey(to: window, chars: chars, keyCode: keyCode, flags: flags)
+    }
+
+    static func deliverKey(to window: NSWindow, chars: String, keyCode: UInt16, flags: NSEvent.ModifierFlags = []) {
         for type in [NSEvent.EventType.keyDown, .keyUp] {
             guard let e = NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
                                            windowNumber: window.windowNumber, context: nil, characters: chars,
                                            charactersIgnoringModifiers: chars, isARepeat: false, keyCode: keyCode) else { continue }
+            if type == .keyDown, !flags.intersection([.command, .control]).isEmpty, window.performKeyEquivalent(with: e) { continue }
             window.sendEvent(e)
         }
     }
@@ -214,8 +250,12 @@ import ShotzCore
             }
             return nil
         }
-        guard let window, let item = find(controller.commandMenu), let action = item.action else {
-            log.error("SCRIPT ⌘\(chars, privacy: .public) has no menu item")
+        guard let window else { return }
+        guard let item = find(controller.commandMenu), let action = item.action else {
+            // Not a menu command (e.g. ⌘Return): deliver it as a key press.
+            let keys: [String: (String, UInt16)] = ["return": ("\r", 36), "escape": ("\u{1b}", 53)]
+            let (c, code) = keys[chars.lowercased()] ?? (chars, 0)
+            sendKey(chars: c, keyCode: code, flags: flags)
             return
         }
         let responder = window.firstResponder ?? window
@@ -225,6 +265,7 @@ import ShotzCore
     // MARK: Snapshot
 
     private func snapshot(to url: URL) {
+        window?.displayIfNeeded()
         guard let view = window?.contentView?.superview ?? window?.contentView, let layer = view.layer else { return }
         let scale = window?.backingScaleFactor ?? 2
         let size = view.bounds.size
