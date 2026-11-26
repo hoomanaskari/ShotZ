@@ -2,7 +2,8 @@
 import PackageDescription
 
 // Module layout and dependency edges are defined in docs/ARCHITECTURE.md §1.
-// ShotzCore  ←  CaptureKit, QuickAccess, AnnotationKit, AppShell
+// ShotzCore  ←  ShotzUI, CaptureKit, QuickAccess, AnnotationKit, AppShell
+// ShotzUI  ←  QuickAccess, AnnotationEditor, AppShell (design tokens and shared controls)
 // AnnotationKit  ←  AnnotationEditor
 // everything  ←  Shotz (executable)
 
@@ -14,20 +15,22 @@ let package = Package(
     ],
     targets: [
         .target(name: "ShotzCore"),
+        .target(name: "ShotzUI", dependencies: ["ShotzCore"]),
         .target(name: "CaptureKit", dependencies: ["ShotzCore"]),
-        .target(name: "QuickAccess", dependencies: ["ShotzCore"]),
+        .target(name: "QuickAccess", dependencies: ["ShotzCore", "ShotzUI"]),
         .target(name: "AnnotationKit", dependencies: ["ShotzCore"]),
-        .target(name: "AnnotationEditor", dependencies: ["ShotzCore", "AnnotationKit"]),
-        .target(name: "AppShell", dependencies: ["ShotzCore"]),
+        .target(name: "AnnotationEditor", dependencies: ["ShotzCore", "ShotzUI", "AnnotationKit"]),
+        .target(name: "AppShell", dependencies: ["ShotzCore", "ShotzUI"]),
         .executableTarget(
             name: "Shotz",
             dependencies: [
-                "ShotzCore", "CaptureKit", "QuickAccess",
+                "ShotzCore", "ShotzUI", "CaptureKit", "QuickAccess",
                 "AnnotationKit", "AnnotationEditor", "AppShell",
             ]
         ),
 
         .testTarget(name: "ShotzCoreTests", dependencies: ["ShotzCore"]),
+        .testTarget(name: "ShotzUITests", dependencies: ["ShotzUI", "ShotzCore"], exclude: ["Goldens"]),
         .testTarget(name: "CaptureKitTests", dependencies: ["CaptureKit", "ShotzCore"]),
         .testTarget(name: "QuickAccessTests", dependencies: ["QuickAccess", "ShotzCore"]),
         .testTarget(name: "AnnotationKitTests", dependencies: ["AnnotationKit", "ShotzCore"], exclude: ["Goldens"]),
