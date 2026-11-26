@@ -4,6 +4,7 @@ import AnnotationKit
 import AppKit
 import AppShell
 import CaptureKit
+import Combine
 import QuickAccess
 import ShotzCore
 
@@ -11,19 +12,29 @@ import ShotzCore
 /// hotkey → guard permission → engine.capture → history.add → quickAccess.present;
 /// quickAccess.requestAnnotate → editor.openEditor(for:).
 @MainActor final class AppCoordinator: QuickAccessDelegate {
-    private let paths = ShotzPaths.default
-    private let settings = SettingsStore()
-    private let engine: CaptureEngine = SystemCaptureEngine()
-    private let history: FileHistoryStore
-    private let exporter: ExportService
-    private let quickAccess: QuickAccessPresenting
-    private let editor: AnnotationEditing
-    private let hotkeys: HotkeyCenter
-    private let statusItem: StatusItemController
-    private let settingsWindow: SettingsWindowController
-    private var isCapturing = false
-    private var lastClosed: CaptureResult?
-    private let log = ShotzLog.logger("App")
+    let paths = ShotzPaths.default
+    let settings = SettingsStore()
+    let engine: CaptureEngine = SystemCaptureEngine()
+    let history: FileHistoryStore
+    let exporter: ExportService
+    let quickAccess: QuickAccessPresenting
+    let editor: AnnotationEditing
+    let hotkeys: HotkeyCenter
+    let statusItem: StatusItemController
+    let loginItem: LoginItemController
+    let screenRecording = ScreenRecordingStatus()
+    private(set) var settingsWindow: SettingsWindowController!
+    private(set) var onboarding: OnboardingWindowController!
+    private var pruneScheduler: HistoryPruneScheduler?
+    private var settingsObserver: AnyCancellable?
+    private var lastAppliedRetention: HistoryRetention?
+
+    var captureTask: Task<Void, Never>?
+    var isCapturing: Bool { captureTask != nil }
+    /// Recently closed cards, most recent last (for "Restore Last Closed Card").
+    var closedCards: [CaptureResult] = []
+    static let closedCardsLimit = 20
+    let log = ShotzLog.logger("App")
 
     init() {
         let paths = self.paths
@@ -34,7 +45,20 @@ import ShotzCore
         editor = EditorCoordinator(settings: settings, exporter: exporter) { history.documentURL(for: $0) }
         hotkeys = HotkeyCenter(settings: settings, devHotkeys: HotkeyCenter.devHotkeysRequested())
         statusItem = StatusItemController(hotkeys: hotkeys)
-        settingsWindow = SettingsWindowController(settings: settings)
+        loginItem = LoginItemController(settings: settings)
+        onboarding = OnboardingWindowController(
+            settings: settings, hotkeys: hotkeys, loginItem: loginItem, screenRecording: screenRecording
+        )
+        settingsWindow = SettingsWindowController(context: SettingsContext(
+            settings: settings,
+            hotkeys: hotkeys,
+            loginItem: loginItem,
+            screenRecording: screenRecording,
+            clearHistory: { [weak self] in await self?.clearHistory() },
+            showOnboarding: { [weak self] permissionStep in
+                self?.onboarding.show(step: permissionStep ? .screenRecording : .welcome)
+            }
+        ))
     }
 
     func start() {
@@ -44,27 +68,97 @@ import ShotzCore
         quickAccess.delegate = self
 
         hotkeys.onAction = { [weak self] action in self?.handle(action) }
-        hotkeys.registerAll()
-        if hotkeys.devHotkeys { log.info("Dev hotkeys active (⌃⌥⌘3/4/5)") }
+        hotkeys.start()
+        if hotkeys.devHotkeys { log.info("Dev hotkeys active (⌃⌥⌘3/4/5); preferences untouched") }
 
-        statusItem.isVisible = settings.showMenuBarIcon
         statusItem.onCapture = { [weak self] mode in self?.capture(mode) }
         statusItem.onOpenSettings = { [weak self] in self?.openSettings() }
         statusItem.onOpenLastInEditor = { [weak self] in self?.openLastInEditor() }
-        statusItem.onSelectHistoryItem = { [weak self] capture in self?.quickAccess.present(capture) }
+        statusItem.onRestoreLastClosed = { [weak self] in self?.restoreLastClosed() }
+        statusItem.canRestoreLastClosed = { [weak self] in self?.canRestoreLastClosed ?? false }
+        statusItem.onSelectHistoryItem = { [weak self] capture in self?.reopenFromHistory(capture) }
         statusItem.onMenuWillOpen = { [weak self] in self?.refreshHistoryMenu() }
-        settingsWindow.onChange = { [weak self] in
-            guard let self else { return }
-            self.statusItem.isVisible = self.settings.showMenuBarIcon
-        }
 
-        let retention = settings.historyRetention.interval
-        Task {
-            if let retention { await history.prune(olderThan: retention) }
-            refreshHistoryMenu()
+        loginItem.syncPreferenceFromSystem()
+        applySettings()
+        // objectWillChange fires before the value is stored: apply on the next turn.
+        settingsObserver = settings.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in MainActor.assumeIsolated { self?.applySettings() } }
+
+        startHistoryPruning()
+        log.info("Shotz started (Screen Recording \(self.screenRecording.isGranted ? "granted" : "not granted", privacy: .public))")
+
+        if !settings.hasCompletedOnboarding {
+            onboarding.show(step: .welcome)
         }
-        log.info("Shotz started")
         runDebugLaunchArguments(DebugLaunchArguments())
+    }
+
+    /// Clean shutdown: stop listening, cancel work, clear the stack.
+    func stop() {
+        log.info("Shotz stopping")
+        settingsObserver = nil
+        pruneScheduler?.stop()
+        hotkeys.shutdown()
+        captureTask?.cancel()
+        quickAccess.dismissAll()
+    }
+
+    func openSettings(tab: SettingsTab? = nil) { settingsWindow.show(tab: tab) }
+
+    /// Launch again from Finder/Spotlight while running (SPEC §1).
+    func handleReopen() {
+        log.info("Reopened by the user; showing Settings")
+        openSettings()
+    }
+
+    // MARK: Settings that act live
+
+    private func applySettings() {
+        statusItem.isVisible = settings.showMenuBarIcon
+        statusItem.refreshShortcuts()
+        let retention = settings.historyRetention
+        if let last = lastAppliedRetention, last != retention {
+            log.info("Retention changed to \(retention.rawValue, privacy: .public); pruning now")
+            pruneHistory()
+        }
+        lastAppliedRetention = retention
+    }
+
+    // MARK: History
+
+    private func startHistoryPruning() {
+        pruneHistory()
+        let scheduler = HistoryPruneScheduler { [weak self] in
+            await self?.pruneHistoryNow()
+        }
+        scheduler.start()
+        pruneScheduler = scheduler
+    }
+
+    private func pruneHistory() {
+        Task { await pruneHistoryNow() }
+    }
+
+    private func pruneHistoryNow() async {
+        let removed = await history.prune(retention: settings.historyRetention)
+        if removed > 0 { log.info("History prune removed \(removed)") }
+        refreshHistoryMenu()
+    }
+
+    private func clearHistory() async {
+        quickAccess.dismissAll()
+        closedCards.removeAll()
+        await history.clear()
+        refreshHistoryMenu()
+    }
+
+    func refreshHistoryMenu() {
+        Task {
+            let items = await history.recent(limit: 10)
+            statusItem.updateHistory(items)
+        }
     }
 
     /// `--debug-present` / `--debug-edit`: exercise the stack and editor without Screen Recording.
@@ -88,99 +182,5 @@ import ShotzCore
                 editor.openEditor(imageAt: edit)
             }
         }
-    }
-
-    func stop() {
-        hotkeys.unregisterAll()
-        quickAccess.dismissAll()
-    }
-
-    func openSettings() { settingsWindow.show() }
-
-    // MARK: Flow
-
-    private func handle(_ action: HotkeyAction) {
-        if let mode = action.captureMode {
-            capture(mode)
-        } else if action == .restoreLastClosed, let last = lastClosed {
-            lastClosed = nil
-            quickAccess.present(last)
-        }
-    }
-
-    func capture(_ mode: CaptureMode) {
-        guard !isCapturing else { return } // SPEC §2: ignored while a capture runs
-        guard Permissions.hasScreenRecording else {
-            showPermissionHelp()
-            return
-        }
-        isCapturing = true
-        let options = settings.captureOptions(paths: paths)
-        Task {
-            defer { isCapturing = false }
-            do {
-                guard let result = try await engine.capture(mode, options: options) else { return }
-                await history.add(result)
-                refreshHistoryMenu()
-                if settings.afterCaptureShowQuickAccess { quickAccess.present(result) }
-                if settings.afterCaptureCopyToClipboard { try await exporter.copyToPasteboard(imageAt: result.fileURL) }
-                if settings.afterCaptureSave {
-                    _ = try await exporter.saveToExportFolder(imageAt: result.fileURL, suggestedName: result.displayName, askDestination: false)
-                }
-            } catch CaptureError.permissionDenied {
-                showPermissionHelp()
-            } catch CaptureError.busy {
-                log.info("Capture ignored: busy")
-            } catch {
-                log.error("Capture failed: \(String(describing: error), privacy: .public)")
-            }
-        }
-    }
-
-    private func openLastInEditor() {
-        Task {
-            guard let last = await history.recent(limit: 1).first else { return }
-            editor.openEditor(for: last)
-        }
-    }
-
-    private func refreshHistoryMenu() {
-        Task {
-            let items = await history.recent(limit: 10)
-            statusItem.updateHistory(items)
-        }
-    }
-
-    /// TODO(engineer A): replace with the onboarding permission step (SPEC §8).
-    private func showPermissionHelp() {
-        log.notice("Screen Recording permission missing")
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Shotz needs Screen Recording permission")
-        alert.informativeText = String(localized: "Allow Shotz in System Settings ▸ Privacy & Security ▸ Screen & System Audio Recording, then try again.")
-        alert.addButton(withTitle: String(localized: "Open System Settings"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        NSApp.activate()
-        if alert.runModal() == .alertFirstButtonReturn {
-            Permissions.openScreenRecordingSettings()
-        }
-    }
-
-    // MARK: QuickAccessDelegate
-
-    func quickAccess(requestAnnotate capture: CaptureResult) {
-        editor.openEditor(for: capture)
-    }
-
-    func quickAccess(didClose capture: CaptureResult, deleteFile: Bool) {
-        lastClosed = capture
-        guard deleteFile else { return }
-        Task {
-            await history.remove(id: capture.id, deleteFile: true)
-            refreshHistoryMenu()
-        }
-    }
-
-    func quickAccess(didExport capture: CaptureResult, to url: URL) {
-        log.info("Exported \(capture.displayName, privacy: .public) to \(url.lastPathComponent, privacy: .public)")
     }
 }

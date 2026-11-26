@@ -12,7 +12,7 @@ import AppKit
     /// Launching Shotz again (Finder/Spotlight) opens Settings, so the app
     /// is reachable even with the menu-bar icon hidden.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        coordinator?.openSettings()
+        coordinator?.handleReopen()
         return false
     }
 
