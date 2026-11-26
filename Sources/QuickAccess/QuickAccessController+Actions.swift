@@ -83,72 +83,50 @@ extension QuickAccessController: CardViewDelegate {
     // MARK: Hover and keys
 
     func card(_ card: CardView, hoverChanged inside: Bool) {
-        if inside { hoverBegan(card) } else if hoveredCard === card { hoverEnded(card) }
-    }
-
-    private func hoverBegan(_ card: CardView) {
-        if let other = hoveredCard, other !== card { other.setHovered(false) }
-        hoveredCard = card
-        timers.values.forEach { $0.pause() }
-        guard takesKeyFocus, let panel = card.window as? StackPanel else { return }
-        // Key without activating Shotz, so hover shortcuts reach the stack.
-        if focusOwnerBeforeHover == nil {
-            focusOwnerBeforeHover = NSWorkspace.shared.frontmostApplication
+        if inside {
+            if let other = hoveredCard, other !== card { other.setHovered(false) }
+            hoveredCard = card
+            timers.values.forEach { $0.pause() }
+            focus.handle(.pointerEntered(card.capture.id))
+        } else if hoveredCard === card {
+            hoveredCard = nil
+            focus.handle(.pointerExited(card.capture.id))
+            timers.values.forEach { $0.start() }
         }
-        panel.acceptsKey = true
-        panel.makeKey()
-        installKeyMonitor()
     }
 
-    func hoverEnded(_ card: CardView) {
+    func cardPointerMoved(_ card: CardView, buttonsDown: Bool) {
         guard hoveredCard === card else { return }
-        hoveredCard = nil
-        // Moving straight onto a neighbouring card keeps the panel key.
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.hoveredCard == nil else { return }
-            self.removeKeyMonitor()
-            for panel in self.panels.values where panel.acceptsKey {
-                panel.acceptsKey = false
-                if panel.isKeyWindow { self.relinquishKey(panel) }
-            }
-            self.timers.values.forEach { $0.start() }
-        }
+        focus.handle(.pointerMoved(card.capture.id, buttonsDown: buttonsDown))
     }
 
-    /// Gives keyboard focus back to the app the user was in. Re-ordering the
-    /// panel (it is transparent and stays at the same place) drops key status;
-    /// if the system then treats Shotz as frontmost, hand activation back to
-    /// the app that had it before the hover.
-    private func relinquishKey(_ panel: StackPanel) {
-        let previous = focusOwnerBeforeHover
-        focusOwnerBeforeHover = nil
-        guard !quickLook.isShowing else { return }
-        panel.orderOut(nil)
-        panel.orderFrontRegardless()
-        let me = NSRunningApplication.current
-        if let previous, previous != me, NSWorkspace.shared.frontmostApplication == me {
-            NSApp.yieldActivation(to: previous)
-            previous.activate(from: me)
+    /// Decides what a key-down reaching the stack does. Returns true when it
+    /// was a card shortcut (consumed); anything else releases key at once.
+    func handleKeyDown(keyCode: UInt16, characters: String?, modifiers: NSEvent.ModifierFlags, windowNumber: Int, isRepeat: Bool) -> Bool {
+        guard let card = hoveredCard, windowNumber == card.window?.windowNumber,
+              let action = CardAction.forKey(keyCode: keyCode, characters: characters, modifiers: modifiers)
+        else {
+            focus.handle(.keyDown(isCardShortcut: false))
+            return false
         }
+        focus.handle(.keyDown(isCardShortcut: true))
+        if !isRepeat { perform(action, on: card) }
+        return true
     }
 
-    private func installKeyMonitor() {
+    func installKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            let windowNumber = event.windowNumber
-            let action = CardAction.forKey(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers, modifiers: event.modifierFlags)
-            let isRepeat = event.isARepeat
-            let handled = MainActor.assumeIsolated { () -> Bool in
-                guard let self, let card = self.hoveredCard, let action,
-                      windowNumber == card.window?.windowNumber else { return false }
-                if !isRepeat { self.perform(action, on: card) }
-                return true
+            let keyCode = event.keyCode, chars = event.charactersIgnoringModifiers
+            let mods = event.modifierFlags, window = event.windowNumber, isRepeat = event.isARepeat
+            let handled = MainActor.assumeIsolated {
+                self?.handleKeyDown(keyCode: keyCode, characters: chars, modifiers: mods, windowNumber: window, isRepeat: isRepeat) ?? false
             }
             return handled ? nil : event
         }
     }
 
-    private func removeKeyMonitor() {
+    func removeKeyMonitor() {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
     }
@@ -163,6 +141,8 @@ extension QuickAccessController: CardViewDelegate {
         do {
             let url = try exporter.exportFileURLForDrag(imageAt: card.capture.fileURL, suggestedName: card.capture.displayName)
             timers[card.capture.id]?.pause()
+            focus.handle(.dragStarted)
+            dragFiles[card.capture.id] = url
             return DragFileWriter(fileURL: url)
         } catch {
             log.error("Drag export failed: \(String(describing: error), privacy: .public)")
@@ -178,6 +158,9 @@ extension QuickAccessController: CardViewDelegate {
     }
 
     func card(_ card: CardView, dragEndedWith operation: NSDragOperation, swiped: Bool) {
+        if let file = dragFiles.removeValue(forKey: card.capture.id), operation == [] {
+            DragExportJanitor.removeLater(file: file, root: dragRoot)
+        }
         if operation != [] {
             log.info("Dropped \(card.capture.displayName, privacy: .public) (operation \(operation.rawValue))")
             if settings.quickAccessRemoveAfterDrag { close(card, deleteFile: false) }

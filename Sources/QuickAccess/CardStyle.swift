@@ -36,6 +36,8 @@ struct CardStyle {
 
     struct Palette {
         let backdrop: CGColor
+        /// Over the blurred backdrop, so it reads as background, not content.
+        let backdropTint: CGColor
         let border: CGColor
         let shadowOpacity: Float
         let dim: CGColor
@@ -52,6 +54,7 @@ struct CardStyle {
         if dark {
             return Palette(
                 backdrop: CGColor(srgbRed: 0.16, green: 0.16, blue: 0.18, alpha: 1),
+                backdropTint: CGColor(srgbRed: 0.08, green: 0.08, blue: 0.1, alpha: 0.5),
                 border: CGColor(gray: 1, alpha: 0.16),
                 shadowOpacity: 0.55,
                 dim: CGColor(gray: 0, alpha: 0.34),
@@ -65,6 +68,7 @@ struct CardStyle {
         }
         return Palette(
             backdrop: CGColor(srgbRed: 0.91, green: 0.91, blue: 0.93, alpha: 1),
+            backdropTint: CGColor(gray: 0.97, alpha: 0.42),
             border: CGColor(gray: 0, alpha: 0.14),
             shadowOpacity: 0.24,
             dim: CGColor(gray: 0, alpha: 0.26),

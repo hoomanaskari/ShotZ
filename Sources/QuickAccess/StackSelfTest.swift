@@ -13,6 +13,8 @@ import ShotzCore
     private var failures = 0
     /// The oldest presented capture (its file survives the run), reused for rapid presents.
     private var template: CaptureResult?
+    /// Stands in for the live focus host for the whole run.
+    private let focusRecorder = RecordingFocusHost()
 
     static func makeIfRequested(controller: QuickAccessController) -> StackSelfTest? {
         guard let path = UserDefaults.standard.string(forKey: "QuickAccessSelfTest"), !path.isEmpty else { return nil }
@@ -64,10 +66,18 @@ import ShotzCore
         await wait(1500) // let the --debug-present batch arrive and settle
         let start = Date()
         template = qa.model.order.first.flatMap { qa.cards[$0] }?.capture
+        qa.focus.host = focusRecorder
 
         checkOrder("initial order")
+        let size = CGSize(width: qa.applied.size.width, height: qa.applied.size.height)
+        let backdrops = qa.cards.values.map { card in
+            (ThumbnailLoader.coverage(pixelSize: card.capture.pixelSize, cardSize: size) < ThumbnailLoader.backdropThreshold) == card.hasBackdrop
+        }
+        let withBackdrop = qa.cards.values.filter(\.hasBackdrop).count
+        check("blurred backdrop on letterboxed cards only", !backdrops.isEmpty && backdrops.allSatisfy { $0 }, "\(withBackdrop) of \(backdrops.count) cards")
         snapshot("01-initial")
         await hoverAndStyle()
+        await focusRules()
         await drag()
         await saveAndClose()
         await rapid()
@@ -83,7 +93,7 @@ import ShotzCore
         } catch {
             qa.log.error("SELFTEST cannot write summary: \(error.localizedDescription, privacy: .public)")
         }
-        qa.takesKeyFocus = true
+        qa.focus.host = qa
         CardView.ignoresRealPointer = false
     }
 
@@ -125,6 +135,44 @@ import ShotzCore
         let labels = card.overlay.accessibilityChildren()?.compactMap { ($0 as? NSView)?.accessibilityLabel() } ?? []
         check("VoiceOver button labels", labels.count == 5 && !labels.contains(""), labels.joined(separator: ", "))
         check("VoiceOver card label", card.accessibilityLabel()?.contains("×") == true, card.accessibilityLabel() ?? "")
+    }
+
+    /// SPEC §4.3 keys without eating the owner's typing (driven through the same
+    /// entry points real events use; the recorder stands in for real key focus).
+    private func focusRules() async {
+        guard let template else { return note("focus checks skipped: no capture") }
+        let rec = focusRecorder
+        let clone = CaptureResult(fileURL: template.fileURL, displayName: "Focus test", kind: template.kind,
+                                  pixelSize: template.pixelSize, scale: template.scale, displayID: template.displayID)
+        qa.present(clone)
+        await wait(450)
+        guard let card = qa.cards[clone.id] else { return check("focus: card presented", false) }
+        let t0 = rec.takes, r0 = rec.releases
+        card.setHovered(true) // what the post-layout refresh does for a card under a resting pointer
+        await wait(50)
+        check("card appearing under a stationary pointer does not take key", rec.takes == t0 && !qa.focus.hasKey)
+        qa.cardPointerMoved(card, buttonsDown: true)
+        check("no key while a mouse button is down", rec.takes == t0)
+        qa.cardPointerMoved(card, buttonsDown: false)
+        check("genuine pointer movement takes key", rec.takes == t0 + 1 && qa.focus.hasKey)
+        let window = card.window?.windowNumber ?? -1
+        let consumed = qa.handleKeyDown(keyCode: 0, characters: "a", modifiers: [], windowNumber: window, isRepeat: false)
+        check("unhandled key releases key", !consumed && rec.releases == r0 + 1 && !qa.focus.hasKey)
+        qa.cardPointerMoved(card, buttonsDown: false)
+        check("key stays released until the pointer leaves and returns", rec.takes == t0 + 1)
+        card.setHovered(false)
+        card.setHovered(true)
+        qa.cardPointerMoved(card, buttonsDown: false)
+        check("re-entering and moving takes key again", rec.takes == t0 + 2)
+        qa.focus.handle(.spaceChanged)
+        check("Space change releases key", rec.releases == r0 + 2)
+        card.setHovered(false)
+        card.setHovered(true)
+        qa.cardPointerMoved(card, buttonsDown: false)
+        let esc = qa.handleKeyDown(keyCode: KeyCode.escape, characters: "\u{1b}", modifiers: [], windowNumber: window, isRepeat: false)
+        await wait(300)
+        check("card shortcut is consumed and closing the hovered card releases key",
+              esc && qa.cards[clone.id] == nil && !rec.holdsKey && !qa.focus.hasKey)
     }
 
     private func drag() async {
