@@ -12,7 +12,10 @@ a neutral backdrop. Nothing inside the window is changed.
 import os
 import sys
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter
+try:
+    from PIL import Image, ImageChops, ImageDraw, ImageFilter
+except ImportError:
+    sys.exit("compose.py needs Pillow: python3 -m pip install pillow")
 
 RAW, OUT = sys.argv[1], sys.argv[2]
 os.makedirs(OUT, exist_ok=True)

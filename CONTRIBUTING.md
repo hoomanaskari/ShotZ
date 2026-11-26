@@ -14,6 +14,10 @@ scripts/run.sh     # build and run ShotZ Dev
 
 ShotZ Dev is a separate app from ShotZ (its own bundle id, settings, captures and Screen Recording permission, default shortcuts ⌃⌥⌘3/4/5), so you can work on it with your installed ShotZ still running. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §8 lists the debug launch arguments for exercising the stack and the editor without capturing your screen.
 
+### Screenshots
+
+`scripts/screenshots/make-screenshots.sh` rebuilds the README screenshots from ShotZ Dev, using synthetic sample images. Its last step, `compose.py`, needs [Pillow](https://pypi.org/project/pillow/) (`python3 -m pip install pillow`).
+
 ## Conventions
 
 The full list is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §10. The ones that matter most:

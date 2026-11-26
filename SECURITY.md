@@ -7,8 +7,9 @@ Only the latest release of ShotZ gets security fixes. ShotZ updates itself, so s
 ## Reporting a vulnerability
 
 Please report security problems privately, not in a public issue: use **Report a vulnerability** on this repository's [Security tab](https://github.com/hoomanaskari/ShotZ/security/advisories/new). Include the ShotZ and macOS versions, what you found and how to reproduce it.
+<!-- Private vulnerability reporting must be enabled by the repository owner (Settings ▸ Code security ▸ Private vulnerability reporting) for that link to work. -->
 
-You'll get a reply within a week. Once a fix is released, we'll credit you in the release notes unless you'd rather we didn't.
+I'll reply as soon as I can. Once a fix is released, you'll be credited in the release notes unless you'd rather not be.
 
 ## Scope
 
