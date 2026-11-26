@@ -38,8 +38,9 @@ import ShotzCore
         let tabIcons: [ShellIcon] = [.general, .shortcuts, .quickAccess, .capture, .editor, .advanced]
         write(ShellIcon.debugToolbarStrip(tabIcons, scale: 1), to: dir.appending(path: "toolbar-icons-1x.png"))
         write(ShellIcon.debugToolbarStrip(tabIcons, scale: 2), to: dir.appending(path: "toolbar-icons-2x.png"))
-        if let button = coordinator.statusItem.debugButton { write(view: button, to: dir.appending(path: "status-item.png")) }
-        // Test runs have no status item: render the glyph itself for both apps and scales.
+        // Test runs have no status item: render the glyph itself for both apps and scales
+        // (status-item.png shows them all; the per-app files are the same strips).
+        write(StatusItemIconPreview.overviewPNG(), to: dir.appending(path: "status-item.png"))
         for variant in AppVariant.allCases {
             for scale in [1.0, 2.0] {
                 write(StatusItemIconPreview.png(variant: variant, scale: scale),

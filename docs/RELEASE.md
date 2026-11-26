@@ -82,7 +82,8 @@ brew install create-dmg
 ```
 
 and the Xcode command line tools (`xcrun notarytool`, `stapler`, `lipo`). The update feed is
-`SUFeedURL` in `Resources/Info.plist` (`https://raw.githubusercontent.com/<owner>/<name>/main/appcast.xml`);
+`SUFeedURL` in `Resources/Info.plist` (`https://raw.githubusercontent.com/<owner>/<name>/main/appcast.xml`;
+the repository's default branch must be `main`, since installed copies read the appcast from there);
 `release.sh` takes the download repository from it, so the appcast links point to
 `https://github.com/<owner>/<name>/releases/download/v<version>/`. (`SHOTZ_GITHUB_REPO=owner/name`
 overrides it only if it matches.)

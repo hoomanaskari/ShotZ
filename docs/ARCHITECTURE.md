@@ -410,7 +410,10 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   updater, so ShotZ Dev and test runs make no network request. The feed is
   `appcast.xml` at the repo root, served as
   `https://raw.githubusercontent.com/hoomanaskari/ShotZ/main/appcast.xml`
-  (`SUFeedURL` in `Resources/Info.plist`). The public EdDSA key lives only in
+  (`SUFeedURL` in `Resources/Info.plist`); this assumes `main` is the
+  repository's default branch, where the published `appcast.xml` lives (if the
+  default branch is renamed, change `SUFeedURL` before the next release, or
+  installed copies stop seeing updates). The public EdDSA key lives only in
   `Resources/SparklePublicKey.txt`; `bundle.sh release` writes it into the
   bundle's `SUPublicEDKey`. While that file is empty, Settings says updates are
   unavailable. Automatic checks are on by default (`SUEnableAutomaticChecks`),

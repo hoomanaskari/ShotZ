@@ -82,10 +82,21 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Framewor
 EXE="$APP/Contents/MacOS/$EXE_NAME"
 cp "$BIN_DIR/Shotz" "$EXE"
 # Load Sparkle from inside the bundle; drop rpaths that point into this machine's build folder.
-install_name_tool -add_rpath "@executable_path/../Frameworks" "$EXE"
+# install_name_tool warns that the edit invalidates the linker's ad-hoc signature: expected,
+# the bundle is signed below. Only that warning is dropped; anything else is shown and fails.
+edit_rpath() {
+  local err
+  if ! err="$(install_name_tool "$@" 2>&1)"; then
+    echo "$err" >&2
+    exit 70
+  fi
+  err="$(grep -v "will invalidate the code signature" <<<"$err" || true)"
+  [[ -z "$err" ]] || echo "$err" >&2
+}
+edit_rpath -add_rpath "@executable_path/../Frameworks" "$EXE"
 while IFS= read -r rpath; do
-  [[ "$rpath" == "$ROOT"/* ]] && install_name_tool -delete_rpath "$rpath" "$EXE"
-done < <(otool -l "$EXE" | awk '/LC_RPATH/ { getline; getline; print $2 }')
+  if [[ "$rpath" == "$ROOT"/* ]]; then edit_rpath -delete_rpath "$rpath" "$EXE"; fi
+done < <(otool -l "$EXE" | awk '/LC_RPATH/ { getline; getline; print $2 }' | sort -u)   # fat binaries list each rpath once per slice
 ditto "$SPARKLE_SRC" "$APP/Contents/Frameworks/Sparkle.framework"
 
 INFO="$APP/Contents/Info.plist"
