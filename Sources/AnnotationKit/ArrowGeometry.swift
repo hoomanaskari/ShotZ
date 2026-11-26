@@ -38,3 +38,15 @@ public struct ArrowGeometry: Codable, Sendable, Equatable, Hashable {
 
     public var length: CGFloat { Geometry.distance(start, end) }
 }
+
+extension ArrowGeometry {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            start: try c.decode(CGPoint.self, forKey: .start),
+            end: try c.decode(CGPoint.self, forKey: .end),
+            control: try? c.decodeIfPresent(CGPoint.self, forKey: .control), // damaged control: straight curve
+            style: (try? c.decodeIfPresent(ArrowStyle.self, forKey: .style)) ?? .straight
+        )
+    }
+}

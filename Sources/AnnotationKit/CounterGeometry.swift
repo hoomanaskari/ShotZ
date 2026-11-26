@@ -8,6 +8,7 @@ public struct CounterGeometry: Codable, Sendable, Equatable, Hashable {
         case alphabetic
     }
 
+    /// The badge radius comes from `ObjectStyle.fontSize` (pixels); colour from `ObjectStyle.color`.
     public var center: CGPoint
     /// Optional pointer tail end.
     public var tail: CGPoint?
@@ -37,5 +38,17 @@ public struct CounterGeometry: Codable, Sendable, Equatable, Hashable {
             }
             return s
         }
+    }
+}
+
+extension CounterGeometry {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            center: try c.decode(CGPoint.self, forKey: .center),
+            tail: try? c.decodeIfPresent(CGPoint.self, forKey: .tail), // damaged tail: drop it
+            value: (try? c.decodeIfPresent(Int.self, forKey: .value)) ?? 1,
+            numbering: (try? c.decodeIfPresent(Numbering.self, forKey: .numbering)) ?? .numeric
+        )
     }
 }

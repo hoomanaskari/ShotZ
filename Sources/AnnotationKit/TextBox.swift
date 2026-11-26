@@ -16,3 +16,15 @@ public struct TextBox: Codable, Sendable, Equatable, Hashable {
         self.style = style
     }
 }
+
+extension TextBox {
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            origin: try c.decode(CGPoint.self, forKey: .origin),
+            wrapWidth: try? c.decodeIfPresent(CGFloat.self, forKey: .wrapWidth), // damaged width: no wrapping
+            string: (try? c.decodeIfPresent(String.self, forKey: .string)) ?? "",
+            style: (try? c.decodeIfPresent(TextStyle.self, forKey: .style)) ?? TextStyle()
+        )
+    }
+}

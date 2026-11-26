@@ -59,8 +59,9 @@ struct ModelTests {
     }
 
     @Test func hitTestPicksTopmost() {
-        let a = AnnotationObject(shape: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50), cornerRadius: 0))
-        let b = AnnotationObject(shape: .rectangle(CGRect(x: 20, y: 20, width: 50, height: 50), cornerRadius: 0))
+        let filled = ObjectStyle(fill: .filled)
+        let a = AnnotationObject(shape: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50), cornerRadius: 0), style: filled)
+        let b = AnnotationObject(shape: .rectangle(CGRect(x: 20, y: 20, width: 50, height: 50), cornerRadius: 0), style: filled)
         let doc = AnnotationDocument(baseImageURL: URL(filePath: "/tmp/x.png"), pixelSize: CGSize(width: 100, height: 100), objects: [a, b])
         #expect(HitTesting.object(at: CGPoint(x: 30, y: 30), in: doc, tolerance: 0) == b.id)
         #expect(HitTesting.object(at: CGPoint(x: 5, y: 5), in: doc, tolerance: 0) == a.id)
