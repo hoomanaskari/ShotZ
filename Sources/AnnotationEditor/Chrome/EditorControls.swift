@@ -10,15 +10,16 @@ import ShotzUI
 }
 
 /// The one place the editor chrome creates its controls (toolbar, options bar, background
-/// panel). Every control is a ShotzUI control sized and spaced with ShotzUI tokens; the few
-/// ShotzUI does not have yet (number field, pop-up, panel switch) are standard AppKit controls
-/// styled with ShotzUI tokens here, so they swap in one place when ShotzUI step 2 lands.
+/// panel, action bar). Every control is a ShotzUI control, sized and spaced with ShotzUI tokens.
 @MainActor final class EditorControls {
     private(set) var actions: [ControlAction] = []
     private var colorLinks: [ColorPanelLink] = []
 
-    /// Options bar and panel controls share one height (28 pt).
-    nonisolated static let size: ShotzUI.ControlSize = .regular
+    /// Options bar and panel controls: compact chrome (24 pt) on a 28-pt hit row, as in
+    /// ShotzUI's `EditorOptionsBar` reference.
+    nonisolated static let size: ShotzUI.ControlSize = .compact
+    /// The action bar uses regular controls (28 pt), as in ShotzUI's `EditorActionArea`.
+    nonisolated static let actionSize: ShotzUI.ControlSize = .regular
 
     func reset() {
         actions.removeAll()
@@ -102,20 +103,20 @@ import ShotzUI
 
     /// The one primary action of a surface.
     func primaryButton(_ title: String, glyph: EditorGlyph? = nil, tooltip: String, shortcut: String? = nil,
-                       _ handler: @escaping () -> Void) -> ShotzButton {
-        button(title, glyph: glyph, role: .primary, tooltip: tooltip, shortcut: shortcut, handler)
+                       size: ShotzUI.ControlSize = EditorControls.size, _ handler: @escaping () -> Void) -> ShotzButton {
+        button(title, glyph: glyph, role: .primary, tooltip: tooltip, shortcut: shortcut, size: size, handler)
     }
 
     /// A labelled secondary action.
     func secondaryButton(_ title: String, glyph: EditorGlyph? = nil, tooltip: String, shortcut: String? = nil,
-                         _ handler: @escaping () -> Void) -> ShotzButton {
-        button(title, glyph: glyph, role: .secondary, tooltip: tooltip, shortcut: shortcut, handler)
+                         size: ShotzUI.ControlSize = EditorControls.size, _ handler: @escaping () -> Void) -> ShotzButton {
+        button(title, glyph: glyph, role: .secondary, tooltip: tooltip, shortcut: shortcut, size: size, handler)
     }
 
     /// A quiet icon-only action with a tooltip.
     func iconButton(_ glyph: EditorGlyph, label: String, tooltip: String, shortcut: String? = nil,
-                    _ handler: @escaping (ShotzButton) -> Void) -> ShotzButton {
-        let b = ShotzButton(icon: EditorGlyphs.shotzIcon(glyph), role: .quiet, size: Self.size)
+                    size: ShotzUI.ControlSize = EditorControls.size, _ handler: @escaping (ShotzButton) -> Void) -> ShotzButton {
+        let b = ShotzButton(icon: EditorGlyphs.shotzIcon(glyph), role: .quiet, size: size)
         b.setAccessibilityLabel(label)
         b.setShotzToolTip(tooltip, shortcut: shortcut)
         b.onAction = { control in
@@ -126,8 +127,8 @@ import ShotzUI
     }
 
     private func button(_ title: String, glyph: EditorGlyph?, role: ShotzUI.ControlRole, tooltip: String, shortcut: String?,
-                        _ handler: @escaping () -> Void) -> ShotzButton {
-        let b = ShotzButton(title: title, icon: glyph.flatMap(EditorGlyphs.shotzIcon), role: role, size: Self.size)
+                        size: ShotzUI.ControlSize, _ handler: @escaping () -> Void) -> ShotzButton {
+        let b = ShotzButton(title: title, icon: glyph.flatMap(EditorGlyphs.shotzIcon), role: role, size: size)
         b.setShotzToolTip(tooltip, shortcut: shortcut)
         b.onAction = { _ in handler() }
         return b
@@ -181,58 +182,52 @@ import ShotzUI
         return row
     }
 
-    // MARK: Not in ShotzUI step 1 yet: AppKit controls with ShotzUI tokens
+    // MARK: Fields and menus
 
-    func numberField(_ value: Int, width: CGFloat = 56, label: String, _ handler: @escaping (Int) -> Void) -> NSTextField {
-        let f = NSTextField(string: String(value))
-        f.controlSize = .regular
-        f.font = ShotzUI.Typography.value.font
-        f.alignment = .right
-        f.bezelStyle = .roundedBezel
-        f.widthAnchor.constraint(equalToConstant: width).isActive = true
-        let formatter = NumberFormatter()
-        formatter.allowsFloats = false
-        formatter.minimum = 1
-        f.formatter = formatter
-        f.setAccessibilityLabel(label)
+    func numberField(_ value: Int, in range: ClosedRange<Int> = 1...99_999, label: String,
+                     _ handler: @escaping (Int) -> Void) -> ShotzNumberField {
+        let f = ShotzNumberField(value: Double(value), in: Double(range.lowerBound)...Double(range.upperBound), step: 1, label: label, size: Self.size)
+        f.digits = max(String(range.upperBound).count, 2)
         f.setShotzToolTip(label)
-        bind(f) { [weak self] field in
-            handler(Int((field as? NSTextField)?.stringValue ?? "") ?? value)
+        f.onChange = { [weak self] v in
+            handler(Int(v.rounded()))
             if NSApp.currentEvent?.type == .keyDown { self?.onFieldCommitted?() }
         }
         return f
     }
 
-    /// Called after a number field commits, to hand the keyboard back to the canvas.
+    /// Called after a number field commits with Return, to hand the keyboard back to the canvas.
     var onFieldCommitted: (() -> Void)?
 
-    func popup(_ titles: [String], selected: Int, label: String, _ handler: @escaping (Int) -> Void) -> NSPopUpButton {
-        let p = NSPopUpButton(frame: .zero, pullsDown: false)
-        p.controlSize = .regular
-        p.font = ShotzUI.Typography.label.font
-        // Items carry their index as a tag; selection is read from the item, not its position.
-        for (i, title) in titles.enumerated() {
-            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-            item.tag = i
-            p.menu?.addItem(item)
-        }
-        p.selectItem(withTag: selected)
+    /// A choice pop-up (the selection is read from the item, never its position).
+    func popup(_ titles: [String], selected: Int, label: String, _ handler: @escaping (Int) -> Void) -> ShotzPopUpButton {
+        let p = ShotzPopUpButton(items: titles, selectedIndex: selected, size: Self.size)
         p.setAccessibilityLabel(label)
         p.setShotzToolTip(label)
-        bind(p) { control in
-            guard let tag = (control as? NSPopUpButton)?.selectedItem?.tag else { return }
-            handler(tag)
-        }
+        p.onChange = handler
         return p
     }
 
-    func panelSwitch(on: Bool, label: String, _ handler: @escaping (Bool) -> Void) -> NSSwitch {
-        let s = NSSwitch()
-        s.state = on ? .on : .off
-        s.controlSize = .small
-        s.setAccessibilityLabel(label)
-        bind(s) { handler(($0 as? NSSwitch)?.state == .on) }
-        return s
+    /// A quiet pop-up that shows `title` and opens `menu` (zoom value, More options).
+    func menuButton(title: String?, glyph: EditorGlyph?, menu: NSMenu, label: String, tooltip: String, shortcut: String? = nil,
+                    size: ShotzUI.ControlSize = EditorControls.size) -> ShotzPopUpButton {
+        let p = ShotzPopUpButton(items: [title ?? ""], selectedIndex: 0, icon: glyph.flatMap(EditorGlyphs.shotzIcon), role: .quiet, size: size)
+        p.actionMenu = menu
+        p.setAccessibilityLabel(label)
+        p.setShotzToolTip(tooltip, shortcut: shortcut)
+        return p
+    }
+
+    /// The panel's on/off, in the chip language.
+    func panelSwitch(on: Bool, label: String, _ handler: @escaping (Bool) -> Void) -> ShotzToggleChip {
+        let c = ShotzToggleChip(title: on ? String(localized: "On") : String(localized: "Off"), isOn: on, size: Self.size)
+        c.setAccessibilityLabel(label)
+        c.setShotzToolTip(label, shortcut: "G")
+        c.onToggle = { [weak c] isOn in
+            c?.title = isOn ? String(localized: "On") : String(localized: "Off")
+            handler(isOn)
+        }
+        return c
     }
 
     // MARK: Text and layout
@@ -279,24 +274,9 @@ import ShotzUI
 
     // MARK: Feedback
 
-    /// A brief confirmation bubble ("Copied", "Saved to Desktop").
-    static func toast(_ text: String) -> NSView {
-        let label = label(text, .control, color: ShotzUI.Palette.textPrimary)
-        let box = NSVisualEffectView()
-        box.material = .hudWindow
-        box.state = .active
-        box.wantsLayer = true
-        box.layer?.cornerRadius = ShotzUI.Radius.card
-        box.translatesAutoresizingMaskIntoConstraints = false
-        label.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: box.leadingAnchor, constant: ShotzUI.Space.l),
-            label.trailingAnchor.constraint(equalTo: box.trailingAnchor, constant: -ShotzUI.Space.l),
-            label.topAnchor.constraint(equalTo: box.topAnchor, constant: ShotzUI.Space.s),
-            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -ShotzUI.Space.s),
-        ])
-        return box
+    /// A brief confirmation ("Copied", "Saved to Desktop").
+    static func toast(_ text: String, in view: NSView, success: Bool = true) {
+        ShotzToast(text, tone: success ? .success : .failure).show(in: view)
     }
 }
 

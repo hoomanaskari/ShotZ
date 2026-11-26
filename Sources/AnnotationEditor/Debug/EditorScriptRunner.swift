@@ -216,6 +216,27 @@ import ShotzCore
                 with: .mouseMoved, location: windowPoint(CGPoint(x: nums[0], y: nums[1])), modifierFlags: [],
                 timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0
             ) { controller.canvas.mouseMoved(with: e) }
+        case "draghandle":
+            // draghandle thumbnail|icon|hover|rest: the drag-out control's look and hover state.
+            let handle = controller.toolbarController.dragHandle
+            switch args.first {
+            case "hover": handle.previewHover(true)
+            case "rest": handle.previewHover(false)
+            default:
+                if let style = args.first.flatMap(DragHandleView.Style.init(rawValue:)) {
+                    handle.style = style
+                    controller.toolbarController.actionBar?.needsLayout = true
+                    controller.scheduleThumbnail(delay: 0)
+                }
+            }
+        case "more":
+            // more: opens the options bar's More popover; more snapshot <path> [scale] renders it.
+            if args.first == "snapshot", args.count > 1 {
+                if let view = controller.optionsBar.overflowView { snapshot(view: view, to: URL(filePath: args[1]), scale: args.count > 2 ? Double(args[2]).map { CGFloat($0) } : nil) }
+            } else {
+                controller.optionsBar.showOverflow()
+                log.notice("SCRIPT more: \(self.controller.optionsBar.overflow.map(\.title).joined(separator: ", "), privacy: .public)")
+            }
         case "close":
             window?.performClose(nil)
         default:
@@ -329,8 +350,14 @@ import ShotzCore
 
     private func snapshot(to url: URL, scale requested: CGFloat? = nil) {
         window?.displayIfNeeded()
-        guard let view = window?.contentView?.superview ?? window?.contentView, let layer = view.layer else { return }
-        let scale = requested ?? window?.backingScaleFactor ?? 2
+        guard let view = window?.contentView?.superview ?? window?.contentView else { return }
+        snapshot(view: view, to: url, scale: requested)
+    }
+
+    private func snapshot(view: NSView, to url: URL, scale requested: CGFloat? = nil) {
+        view.window?.displayIfNeeded()
+        guard let layer = view.layer else { return }
+        let scale = requested ?? view.window?.backingScaleFactor ?? 2
         let size = view.bounds.size
         guard let ctx = CGContext(data: nil, width: Int(size.width * scale), height: Int(size.height * scale), bitsPerComponent: 8,
                                   bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
