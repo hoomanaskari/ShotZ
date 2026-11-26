@@ -84,6 +84,7 @@ import ShotzCore
             qa.log.error("SELFTEST cannot write summary: \(error.localizedDescription, privacy: .public)")
         }
         qa.takesKeyFocus = true
+        CardView.ignoresRealPointer = false
     }
 
     private func checkOrder(_ name: String) {

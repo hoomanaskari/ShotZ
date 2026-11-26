@@ -87,6 +87,7 @@ import ShotzCore
         if selfTest == nil, let test = StackSelfTest.makeIfRequested(controller: self) {
             selfTest = test
             takesKeyFocus = false
+            CardView.ignoresRealPointer = true
             test.start()
         }
     }

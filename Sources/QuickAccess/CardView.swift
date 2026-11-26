@@ -153,8 +153,11 @@ import ShotzCore
         trackingArea = area
     }
 
-    override func mouseEntered(with event: NSEvent) { setHovered(true) }
-    override func mouseExited(with event: NSEvent) { setHovered(false) }
+    /// Set by the self-test so the real pointer can't interfere with simulated hover.
+    static var ignoresRealPointer = false
+
+    override func mouseEntered(with event: NSEvent) { if !Self.ignoresRealPointer { setHovered(true) } }
+    override func mouseExited(with event: NSEvent) { if !Self.ignoresRealPointer { setHovered(false) } }
 
     func setHovered(_ hovered: Bool) {
         let effective = hovered && !isExiting && !isDragging
@@ -166,7 +169,7 @@ import ShotzCore
 
     /// Re-checks hover from the current pointer position (after the card moved under it).
     func refreshHover() {
-        guard let window, !isExiting else { return }
+        guard let window, !isExiting, !Self.ignoresRealPointer else { return }
         let p = convert(window.mouseLocationOutsideOfEventStream, from: nil)
         setHovered(bounds.contains(p))
     }
