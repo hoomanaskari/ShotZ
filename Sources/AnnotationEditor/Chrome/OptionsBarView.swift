@@ -30,6 +30,9 @@ import AppKit
         stack.spacing = 8
         stack.alignment = .centerY
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 12)
+        // Never widen the window: at narrow sizes, drop the optional controls, then clip.
+        stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
+        stack.setHuggingPriority(.defaultLow, for: .horizontal)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -104,6 +107,13 @@ import AppKit
     }
 
     func add(_ v: NSView) { stack.addArrangedSubview(v) }
+
+    /// A control that may be hidden when the window is narrow (it stays reachable by
+    /// widening the window or selecting an object).
+    func addOptional(_ v: NSView) {
+        stack.addArrangedSubview(v)
+        stack.setVisibilityPriority(.detachOnlyIfNecessary, for: v)
+    }
 
     private func addOptions(for kind: ToolKind, _ s: ToolSettings) {
         switch kind {
@@ -221,7 +231,7 @@ import AppKit
             well?.isCustom = true
             apply(color, true)
         }
-        add(dropper)
+        addOptional(dropper)
         add(OptionControls.separator())
     }
 
@@ -237,7 +247,7 @@ import AppKit
     }
 
     func addOpacity(_ s: ToolSettings) {
-        add(controls.sliderRow(value: s.opacity, min: 0.1, max: 1, width: 64, label: String(localized: "Opacity"),
+        addOptional(controls.sliderRow(value: s.opacity, min: 0.1, max: 1, width: 64, label: String(localized: "Opacity"),
                                glyph: .opacity, format: OptionControls.percent) { [weak self] v, final in
             self?.change(String(localized: "Opacity"), final: final) { $0.opacity = v }
         })

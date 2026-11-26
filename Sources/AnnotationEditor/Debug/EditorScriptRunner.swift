@@ -192,6 +192,7 @@ import ShotzCore
         case "size":
             // size <w> <h>: the window's content size in points (720 × 480 is the minimum).
             if nums.count >= 2 { window?.setContentSize(NSSize(width: nums[0], height: nums[1])) }
+            log.notice("SCRIPT window frame \(NSStringFromRect(self.window?.frame ?? .zero), privacy: .public) min \(NSStringFromSize(self.window?.minSize ?? .zero), privacy: .public) bar fitting \(self.controller.optionsBar.fittingSize.width) content min \(NSStringFromSize(self.window?.contentMinSize ?? .zero), privacy: .public)")
         case "panel":
             // panel: show or hide the background panel.
             controller.toggleBackgroundPanel(nil)
