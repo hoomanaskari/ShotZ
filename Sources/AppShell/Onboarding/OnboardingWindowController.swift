@@ -28,8 +28,13 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
     }
 
     public var isVisible: Bool { window?.isVisible ?? false }
-    /// For `--debug-snapshot-ui` only.
-    public var debugWindow: NSWindow? { window }
+    /// For `--debug-snapshot-ui` only: one step rendered off screen (no window is shown).
+    public func debugRender(step: OnboardingStep) async -> Data? {
+        let previous = model.step
+        model.step = step
+        defer { model.step = previous }
+        return await OffscreenRenderer.png(OnboardingView(model: model), size: CGSize(width: 600, height: 470))
+    }
     public var currentStep: OnboardingStep { model.step }
 
     public func show(step: OnboardingStep = .welcome) {

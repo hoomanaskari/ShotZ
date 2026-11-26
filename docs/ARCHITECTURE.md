@@ -245,8 +245,8 @@ public enum DocumentExport {
 
 ## 7. AppShell and Shotz executable
 
-- `HotkeyCenter`: Carbon `RegisterEventHotKey`; bindings from `SettingsStore`;
-  `--dev-hotkeys` / `SHOTZ_DEV_HOTKEYS=1` forces ⌃⌥⌘3/4/5 for the run.
+- `HotkeyCenter`: Carbon `RegisterEventHotKey`; bindings from `SettingsStore`,
+  selected per run by `HotkeyMode` (profile × `--dev-hotkeys`; see §8).
 - `Permissions`: `CGPreflightScreenCaptureAccess` / `CGRequestScreenCaptureAccess`,
   symbolic-hotkey check by *reading* `com.apple.symbolichotkeys` (never writing).
 - `StatusItemController`, `SettingsWindow` (SwiftUI), `OnboardingWindow`
@@ -261,21 +261,26 @@ public enum DocumentExport {
 swift build                      # debug build of all modules
 swift test                       # all unit tests (must pass before any merge)
 scripts/bundle.sh [debug|release]   # → build/Shotz.app (Info.plist, icon, codesign)
-scripts/run.sh [--dev-hotkeys] [app args…]   # bundle (debug) and launch; kills a previous dev instance of Shotz only
+scripts/run.sh [--dev-hotkeys] [app args…]   # bundle (debug) and launch; quits a previous instance of this bundle only
 scripts/install.sh               # release bundle → /Applications/Shotz.app (manager/owner only)
 swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradient, shapes, text; 144 dpi)
 ```
 
 - `run.sh` passes every argument through to the app; arguments that name an
-  existing file are made absolute first.
+  existing file are made absolute first. From a git worktree it always adds
+  `--dev-profile`, starts the executable directly (not via Launch Services)
+  and unregisters the bundle from Launch Services, so macOS never confuses
+  worktree copies with the owner's app. A previous instance is matched by its
+  resolved executable path.
 - Debug launch arguments (handled in `AppCoordinator.start()`, for exercising
   features without Screen Recording permission):
   - `--debug-present <png> [<png>…]`: copies each image into the captures
     folder, builds a `CaptureResult` (kind area, real pixel size, scale 2, main
     display), adds it to history and presents it in the stack.
   - `--debug-edit <png>`: opens the image in the editor (`openEditor(imageAt:)`).
-  - `--debug-snapshot-ui <dir>`: renders every Settings tab, onboarding step
-    and the status item to PNGs in `<dir>` (plus the status menu as text),
+  - `--debug-snapshot-ui <dir>`: renders every Settings tab and onboarding
+    step to PNGs in `<dir>` off screen (no window is shown and Shotz is not
+    activated), plus the status item when visible and the status menu as text,
     for reviewing the shell UI without clicking through it.
   - Example: `swift scripts/make-sample.swift 5120 2880 build/sample-5k.png &&
     scripts/run.sh --dev-profile --dev-hotkeys --debug-present build/sample-5k.png`.
@@ -296,6 +301,20 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
     bundle from its own worktree. Nobody bundles, launches or kills the main
     checkout's `build/Shotz.app`: that is the owner's instance.
 
+- **Global shortcuts per run** (`HotkeyBindings.effective`, `HotkeyMode`).
+  Carbon lets two processes register the same combo, so a dev copy must never
+  hold one the owner's copy uses. Session overrides never write preferences.
+
+  | Run | Capture fullscreen / area / all-in-one | Capture window, restore |
+  |---|---|---|
+  | standard | stored (⌘⇧3/4/5 by default) | stored |
+  | standard + `--dev-hotkeys` | ⌃⌥⌘3/4/5 | stored |
+  | dev profile | none | none |
+  | dev profile + `--dev-hotkeys` | ⌃⌥⇧⌘3/4/5 | none |
+
+  Settings ▸ Shortcuts shows each action's session shortcut and a note when
+  nothing is registered; the launch log has a `Hotkeys: …` line.
+
 - Bundle id `app.shotz.Shotz`, `LSUIElement = true`, `LSMinimumSystemVersion = 15.0`.
 - Signing: `bundle.sh` signs with `$SHOTZ_SIGN_IDENTITY` if set, otherwise the
   first "Apple Development" identity in the keychain, otherwise ad-hoc. A
@@ -314,9 +333,10 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 - `CaptureEngine` is tested through a `FakeCaptureEngine` (in ShotzCore's test
   support) plus argument-building tests for `SystemCaptureEngine`; real
   captures are verified manually (they need Screen Recording permission).
-- UI is verified by launching the app: every engineer runs `scripts/run.sh
-  --dev-hotkeys` and exercises their feature before handing over; the manager
-  repeats that on review.
+- UI is verified by launching the app from the engineer's own worktree
+  (`scripts/run.sh`, which forces `--dev-profile`; add `--dev-hotkeys` only
+  when the feature needs shortcuts) and exercising it through debug flags
+  before handing over; the manager repeats that on review.
 - `swift build` must be warning-free.
 
 ## 10. Conventions

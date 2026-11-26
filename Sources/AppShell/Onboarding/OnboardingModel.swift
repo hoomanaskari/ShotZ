@@ -47,7 +47,7 @@ import ShotzCore
 
     /// Capture shortcuts Shotz failed to register (another app holds them).
     var heldByAnotherApp: [HotkeyAction] {
-        guard !hotkeys.devHotkeys else { return [] }
+        guard hotkeys.mode == .standard else { return [] }
         return [.captureFullscreen, .captureArea, .captureAllInOne].filter { hotkeys.registrationFailures[$0] != nil }
     }
 

@@ -74,7 +74,7 @@ import ShotzCore
 
         hotkeys.onAction = { [weak self] action in self?.handle(action) }
         hotkeys.start()
-        if hotkeys.devHotkeys { log.info("Dev hotkeys active (⌃⌥⌘3/4/5); preferences untouched") }
+        log.notice("Hotkeys: \(self.hotkeys.mode.logDescription, privacy: .public)")
 
         statusItem.onCapture = { [weak self] mode in self?.capture(mode) }
         statusItem.onOpenSettings = { [weak self] in self?.openSettings() }

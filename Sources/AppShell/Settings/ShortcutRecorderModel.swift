@@ -81,7 +81,7 @@ import ShotzCore
             return true
         }
         let combo = KeyCombo(keyCode: code, modifiers: mods)
-        let current = HotkeyBindings.effectiveAll(stored: { settings.hotkey(for: $0) }, dev: false)
+        let current = HotkeyBindings.storedAll { settings.hotkey(for: $0) }
         if let issue = ShortcutValidation.problem(for: combo, action: action, current: current) {
             problem = (action, issue.message)
             NSSound.beep()

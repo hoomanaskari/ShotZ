@@ -13,8 +13,13 @@ import SwiftUI
     }
 
     public var isVisible: Bool { window?.isVisible ?? false }
-    /// For `--debug-snapshot-ui` only.
-    public var debugWindow: NSWindow? { window }
+    /// For `--debug-snapshot-ui` only: one tab rendered off screen (no window is shown).
+    public func debugRender(tab: SettingsTab) async -> Data? {
+        let selection = SettingsSelection()
+        selection.tab = tab
+        return await OffscreenRenderer.png(SettingsRootView(context: context, selection: selection),
+                                           size: CGSize(width: 560, height: 500))
+    }
 
     public func show(tab: SettingsTab? = nil) {
         if let tab { selection.tab = tab }
