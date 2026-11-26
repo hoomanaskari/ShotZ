@@ -78,7 +78,7 @@ final class SettingsTabViewController: NSTabViewController {
             hosting.sizingOptions = []
             let item = NSTabViewItem(viewController: hosting)
             item.label = tab.title
-            item.image = tab.icon.nsImage(pointSize: 18)
+            item.image = tab.icon.toolbarImage()
             item.identifier = tab.rawValue
             addTabViewItem(item)
         }
