@@ -381,7 +381,7 @@ struct FileHistoryStoreTests {
         }
         #expect(dev.historyIndex != real.historyIndex)
         #expect(dev.temporary != real.temporary)
-        #expect(dev.root.path(percentEncoded: false).contains("/Application Support/Shotz Dev"))
+        #expect(dev.root.path(percentEncoded: false).contains("/Application Support/ShotZ Dev"))
     }
 
     @Test func renderedPNGLivesNextToTheDocumentAndGoesWithTheCapture() async throws {

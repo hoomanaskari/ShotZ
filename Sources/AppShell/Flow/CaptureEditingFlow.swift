@@ -26,6 +26,11 @@ import ShotzCore
         self.renderedImage = renderedImage
     }
 
+    /// Makes this flow the editor's delegate (closes return the card).
+    public func attach(to editor: AnnotationEditing) {
+        editor.delegate = self
+    }
+
     /// Opens a capture in the editor from a card's Annotate, history or the
     /// status menu. Any card for it leaves the stack first (Annotate already
     /// removed it; `dismiss` is a no-op then and never reports a close).

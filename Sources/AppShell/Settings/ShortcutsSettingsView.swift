@@ -52,7 +52,7 @@ struct ShortcutsSettingsView: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     PrefHelp(String(localized: "Click a shortcut, then press the new keys. Esc cancels, Delete clears it."))
-                    PrefHelp(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell Shotz when another app holds a shortcut."))
+                    PrefHelp(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell ShotZ when another app holds a shortcut."))
                 }
                 Spacer(minLength: 16)
                 Button(String(localized: "Restore Defaults")) {

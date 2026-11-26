@@ -21,7 +21,7 @@ struct CaptureSettingsView: View {
                     }
                     .labelsHidden()
                     .fixedSize()
-                    PrefHelp(String(localized: "Applies to exported files. Shotz keeps its own full-resolution PNG of every capture."))
+                    PrefHelp(String(localized: "Applies to exported files. ShotZ keeps its own full-resolution PNG of every capture."))
                 }
                 PrefRow(label: String(localized: "File name")) {
                     FileNamePatternField(settings: settings)

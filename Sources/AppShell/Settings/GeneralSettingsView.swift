@@ -69,7 +69,7 @@ struct LoginItemNote: View {
             EmptyView()
         case .notInstalled:
             PrefHelp(loginItem.variant == .production
-                     ? String(localized: "Takes effect when Shotz runs from the Applications folder.")
+                     ? String(localized: "Takes effect when ShotZ runs from the Applications folder.")
                      : String(localized: "Not used in test runs (started with --no-hotkeys)."))
         case .requiresApproval:
             HStack(spacing: 8) {
@@ -128,7 +128,7 @@ struct ExportFolderPicker: View {
         panel.allowsMultipleSelection = false
         panel.directoryURL = folder
         panel.prompt = String(localized: "Use Folder")
-        panel.message = String(localized: "Choose where Shotz saves exported captures.")
+        panel.message = String(localized: "Choose where ShotZ saves exported captures.")
         if panel.runModal() == .OK, let url = panel.url {
             settings.exportFolder = url
         }

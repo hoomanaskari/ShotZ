@@ -1,8 +1,10 @@
-# Shotz — architecture
+# ShotZ — architecture
 
 Native Swift 6 (strict concurrency), AppKit-first, macOS 15+. SwiftUI only for
 Settings and onboarding. One SwiftPM package, built from the command line and
-wrapped into `Shotz.app` by a script. No third-party dependencies.
+wrapped into `ShotZ.app` by a script (the product is "ShotZ"; modules,
+the `Shotz` executable target, bundle ids and the production data folder keep
+their original spelling). No third-party dependencies.
 
 Behaviour is defined in [SPEC.md](SPEC.md). This file defines structure.
 
@@ -52,7 +54,7 @@ public enum CaptureKind: String, Codable, Sendable { case area, window, fullscre
 public struct CaptureResult: Identifiable, Hashable, Codable, Sendable {
     public let id: UUID
     public let fileURL: URL          // lossless PNG in the private captures folder
-    public let displayName: String   // "Shotz 2026-11-26 at 10.42.07"
+    public let displayName: String   // "ShotZ 2026-11-26 at 10.42.07"
     public let kind: CaptureKind
     public let pixelSize: CGSize     // native pixels
     public let scale: CGFloat        // 2.0 on Retina
@@ -279,10 +281,10 @@ public enum DocumentExport {
 ```bash
 swift build                      # debug build of all modules
 swift test                       # all unit tests (must pass before any merge)
-scripts/bundle.sh dev            # → build/Shotz Dev.app (development app, debug build)
-scripts/bundle.sh release        # → build/Shotz.app (production app, release build)
-scripts/run.sh [app args…]       # build and run Shotz Dev; quits only its own previous instance
-scripts/install.sh               # production release → /Applications/Shotz.app (manager/owner only)
+scripts/bundle.sh dev            # → build/ShotZ Dev.app (development app, debug build)
+scripts/bundle.sh release        # → build/ShotZ.app (production app, release build)
+scripts/run.sh [app args…]       # build and run ShotZ Dev; quits only its own previous instance
+scripts/install.sh               # production release → /Applications/ShotZ.app (manager/owner only)
 swift Resources/make-app-icon.swift [preview-dir]   # writes AppIcon.icns and AppIcon-Dev.icns
 swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradient, shapes, text; 144 dpi)
 ```
@@ -291,8 +293,8 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   existing file are made absolute first. From a git worktree it adds
   `--no-hotkeys`, starts the executable directly (not via Launch Services)
   and unregisters the bundle from Launch Services, so worktree copies of
-  Shotz Dev never fight over shortcuts or confuse macOS. A previous instance
-  is matched by its resolved executable path. It never touches Shotz.
+  ShotZ Dev never fight over shortcuts or confuse macOS. A previous instance
+  is matched by its resolved executable path. It never touches ShotZ.
 - Debug launch arguments (handled in `AppCoordinator.start()`, for exercising
   features without Screen Recording permission):
   - `--debug-present <png> [<png>…]`: copies each image into the captures
@@ -307,7 +309,7 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
     editor document and recorded export carry over. Re-imported under the same
     id only when the captured file is gone.
   - `--debug-snapshot-ui <dir>`: renders every Settings tab and onboarding
-    step to PNGs in `<dir>` off screen (no window is shown and Shotz is not
+    step to PNGs in `<dir>` off screen (no window is shown and ShotZ is not
     activated), plus the status item when visible and the status menu as text,
     for reviewing the shell UI without clicking through it.
   - Example: `swift scripts/make-sample.swift 5120 2880 build/sample-5k.png &&
@@ -318,23 +320,36 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 
   | | `.production` | `.development` |
   |---|---|---|
-  | App / bundle id | `Shotz.app`, `app.shotz.Shotz` | `Shotz Dev.app`, `app.shotz.Shotz.dev` |
+  | App / bundle id | `ShotZ.app`, `app.shotz.Shotz` | `ShotZ Dev.app`, `app.shotz.Shotz.dev` |
+  | Executable | `ShotZ` (SwiftPM product `Shotz`, renamed by `bundle.sh`) | same |
   | Preferences | `UserDefaults.standard` (its own domain) | same, its own domain |
-  | Data (`ShotzPaths.default`) | `Application Support/Shotz`, temp `Shotz` | `Application Support/Shotz Dev`, temp `Shotz Dev` |
+  | Data (`ShotzPaths.default`) | `Application Support/Shotz`, temp `Shotz` | `Application Support/ShotZ Dev`, temp `ShotZ Dev` |
   | Default capture shortcuts | ⌘⇧3/4/5 | ⌃⌥⌘3/4/5 |
   | Launch at login default | on (registers only from Applications) | off (registers wherever it runs) |
   | Icon / glyph | `AppIcon.icns`, template glyph | `AppIcon-Dev.icns` (amber DEV band), amber glyph |
 
   Each has its own login item and Screen Recording permission (granted once
-  for Shotz Dev). `bundle.sh dev` derives the dev Info.plist from
+  for ShotZ Dev). `bundle.sh dev` derives the dev Info.plist from
   `Resources/Info.plist` (bundle id, name, display name) and uses the dev icon.
   The launch log starts with `Variant: …`.
-- **`--no-hotkeys`** (`HotkeyCenter.hotkeysDisabledRequested`): set by
-  `run.sh` from worktrees and implied by `--debug-*`, `-QuickAccessSelfTest`
-  and `SHOTZ_EDITOR_SCRIPT`. Nothing is registered, the login item is never
-  registered and the welcome window never opens by itself. Settings says so.
-  Carbon lets two processes register the same combo, so test copies must never
-  hold shortcuts.
+- **Test runs** (`AppVariant.isTestRun`): `--no-hotkeys`, set by `run.sh`
+  from worktrees and implied by `--debug-*`, `-QuickAccessSelfTest` and
+  `SHOTZ_EDITOR_SCRIPT`. Hermetic: preferences in the suite
+  `<bundle id>.testrun` (`AppVariant.preferences`, used by `SettingsStore()`
+  and `ExportConfiguration.current()`), data in `Application Support/<name>
+  Test Runs` (`ShotzPaths.default`), no shortcuts, no login item, no
+  onboarding writes, no menu-bar icon, and one launch log line saying so.
+  Argument-domain overrides still apply. Carbon lets two processes register
+  the same combo, so test copies never hold shortcuts.
+- **Screen Recording observations:** a bundle exec'd directly from a shell
+  inherits the launcher's TCC responsibility, so its preflight result says
+  nothing about ShotZ's own grant. Check grants by launching through Launch
+  Services (`open -n …`), then `lsregister -u` the bundle.
+- **Names on disk:** the filesystem is case-insensitive, so `bundle.sh`
+  builds under a temporary name and moves the bundle into place (removing
+  either spelling first), and `install.sh` replaces `/Applications/Shotz.app`
+  or `ShotZ.app` so only `ShotZ.app` remains. Instance matching in the
+  scripts accepts the old and new executable names, compared case-insensitively.
 - **Rule:** nobody bundles, launches or kills anything in the main checkout's
   `build/` or in `/Applications`: those are the owner's apps.
 
@@ -347,7 +362,7 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   signing), `--timestamp=none` (no network). Version from `Resources/Info.plist`
   (checked). No notarisation, no upload.
 - `install.sh`: main checkout only; stages and verifies the release next to
-  `/Applications/Shotz.app`, quits only the installed copy (resolved
+  `/Applications/ShotZ.app`, quits only the installed copy (resolved
   executable path; SIGTERM, then SIGKILL after 5 s), swaps with two renames
   (restores the old copy on failure), relaunches if it was running.
 - Not sandboxed (it must spawn `screencapture` and write to the export folder).
@@ -363,7 +378,7 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 - `CaptureEngine` is tested through a `FakeCaptureEngine` (in ShotzCore's test
   support) plus argument-building tests for `SystemCaptureEngine`; real
   captures are verified manually (they need Screen Recording permission).
-- UI is verified by launching Shotz Dev from the engineer's own worktree
+- UI is verified by launching ShotZ Dev from the engineer's own worktree
   (`scripts/run.sh`, which adds `--no-hotkeys`) and exercising it through
   debug flags and off-screen renders before handing over; the manager repeats
   that on review. Shortcut handling is tested with a fake `HotkeyRegistrar`.
@@ -385,7 +400,7 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 - User-facing strings via `String(localized:)`; English only for now.
 - Original assets only. Never copy icons, sounds, text or layouts from other apps.
 - Testing must not disturb the person using the Mac: never post synthetic
-  global key or mouse events and never bring Shotz to the front uninvited;
+  global key or mouse events and never bring ShotZ to the front uninvited;
   drive features through debug launch flags and in-process hooks instead.
 - Git: small commits, imperative subject (`QuickAccess: add drag-out`), one
   branch per engineer (`eng/<area>`), rebase on `main`, never push.

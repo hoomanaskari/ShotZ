@@ -97,6 +97,26 @@ struct CaptureEditingFlowTests {
         #expect(stack.events == [.present(capture.id, rendered, 1)])
     }
 
+    @Test func attachMakesTheFlowTheEditorsDelegate() {
+        let stack = FakeStack(), editor = FakeEditor()
+        let flow = CaptureEditingFlow(quickAccess: stack, editor: editor) { _ in nil }
+        #expect(editor.delegate == nil)
+        flow.attach(to: editor)
+        #expect(editor.delegate === flow)
+    }
+
+    @Test func historyHooksPointAtTheStore() async throws {
+        let paths = ShotzPaths(root: FileManager.default.temporaryDirectory.appending(path: "ShotzHooks-\(UUID().uuidString)", directoryHint: .isDirectory))
+        defer { try? FileManager.default.removeItem(at: paths.root) }
+        let history = FileHistoryStore(paths: paths)
+        let hooks = HistoryEditorHooks(history: history)
+        let id = UUID()
+        #expect(hooks.documentURL(id) == history.documentURL(for: id))
+        #expect(hooks.renderedURL(id) == history.renderedURL(for: id))
+        #expect(hooks.renderedURL(id).lastPathComponent == "\(id.uuidString).png")
+        #expect(await hooks.previousExport(id) == nil)
+    }
+
     @Test func onDisplayKeepsIdentity() {
         let moved = capture.onDisplay(9)
         #expect(moved.id == capture.id && moved.fileURL == capture.fileURL && moved.createdAt == capture.createdAt)

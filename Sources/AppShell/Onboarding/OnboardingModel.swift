@@ -62,6 +62,8 @@ import ShotzCore
 
     /// Window closed (Done or the close button): never nag again on launch.
     func finish() {
+        // Test runs (--no-hotkeys) never write onboarding or login-item state.
+        guard hotkeys.hotkeysEnabled else { return }
         let firstRun = !settings.hasCompletedOnboarding
         if firstRun || launchAtLogin != loginItem.isOn {
             loginItem.setEnabled(launchAtLogin)

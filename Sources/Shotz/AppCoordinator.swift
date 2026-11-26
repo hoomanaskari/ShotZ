@@ -46,18 +46,20 @@ import ShotzCore
         let history = self.history
         // Export memory: the editor's Save overwrites the export recorded in
         // history, and records new ones, across reopen (SPEC §5.5).
+        let hooks = HistoryEditorHooks(history: history)
         editor = EditorCoordinator(
             settings: settings,
             exporter: exporter,
-            documentURL: { history.documentURL(for: $0) },
-            previousExport: { await history.exportURL(for: $0) },
-            recordExport: { await history.markExported(id: $0, url: $1) }
+            documentURL: hooks.documentURL,
+            previousExport: hooks.previousExport,
+            recordExport: hooks.recordExport,
+            renderedURL: hooks.renderedURL
         )
         editingFlow = CaptureEditingFlow(quickAccess: quickAccess, editor: editor) { id in
             let url = history.renderedURL(for: id)
             return FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) ? url : nil
         }
-        let testRun = HotkeyCenter.hotkeysDisabledRequested()
+        let testRun = AppVariant.isTestRun
         hotkeys = HotkeyCenter(settings: settings, hotkeysEnabled: !testRun)
         statusItem = StatusItemController(hotkeys: hotkeys)
         loginItem = LoginItemController(settings: settings, testRun: testRun)
@@ -79,11 +81,14 @@ import ShotzCore
     func start() {
         let variant = AppVariant.current
         log.notice("Variant: \(variant.rawValue, privacy: .public) (\(variant.displayName, privacy: .public), \(variant.bundleIdentifier, privacy: .public), data \(self.paths.root.path(percentEncoded: false), privacy: .public))")
+        if AppVariant.isTestRun {
+            log.notice("Test run (--no-hotkeys): preferences \(variant.testRunSuiteName, privacy: .public), data \(self.paths.root.lastPathComponent, privacy: .public); no shortcuts, no login item, no onboarding writes, menu-bar icon hidden")
+        }
         do { try paths.createDirectories() } catch {
             log.error("Cannot create app folders: \(error.localizedDescription, privacy: .public)")
         }
         quickAccess.delegate = self
-        editor.delegate = editingFlow
+        editingFlow.attach(to: editor)
         editingFlow.didPresent = { [weak self] capture in self?.closedCards.removeAll { $0.id == capture.id } }
 
         hotkeys.onAction = { [weak self] action in self?.handle(action) }
@@ -106,7 +111,7 @@ import ShotzCore
             .sink { [weak self] _ in MainActor.assumeIsolated { self?.applySettings() } }
 
         startHistoryPruning()
-        log.info("Shotz started (Screen Recording \(self.screenRecording.isGranted ? "granted" : "not granted", privacy: .public))")
+        log.info("ShotZ started (Screen Recording \(self.screenRecording.isGranted ? "granted" : "not granted", privacy: .public))")
 
         // Test runs (--no-hotkeys, implied by every debug flag) never pop the
         // welcome window over whoever is using the Mac.
@@ -118,7 +123,7 @@ import ShotzCore
 
     /// Clean shutdown: stop listening, cancel work, clear the stack.
     func stop() {
-        log.info("Shotz stopping")
+        log.info("ShotZ stopping")
         settingsObserver = nil
         pruneScheduler?.stop()
         hotkeys.shutdown()
@@ -137,9 +142,11 @@ import ShotzCore
     // MARK: Settings that act live
 
     private func applySettings() {
-        if statusItem.isVisible != settings.showMenuBarIcon {
-            statusItem.isVisible = settings.showMenuBarIcon
-            log.info("Menu-bar icon \(self.settings.showMenuBarIcon ? "shown" : "hidden", privacy: .public)")
+        // Test runs never put an icon in the user's menu bar.
+        let showIcon = settings.showMenuBarIcon && !AppVariant.isTestRun
+        if statusItem.isVisible != showIcon {
+            statusItem.isVisible = showIcon
+            log.info("Menu-bar icon \(showIcon ? "shown" : "hidden", privacy: .public)")
         }
         statusItem.refreshShortcuts()
         let retention = settings.historyRetention

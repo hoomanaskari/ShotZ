@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Builds and runs the development app, build/Shotz Dev.app (app.shotz.Shotz.dev).
-# It is a separate app from the installed Shotz: own name, icon, settings,
+# Builds and runs the development app, build/ShotZ Dev.app (app.shotz.Shotz.dev).
+# It is a separate app from the installed ShotZ: own name, icon, settings,
 # history, login item, default shortcuts (⌃⌥⌘3/4/5) and Screen Recording
 # permission. This script never quits, replaces or unregisters the production
-# Shotz; it only quits a previous instance of this same bundle (matched by its
-# resolved executable path).
+# ShotZ; it only quits a previous instance of this same bundle (matched by its
+# resolved executable path, under the old or new spelling).
 #
 # Usage: scripts/run.sh [app arguments...]
 # Every argument is passed through to the app. Arguments naming an existing
@@ -13,14 +13,17 @@
 #   scripts/run.sh --debug-edit-capture build/sample.png
 #
 # From a git worktree (an engineer/test checkout) the app is started with
-# --no-hotkeys, executed directly and kept out of Launch Services, so several
-# worktree copies of Shotz Dev never fight over shortcuts or over which copy
+# --no-hotkeys (a hermetic test run: own settings and data, no shortcuts, no
+# menu-bar icon), executed directly and kept out of Launch Services, so several
+# worktree copies of ShotZ Dev never fight over shortcuts or over which copy
 # macOS opens.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP="$ROOT/build/Shotz Dev.app"
-EXE="$APP/Contents/MacOS/Shotz"
+APP="$ROOT/build/ShotZ Dev.app"
+EXE="$APP/Contents/MacOS/ShotZ"
+# The same bundle before the ShotZ rename (case-insensitive disk: same folder).
+OLD_EXE="$ROOT/build/Shotz Dev.app/Contents/MacOS/Shotz"
 
 ARGS=()
 for arg in "$@"; do
@@ -32,18 +35,19 @@ done
 
 "$ROOT/scripts/bundle.sh" dev
 
-# Quit a previous instance of this bundle only.
+# Quit a previous instance of this bundle only (paths compared case-insensitively).
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 this_bundle_pids() {
   local pid exe
-  for pid in $(pgrep -x Shotz || true); do
-    exe="$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
-    [[ "$exe" == "$EXE" ]] && echo "$pid"
+  for pid in $(pgrep -x 'ShotZ|Shotz' || true); do
+    exe="$(lower "$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)")"
+    if [[ "$exe" == "$(lower "$EXE")" || "$exe" == "$(lower "$OLD_EXE")" ]]; then echo "$pid"; fi
   done
   return 0
 }
 PIDS="$(this_bundle_pids)"
 if [[ -n "$PIDS" ]]; then
-  echo "Quitting previous Shotz Dev from this checkout: $PIDS"
+  echo "Quitting previous ShotZ Dev from this checkout: $PIDS"
   kill $PIDS 2>/dev/null || true
   for _ in {1..20}; do
     [[ -z "$(this_bundle_pids)" ]] && break

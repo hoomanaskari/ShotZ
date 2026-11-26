@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds one of the two Shotz apps (ARCHITECTURE §8):
-#   scripts/bundle.sh dev       → build/Shotz Dev.app  (app.shotz.Shotz.dev, debug build)
-#   scripts/bundle.sh release   → build/Shotz.app      (app.shotz.Shotz, release build)
+#   scripts/bundle.sh dev       → build/ShotZ Dev.app  (app.shotz.Shotz.dev, debug build)
+#   scripts/bundle.sh release   → build/ShotZ.app      (app.shotz.Shotz, release build)
 # `debug` is accepted as an alias for `dev`. The two apps are separate: own
 # bundle id, name, icon, preferences, data folder, login item, default
 # shortcuts and Screen Recording permission. Building one never touches the other.
@@ -23,8 +23,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VARIANT="${1:-dev}"
 case "$VARIANT" in
-  dev|debug) VARIANT=dev; CONFIG=debug; APP_NAME="Shotz Dev"; APP_ID="app.shotz.Shotz.dev"; ICON="AppIcon-Dev.icns" ;;
-  release) CONFIG=release; APP_NAME="Shotz"; APP_ID="app.shotz.Shotz"; ICON="AppIcon.icns" ;;
+  dev|debug) VARIANT=dev; CONFIG=debug; APP_NAME="ShotZ Dev"; OLD_NAME="Shotz Dev"; APP_ID="app.shotz.Shotz.dev"; ICON="AppIcon-Dev.icns" ;;
+  release) CONFIG=release; APP_NAME="ShotZ"; OLD_NAME="Shotz"; APP_ID="app.shotz.Shotz"; ICON="AppIcon.icns" ;;
   *) echo "usage: $0 [dev|release]" >&2; exit 64 ;;
 esac
 
@@ -42,10 +42,17 @@ cd "$ROOT"
 swift build -c "$CONFIG" --product Shotz
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
-APP="$ROOT/build/$APP_NAME.app"
+# The product is ShotZ; the SwiftPM product stays `Shotz` and is renamed into
+# the bundle. Built under a temporary name and moved into place at the end:
+# on a case-insensitive disk `Shotz.app` and `ShotZ.app` are the same path, so
+# renaming in place would keep the old spelling.
+EXE_NAME="$(plist CFBundleExecutable)"
+FINAL="$ROOT/build/$APP_NAME.app"
+APP="$ROOT/build/.bundle-$VARIANT-$$.app"
+trap 'rm -rf "$APP"' EXIT
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN_DIR/Shotz" "$APP/Contents/MacOS/Shotz"
+cp "$BIN_DIR/Shotz" "$APP/Contents/MacOS/$EXE_NAME"
 cp "$PLIST" "$APP/Contents/Info.plist"
 if [[ "$VARIANT" == "dev" ]]; then
   # Same Info.plist, development identity. The app reads its variant from the bundle id.
@@ -92,4 +99,8 @@ if [[ "$CONFIG" == "release" ]]; then
     exit 67
   fi
 fi
-echo "Built $APP ($APP_ID, $CONFIG, version $VERSION ($BUILD))"
+# Replace the previous bundle under either spelling, then move the new one in.
+rm -rf "$ROOT/build/$OLD_NAME.app" "$FINAL"
+mv "$APP" "$FINAL"
+codesign --verify --strict --deep "$FINAL"
+echo "Built $FINAL ($APP_ID, $CONFIG, version $VERSION ($BUILD))"
