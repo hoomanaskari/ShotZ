@@ -103,8 +103,9 @@ enum EditorGlyphs {
         case .opacity: .opacity
         case .cornerRadius: .cornerRadius
         case .padding: .padding
-        // Not in the shared set yet (requested from engineer C): shown without an icon.
-        case .eyedropper, .strength, .angle: nil
+        case .eyedropper: .eyedropper
+        case .strength: .strength
+        case .angle: .angle
         }
     }
 }

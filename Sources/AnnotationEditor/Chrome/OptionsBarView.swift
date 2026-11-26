@@ -137,7 +137,7 @@ import ShotzUI
     }
 
     private func showHint(_ text: String) {
-        let l = EditorControls.caption(text)
+        let l = ShotzUI.label(text, .caption)
         addSubview(l)
         hint = l
     }
@@ -202,8 +202,8 @@ import ShotzUI
     func showOverflow() {
         guard !overflow.isEmpty else { return }
         if let popover, popover.isShown { popover.close(); return }
-        // A toggle chip names itself, so its row has no label.
-        let form = ShotzFormStack(rows: overflow.map { .init($0.view is ShotzToggleChip ? nil : $0.title, $0.view) }, labelWidth: 72)
+        // A titled toggle chip names itself, so its row has no label.
+        let form = ShotzFormStack(rows: overflow.map { .init(($0.view as? ShotzToggleChip)?.title.isEmpty == false ? nil : $0.title, $0.view) }, labelWidth: 72)
         let pad = ShotzUI.Space.l
         let size = form.intrinsicContentSize
         let host = NSView(frame: NSRect(x: 0, y: 0, width: size.width + 2 * pad, height: size.height + 2 * ShotzUI.Space.m))
@@ -286,7 +286,7 @@ import ShotzUI
             let start = controls.numberField(s.counterStart, in: 1...999, label: String(localized: "Start value")) { [weak self] v in
                 self?.model.library.update(.counter) { $0.counterStart = max(1, v) }
             }
-            add(Self.row([EditorControls.caption(String(localized: "Start at")), start]), String(localized: "Start at"), priority: .medium)
+            add(Self.row([ShotzUI.label(String(localized: "Start at"), .caption), start]), String(localized: "Start at"), priority: .medium)
         case .pen:
             addColors(s)
             add(thickness(s), String(localized: "Thickness"))
@@ -328,7 +328,11 @@ import ShotzUI
                 // Keep the row (the colour panel stays linked to it) while the colour changes.
                 self?.change(String(localized: "Colour"), final: final, rebuild: false) { $0.color = c }
             })
-        add(row, String(localized: "Colour"))
+        let picker = controls.eyedropper { [weak self] color in
+            guard let srgb = color.usingColorSpace(.sRGB) else { return }
+            self?.change(String(localized: "Colour")) { $0.color = RGBAColor(red: srgb.redComponent, green: srgb.greenComponent, blue: srgb.blueComponent) }
+        }
+        add(Self.row([row, picker]), String(localized: "Colour"))
     }
 
     /// ShotzUI's stepped thickness picker.

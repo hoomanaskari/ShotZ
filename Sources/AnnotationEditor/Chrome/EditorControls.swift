@@ -2,17 +2,9 @@ import AppKit
 import ShotzCore
 import ShotzUI
 
-/// Closure-backed target/action for AppKit controls.
-@MainActor final class ControlAction: NSObject {
-    let handler: (NSControl) -> Void
-    init(_ handler: @escaping (NSControl) -> Void) { self.handler = handler }
-    @objc func fire(_ sender: NSControl) { handler(sender) }
-}
-
 /// The one place the editor chrome creates its controls (toolbar, options bar, background
 /// panel, action bar). Every control is a ShotzUI control, sized and spaced with ShotzUI tokens.
 @MainActor final class EditorControls {
-    private(set) var actions: [ControlAction] = []
     private var colorLinks: [ColorPanelLink] = []
 
     /// Options bar and panel controls: compact chrome (24 pt) on a 28-pt hit row, as in
@@ -22,15 +14,7 @@ import ShotzUI
     nonisolated static let actionSize: ShotzUI.ControlSize = .regular
 
     func reset() {
-        actions.removeAll()
         colorLinks.removeAll()
-    }
-
-    func bind(_ control: NSControl, _ handler: @escaping (NSControl) -> Void) {
-        let a = ControlAction(handler)
-        actions.append(a)
-        control.target = a
-        control.action = #selector(ControlAction.fire(_:))
     }
 
     // MARK: Pickers and chips
@@ -58,11 +42,18 @@ import ShotzUI
         return c
     }
 
-    /// An on/off chip (Bold, Outline, Auto-balance).
-    func toggleChip(title: String, glyph: EditorGlyph? = nil, tooltip: String, on: Bool,
-                    _ handler: @escaping (Bool) -> Void) -> ShotzToggleChip {
-        let c = ShotzToggleChip(title: title, icon: glyph.flatMap(EditorGlyphs.shotzIcon), isOn: on, size: Self.size)
+    /// An on/off chip with a title (Outline).
+    func toggleChip(title: String, tooltip: String, on: Bool, _ handler: @escaping (Bool) -> Void) -> ShotzToggleChip {
+        let c = ShotzToggleChip(title: title, isOn: on, size: Self.size)
         c.setShotzToolTip(tooltip)
+        c.onToggle = handler
+        return c
+    }
+
+    /// An icon-only on/off chip for tight bars (Bold).
+    func toggleChip(glyph: EditorGlyph, label: String, shortcut: String? = nil, on: Bool, _ handler: @escaping (Bool) -> Void) -> ShotzToggleChip {
+        let c = ShotzToggleChip(icon: EditorGlyphs.shotzIcon(glyph) ?? .check, label: label, isOn: on, size: Self.size)
+        c.setShotzToolTip(label, shortcut: shortcut)
         c.onToggle = handler
         return c
     }
@@ -134,15 +125,33 @@ import ShotzUI
         return b
     }
 
-    /// Image tiles in the background panel (gradient presets, position grid): content, not chrome.
-    func imageButton(_ image: NSImage, label: String, _ handler: @escaping () -> Void) -> NSButton {
-        let b = NSButton(image: image, target: nil, action: nil)
-        b.isBordered = false
-        b.imagePosition = .imageOnly
-        b.setAccessibilityLabel(label)
-        b.setShotzToolTip(label)
-        bind(b) { _ in handler() }
-        return b
+    /// Image tiles (gradient presets, image position): a ShotzTileButton with the selection ring.
+    func tile(_ image: NSImage, size: CGSize, label: String, selected: Bool, _ handler: @escaping () -> Void) -> ShotzTileButton {
+        let t = ShotzTileButton(image: image, size: size, label: label)
+        t.isSelected = selected
+        t.setShotzToolTip(label)
+        t.onAction = { _ in handler() }
+        return t
+    }
+
+    /// Content for a ShotzTileButton, drawn with a top-left origin. ShotzTileButton currently draws
+    /// its image without `respectFlipped` (it appears upside down), so the content is laid out
+    /// bottom-up here to come out upright. Remove the compensation when ShotzUI fixes the tile.
+    static func tileImage(size: CGSize, _ draw: @escaping (CGContext, CGRect) -> Void) -> NSImage {
+        NSImage(size: size, flipped: false) { r in
+            if let ctx = NSGraphicsContext.current?.cgContext { draw(ctx, r) }
+            return true
+        }
+    }
+
+    /// Picks a colour from anywhere on screen (the system colour sampler).
+    func eyedropper(_ handler: @escaping @MainActor (NSColor) -> Void) -> ShotzButton {
+        iconButton(.eyedropper, label: String(localized: "Pick colour from screen"), tooltip: String(localized: "Pick colour from screen")) { _ in
+            NSColorSampler().show { color in
+                guard let color else { return }
+                MainActor.assumeIsolated { handler(color) }
+            }
+        }
     }
 
     // MARK: Colour
@@ -167,19 +176,17 @@ import ShotzUI
         return row
     }
 
-    /// A single colour (background fill, gradient stops): a custom well on its own.
-    func colorWell(_ color: NSColor, label: String, _ handler: @escaping (NSColor, Bool) -> Void) -> ShotzSwatchRow {
-        let row = ShotzSwatchRow(swatches: [], selectedIndex: 0, size: Self.size)
-        row.customColor = color
-        row.setAccessibilityLabel(label)
-        row.setShotzToolTip(label)
-        let link = ColorPanelLink(color: color) { [weak row] c, final in
-            row?.customColor = c
+    /// A single colour (background fill, gradient stops): a ShotzColorWell opening the colour panel.
+    func colorWell(_ color: NSColor, label: String, _ handler: @escaping (NSColor, Bool) -> Void) -> ShotzColorWell {
+        let well = ShotzColorWell(color: color, showsHueRing: false, label: label)
+        well.setShotzToolTip(label)
+        let link = ColorPanelLink(color: color) { [weak well] c, final in
+            well?.color = c
             handler(c, final)
         }
         colorLinks.append(link)
-        row.onSelect = { _ in link.open() }
-        return row
+        well.onAction = { _ in link.open() }
+        return well
     }
 
     // MARK: Fields and menus
@@ -218,47 +225,27 @@ import ShotzUI
         return p
     }
 
-    /// The panel's on/off, in the chip language.
-    func panelSwitch(on: Bool, label: String, _ handler: @escaping (Bool) -> Void) -> ShotzToggleChip {
-        let c = ShotzToggleChip(title: on ? String(localized: "On") : String(localized: "Off"), isOn: on, size: Self.size)
-        c.setAccessibilityLabel(label)
-        c.setShotzToolTip(label, shortcut: "G")
-        c.onToggle = { [weak c] isOn in
-            c?.title = isOn ? String(localized: "On") : String(localized: "Off")
-            handler(isOn)
-        }
+    /// A panel's on/off.
+    func panelSwitch(on: Bool, label: String, shortcut: String? = nil, _ handler: @escaping (Bool) -> Void) -> ShotzSwitch {
+        let sw = ShotzSwitch(isOn: on, label: label)
+        sw.setShotzToolTip(label, shortcut: shortcut)
+        sw.onToggle = handler
+        return sw
+    }
+
+    /// An on/off setting inside a panel (Auto-balance).
+    func checkbox(_ title: String, tooltip: String, on: Bool, _ handler: @escaping (Bool) -> Void) -> ShotzCheckbox {
+        let c = ShotzCheckbox(title, isOn: on)
+        c.setShotzToolTip(tooltip)
+        c.onToggle = handler
         return c
     }
 
     // MARK: Text and layout
 
-    static func label(_ text: String, _ style: ShotzUI.Typography, color: NSColor = ShotzUI.Palette.textSecondary) -> NSTextField {
-        let l = NSTextField(labelWithString: text)
-        l.font = style.font
-        l.textColor = color
-        l.lineBreakMode = .byTruncatingTail
-        l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        return l
-    }
-
-    static func caption(_ text: String) -> NSTextField { label(text, .caption) }
-
-    static func panelTitle(_ text: String) -> NSTextField { label(text, .title, color: ShotzUI.Palette.textPrimary) }
-
-    static func formLabel(_ text: String, width: CGFloat) -> NSTextField {
-        let l = label(text, .label)
-        l.alignment = .right
-        l.widthAnchor.constraint(equalToConstant: width).isActive = true
-        return l
-    }
-
-    static func note(_ text: String, width: CGFloat) -> NSTextField {
-        let n = NSTextField(wrappingLabelWithString: text)
-        n.font = ShotzUI.Typography.caption.font
-        n.textColor = ShotzUI.Palette.textSecondary
-        n.preferredMaxLayoutWidth = width
-        return n
-    }
+    static func caption(_ text: String) -> NSTextField { ShotzUI.label(text, .caption) }
+    static func panelTitle(_ text: String) -> NSTextField { ShotzUI.label(text, .panelTitle) }
+    static func note(_ text: String, width: CGFloat) -> NSTextField { ShotzUI.label(text, .note, width: width) }
 
     static func separator(length: CGFloat = 20) -> NSView {
         let s = ShotzSeparator(.vertical)
