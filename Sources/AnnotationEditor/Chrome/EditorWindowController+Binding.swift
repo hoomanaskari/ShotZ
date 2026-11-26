@@ -160,6 +160,10 @@ extension EditorWindowController {
                 content.handles.append((Handle(kind: h.kind, position: overlayPoint(h.position)), h.kind == .control || h.kind == .tail))
             }
         }
+        for id in model.redactionHintIDs {
+            guard let object = model.document[id: id] else { continue }
+            content.hintOutlines.append(CGPath(rect: overlayRect(model.frame(of: object)).insetBy(dx: -0.5, dy: -0.5), transform: nil))
+        }
         for g in model.guides {
             switch g.axis {
             case .vertical:

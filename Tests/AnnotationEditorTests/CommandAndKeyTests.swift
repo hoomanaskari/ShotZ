@@ -142,3 +142,26 @@ struct KeyHandlerTests {
         #expect(host.began.count == 1)
     }
 }
+
+@MainActor
+struct RedactionHintTests {
+    @Test func outlinesWithRedactToolOrOnHoverOnly() {
+        let m = makeModel(tool: .redact)
+        m.drag(CGPoint(x: 100, y: 100), CGPoint(x: 300, y: 200))
+        let id = m.objects[0].id
+        m.clearSelection()
+        #expect(m.redactionHintIDs == [id]) // redact tool: all redactions
+        m.select([id])
+        #expect(m.redactionHintIDs.isEmpty) // selected: the selection outline is enough
+        m.clearSelection()
+        m.setTool(.select)
+        #expect(m.redactionHintIDs.isEmpty)
+        m.hoveredObjectID = id
+        #expect(m.redactionHintIDs == [id])
+        // Other objects never get a hint.
+        m.setTool(.rectangle)
+        m.drag(CGPoint(x: 500, y: 500), CGPoint(x: 600, y: 600))
+        m.hoveredObjectID = m.objects[1].id
+        #expect(m.redactionHintIDs.isEmpty)
+    }
+}
