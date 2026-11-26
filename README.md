@@ -34,7 +34,7 @@ Requires Xcode 16 or later (Swift 6 toolchain) on macOS 15 or later.
 swift build                          # debug build of all modules
 swift test                           # all unit tests
 scripts/bundle.sh [debug|release]    # → build/Shotz.app (Info.plist, icon, codesign)
-scripts/run.sh [--dev-hotkeys] [app args…]   # bundle (debug) and launch; quits a previous dev instance only
+scripts/run.sh [--dev-hotkeys] [app args…]   # bundle (debug) and launch; quits a previous instance of this bundle only; worktrees: adds --dev-profile, direct exec
 scripts/install.sh                   # release bundle → /Applications/Shotz.app (manager/owner only)
 swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG
 ```
@@ -75,13 +75,30 @@ first log line after launch says which profile is active.
 
 Rules for engineers and test runs:
 
-- Always launch with `--dev-profile`.
+- Always launch with `--dev-profile`. From any git worktree, `scripts/run.sh`
+  adds `--dev-profile` itself and starts the executable directly (not through
+  Launch Services), so it never relaunches the wrong copy.
 - Only run the bundle built in your own worktree. Never bundle, launch or quit
   `build/Shotz.app` in the main checkout: that is the owner's instance.
 
-`--dev-hotkeys` (or `SHOTZ_DEV_HOTKEYS=1`) uses ⌃⌥⌘3/4/5 for the run instead
-of the stored shortcuts, so Shotz can run next to another screenshot app that
-owns ⌘⇧3/4/5. It never writes to preferences.
+### Global shortcuts per run
+
+`--dev-hotkeys` (or `SHOTZ_DEV_HOTKEYS=1`) replaces the capture shortcuts for
+that run and never writes to preferences. In the dev profile Shotz registers
+**no** global shortcuts unless `--dev-hotkeys` is given, and then a set no
+other Shotz uses, so a test copy can never take a key press meant for the
+owner's copy:
+
+| Run | Capture fullscreen / area / all-in-one | Capture window, restore |
+|---|---|---|
+| standard | stored (⌘⇧3/4/5 by default) | stored |
+| standard + `--dev-hotkeys` | ⌃⌥⌘3/4/5 | stored |
+| dev profile | none | none |
+| dev profile + `--dev-hotkeys` | ⌃⌥⇧⌘3/4/5 | none |
+
+Settings ▸ Shortcuts shows the shortcut each action has in the current
+session, and says so when none are registered. The launch log has a
+`Hotkeys: …` line.
 
 Signing: `bundle.sh` uses `$SHOTZ_SIGN_IDENTITY` if set, otherwise the first
 "Apple Development" identity in the keychain, otherwise ad-hoc. Release builds
