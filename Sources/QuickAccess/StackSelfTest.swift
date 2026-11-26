@@ -1,5 +1,6 @@
 import AppKit
 import ShotzCore
+import ShotzUI
 
 /// Debug-only in-process exercise of the stack, started by launching with
 /// `-QuickAccessSelfTest <dir>` plus `--debug-present` images. It drives the
@@ -159,7 +160,7 @@ import ShotzCore
         check("VoiceOver button labels", labels.count == 5 && !labels.contains(""), labels.joined(separator: ", "))
         let buttons = card.overlay.buttons.map(\.button)
         check("ShotzUI glass controls usable in the non-activating panel",
-              buttons.allSatisfy { $0.role == .glass && $0.acceptsFirstMouse(for: nil) && !$0.needsPanelToBecomeKey && $0.frame.height >= 28 },
+              buttons.allSatisfy { ($0 is ShotzGlassIconButton || ($0 as? ShotzButton)?.role == .glass) && $0.acceptsFirstMouse(for: nil) && !$0.needsPanelToBecomeKey && $0.frame.height >= 28 },
               "\(buttons.count) buttons, first mouse, no key needed, ≥28 pt")
         let tips = card.overlay.buttons.map { "\($0.button.toolTip ?? "–")" }
         check("tooltips carry shortcuts", card.overlay.buttons.allSatisfy { ($0.button.toolTip ?? "").contains($0.action.title) }
