@@ -45,7 +45,8 @@ struct CardActionTests {
 @MainActor
 struct CardOverlayLayoutTests {
     func laidOut(_ size: CardSize) -> CardOverlayView {
-        let overlay = CardOverlayView(style: CardStyle(size: size), captionText: "5120 × 2880")
+        let card = CGSize(width: size.width, height: size.height.rounded())
+        let overlay = CardOverlayView(style: CardStyle(size: size), captionText: "5120 × 2880", cardSize: card)
         overlay.frame = CGRect(x: 0, y: 0, width: size.width, height: size.height.rounded())
         overlay.layoutSubtreeIfNeeded()
         return overlay
@@ -61,15 +62,39 @@ struct CardOverlayLayoutTests {
         }
     }
 
+    /// Edge-to-edge distance between two rectangles (negative when they overlap).
+    static func gap(_ a: CGRect, _ b: CGRect) -> CGFloat {
+        max(b.minX - a.maxX, a.minX - b.maxX, b.minY - a.maxY, a.minY - b.maxY)
+    }
+
     @Test(arguments: [CardSize.small, .medium, .large])
-    func controlsDoNotOverlap(size: CardSize) {
+    func controlsKeepSixPointGaps(size: CardSize) {
         let overlay = laidOut(size)
-        let frames = overlay.buttons.map { ($0.action, $0.button.frame) }
+        let frames = overlay.controlFrames // 28-pt hit frames, larger than the chrome
         for (i, a) in frames.enumerated() {
             for b in frames[(i + 1)...] {
-                #expect(!a.1.intersects(b.1), "\(a.0) vs \(b.0) at \(size)")
+                let g = Self.gap(a.frame, b.frame)
+                #expect(g >= CardStyle.minimumGap, "\(a.name)–\(b.name) only \(g) pt apart at \(size)")
             }
         }
+    }
+
+    @Test(arguments: [CardSize.small, .medium, .large])
+    func nothingClipped(size: CardSize) {
+        let overlay = laidOut(size)
+        for c in overlay.controlFrames {
+            #expect(overlay.bounds.insetBy(dx: CardStyle.minimumGap, dy: CardStyle.minimumGap).contains(c.frame), "\(c.name) within 6 pt of the edge at \(size)")
+            #expect(c.frame.width >= c.natural.width && c.frame.height >= c.natural.height, "\(c.name) squeezed at \(size)")
+        }
+    }
+
+    @Test func perSizeLayouts() {
+        let small = laidOut(.small), medium = laidOut(.medium), large = laidOut(.large)
+        #expect(!small.pairIsLabelled && small.button(for: .copy)?.title == nil)
+        #expect(!small.controlFrames.contains { $0.name == "caption" })
+        #expect(small.button(for: .copy)?.toolTip?.contains("⌘C") == true) // icon-only still names its shortcut
+        #expect(medium.pairIsLabelled && medium.controlFrames.contains { $0.name == "caption" })
+        #expect(large.pairIsLabelled && large.button(for: .save)?.title == "Save")
     }
 
     @Test func copySaveAreEqualWidthGlassWithTooltips() {

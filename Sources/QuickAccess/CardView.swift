@@ -37,7 +37,7 @@ import ShotzCore
     private var overlayStorage: CardOverlayView?
     var overlay: CardOverlayView {
         if let overlayStorage { return overlayStorage }
-        let o = CardOverlayView(style: style, captionText: source.caption)
+        let o = CardOverlayView(style: style, captionText: source.caption, cardSize: bounds.size)
         o.onAction = { [weak self] action in
             guard let self else { return }
             self.delegate?.card(self, perform: action)
@@ -85,6 +85,7 @@ import ShotzCore
         // Border above the overlay's scrim so the edge stays crisp.
         clip.layer?.addSublayer(borderLayer)
         borderLayer.zPosition = 10
+        if !style.showsCaption { toolTip = String(localized: "\(source.caption) pixels") }
         applyPalette()
     }
 
@@ -251,6 +252,11 @@ import ShotzCore
 
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
+        // The pixel size heads the menu (Small cards show no caption pill).
+        let header = NSMenuItem(title: String(localized: "\(source.caption) pixels"), action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        menu.addItem(.separator())
         let groups: [[CardAction]] = [
             [.copy, .save, .annotate, .quickLook],
             [.showInFinder, .copyFilePath],
