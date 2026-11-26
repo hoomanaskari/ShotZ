@@ -117,6 +117,7 @@ import ShotzCore
         controller.showWindow(nil)
         controller.window?.makeKeyAndOrderFront(nil)
         controller.zoomFit()
+        EditorScriptRunner.startIfRequested(for: controller)
         log.info("Opened editor for \(title, privacy: .public) in \(ContinuousClock.now - start, privacy: .public)")
     }
 

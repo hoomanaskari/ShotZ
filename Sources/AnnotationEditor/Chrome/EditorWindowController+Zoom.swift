@@ -25,8 +25,13 @@ extension EditorWindowController {
         return min(m * store.document.scale, 1)
     }
 
+    /// True while the zoom equals "fit" (so layout changes refit).
+    var wasFitted: Bool { abs(zoom - lastFitZoom) < 0.001 }
+
     func zoomFit() {
-        setZoom(fitZoom)
+        let z = fitZoom
+        setZoom(z)
+        lastFitZoom = zoom
         // Centre the document.
         let doc = canvas.frame
         scrollView.contentView.scroll(to: NSPoint(x: doc.midX - scrollView.contentView.bounds.width / 2,

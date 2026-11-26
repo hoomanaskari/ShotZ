@@ -35,7 +35,8 @@ import Foundation
         guard let model, let draft = model.cropDraft else { return }
         if let handle = Self.handle(at: event.point, of: draft, radius: 8 / max(model.pointsPerPixel, 0.0001)) {
             drag = .handle(handle, original: draft)
-        } else if draft.contains(event.point) {
+        } else if draft.contains(event.point), draft.integral != model.imageBounds.integral {
+            // Inside a crop frame: move it. (Inside an uncropped image: draw a new frame.)
             drag = .move(original: draft, start: event.point)
         } else {
             drag = .create(start: clamp(event.point))

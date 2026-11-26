@@ -132,6 +132,8 @@ import AppKit
     func colorWell(_ color: NSColor, label: String, _ handler: @escaping (NSColor, Bool) -> Void) -> NSColorWell {
         let w = NSColorWell(style: .minimal)
         w.color = color
+        w.widthAnchor.constraint(equalToConstant: 26).isActive = true
+        w.heightAnchor.constraint(equalToConstant: 18).isActive = true
         w.supportsAlpha = false
         w.setAccessibilityLabel(label)
         w.toolTip = label
@@ -146,7 +148,18 @@ import AppKit
         let l = NSTextField(labelWithString: text)
         l.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         l.textColor = .secondaryLabelColor
+        l.lineBreakMode = .byTruncatingTail
+        l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return l
+    }
+
+    /// A small secondary-coloured symbol labelling the control after it.
+    static func icon(_ symbol: String, label: String) -> NSImageView {
+        let v = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: label) ?? NSImage())
+        v.contentTintColor = .secondaryLabelColor
+        v.symbolConfiguration = .init(pointSize: 12, weight: .regular)
+        v.toolTip = label
+        return v
     }
 
     static func separator() -> NSView {

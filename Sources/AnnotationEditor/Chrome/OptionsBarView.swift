@@ -112,7 +112,7 @@ import AppKit
             addColors(s)
             add(thickness(s))
             add(fillControl(s, modes: [.outline, .filled, .outlineTranslucentFill], ellipse: false))
-            add(OptionControls.caption(String(localized: "Corners")))
+            add(OptionControls.icon("square.dashed", label: String(localized: "Corner radius")))
             add(controls.slider(value: s.cornerRadiusUnits, min: 0, max: 12, width: 70, label: String(localized: "Corner radius")) { [weak self] v, final in
                 self?.change(String(localized: "Corner Radius"), final: final) { $0.cornerRadiusUnits = v }
             })
@@ -214,7 +214,7 @@ import AppKit
     }
 
     func addOpacity(_ s: ToolSettings) {
-        add(OptionControls.caption(String(localized: "Opacity")))
+        add(OptionControls.icon("circle.lefthalf.filled", label: String(localized: "Opacity")))
         add(controls.slider(value: s.opacity, min: 0.1, max: 1, width: 70, label: String(localized: "Opacity")) { [weak self] v, final in
             self?.change(String(localized: "Opacity"), final: final) { $0.opacity = v }
         })

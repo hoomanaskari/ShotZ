@@ -40,6 +40,8 @@ import ShotzCore
     var saveWork: DispatchWorkItem?
     var lastSavedDocument: AnnotationDocument?
     var perf: PerfProbe?
+    var lastFitZoom: CGFloat = -1
+    var isRecentering = false
     let log = ShotzLog.logger("AnnotationEditor")
 
     init(store: DocumentStore, image: CGImage, base: BaseImageProvider, title: String, documentURL: URL?, env: EditorEnvironment) {
@@ -126,21 +128,20 @@ import ShotzCore
         mainSplit.addArrangedSubview(canvasArea)
         canvasArea.setContentHuggingPriority(.init(1), for: .horizontal)
 
-        let separator = NSBox()
-        separator.boxType = .separator
-        let stack = NSStackView(views: [optionsBar, separator, mainSplit])
-        stack.orientation = .vertical
-        stack.spacing = 0
-        stack.alignment = .width
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(stack)
+        mainSplit.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(mainSplit)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor), stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: content.topAnchor), stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            optionsBar.heightAnchor.constraint(equalToConstant: 36),
+            mainSplit.leadingAnchor.constraint(equalTo: content.leadingAnchor), mainSplit.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            mainSplit.topAnchor.constraint(equalTo: content.topAnchor), mainSplit.bottomAnchor.constraint(equalTo: content.bottomAnchor),
         ])
         setUpZoomMenu()
         optionsBar.trailingView = zoomMenu
+        // The options bar sits under the toolbar as part of the window's title bar.
+        optionsBar.frame = NSRect(x: 0, y: 0, width: 720, height: 36)
+        let accessory = NSTitlebarAccessoryViewController()
+        accessory.view = optionsBar
+        accessory.layoutAttribute = .bottom
+        window.addTitlebarAccessoryViewController(accessory)
         window.contentView = content
         window.initialFirstResponder = canvas
     }

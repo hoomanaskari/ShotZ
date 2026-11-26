@@ -101,7 +101,11 @@ import AppKit
         stack.addArrangedSubview(row([title, spacer(), toggle]))
 
         guard let s = style else {
-            stack.addArrangedSubview(OptionControls.caption(String(localized: "Wraps the image in padding, a fill and a shadow for presenting.")))
+            let note = NSTextField(wrappingLabelWithString: String(localized: "Wraps the image in padding, a fill and a shadow for presenting."))
+            note.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+            note.textColor = .secondaryLabelColor
+            note.preferredMaxLayoutWidth = Self.width - 28
+            stack.addArrangedSubview(note)
             return
         }
         addFill(s)
@@ -169,10 +173,12 @@ import AppKit
             let to = controls.colorWell(NSColor(cgColor: g.to.cgColor) ?? .white, label: String(localized: "Gradient end")) { [weak self] color, final in
                 self?.update(final: final) { if case .gradient(var gg) = $0.fill { gg.to = Self.rgba(color); $0.fill = .gradient(gg) } }
             }
-            let angle = controls.slider(value: g.angle, min: 0, max: 360, width: 120, label: String(localized: "Gradient angle")) { [weak self] v, final in
+            let angle = controls.slider(value: g.angle, min: 0, max: 360, width: 110, label: String(localized: "Gradient angle")) { [weak self] v, final in
                 self?.update(final: final) { if case .gradient(var gg) = $0.fill { gg.angle = v; $0.fill = .gradient(gg) } }
             }
-            stack.addArrangedSubview(row([from, to, OptionControls.caption(String(localized: "Angle")), angle]))
+            let angleIcon = NSImageView(image: NSImage(systemSymbolName: "angle", accessibilityDescription: nil) ?? NSImage())
+            angleIcon.contentTintColor = .secondaryLabelColor
+            stack.addArrangedSubview(row([from, to, spacer(), angleIcon, angle]))
         }
     }
 
@@ -200,6 +206,8 @@ import AppKit
         let grid = NSGridView(views: [Array(buttons[0..<3]), Array(buttons[3..<6]), Array(buttons[6..<9])])
         grid.rowSpacing = 4
         grid.columnSpacing = 10
+        grid.setContentHuggingPriority(.required, for: .horizontal)
+        grid.setAccessibilityLabel(String(localized: "Image alignment"))
         return grid
     }
 

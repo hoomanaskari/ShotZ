@@ -45,7 +45,7 @@ extension OptionsBarView {
         if s.redactMode.kind == .solid {
             addColors(s)
         } else {
-            add(OptionControls.caption(String(localized: "Strength")))
+            add(OptionControls.icon("dial.medium", label: String(localized: "Strength")))
             add(controls.slider(value: s.redactMode.strength, min: 0.2, max: 1, width: 90, label: String(localized: "Strength")) { [weak self] v, final in
                 self?.change(String(localized: "Strength"), final: final) { $0.redactMode.strength = v }
             })

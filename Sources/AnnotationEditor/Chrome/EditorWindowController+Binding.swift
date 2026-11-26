@@ -99,14 +99,30 @@ extension EditorWindowController {
     // MARK: Overlay
 
     func viewportChanged() {
+        recenterIfNeeded()
         model.pointsPerPixel = scrollView.magnification
         canvas.text.zoomChanged(pointsPerPixel: scrollView.magnification)
         refreshOverlay()
         updateZoomTitle()
     }
 
+    /// The canvas extent changed (crop, background, crop tool): refit when the
+    /// view was showing the whole canvas, otherwise keep the zoom and re-centre.
     func layoutChanged() {
+        if wasFitted { zoomFit() } else { recenterIfNeeded() }
         refreshOverlay()
+    }
+
+    /// Keeps a document smaller than the viewport centred.
+    func recenterIfNeeded() {
+        guard !isRecentering else { return }
+        let clip = scrollView.contentView
+        let constrained = clip.constrainBoundsRect(clip.bounds)
+        guard abs(constrained.minX - clip.bounds.minX) > 0.5 || abs(constrained.minY - clip.bounds.minY) > 0.5 else { return }
+        isRecentering = true
+        defer { isRecentering = false }
+        clip.setBoundsOrigin(constrained.origin)
+        scrollView.reflectScrolledClipView(clip)
     }
 
     /// Image-pixel point → overlay point.
