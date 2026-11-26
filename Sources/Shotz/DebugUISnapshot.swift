@@ -14,11 +14,17 @@ import ShotzCore
             return
         }
         // Rendered off screen: nothing is shown and Shotz is never activated.
-        for step in OnboardingStep.allCases {
-            write(await coordinator.onboarding.debugRender(step: step), to: dir.appending(path: "onboarding-\(step.rawValue)-\(step).png"))
-        }
-        for tab in SettingsTab.allCases {
-            write(await coordinator.settingsWindow.debugRender(tab: tab), to: dir.appending(path: "settings-\(tab.rawValue).png"))
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            for step in OnboardingStep.allCases {
+                write(await coordinator.onboarding.debugRender(step: step, appearance: appearance),
+                      to: dir.appending(path: "onboarding-\(step.rawValue)-\(step)-\(name).png"))
+            }
+            for tab in SettingsTab.allCases {
+                write(await coordinator.settingsWindow.debugRender(tab: tab, appearance: appearance),
+                      to: dir.appending(path: "settings-\(tab.rawValue)-\(name).png"))
+            }
+            write(await coordinator.statusItem.debugMenuSnapshot(appearance: appearance),
+                  to: dir.appending(path: "status-menu-\(name).png"))
         }
         if let button = coordinator.statusItem.debugButton { write(view: button, to: dir.appending(path: "status-item.png")) }
         do {

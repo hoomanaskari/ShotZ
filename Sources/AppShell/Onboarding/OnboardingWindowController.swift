@@ -13,7 +13,7 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
 /// is polled only while this window is on screen.
 @MainActor public final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private let model: OnboardingModel
-    private var window: NSWindow?
+    private var window: ShellWindow?
     private let log = ShotzLog.logger("AppShell")
 
     public init(
@@ -28,18 +28,30 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
     }
 
     public var isVisible: Bool { window?.isVisible ?? false }
-    /// For `--debug-snapshot-ui` only: one step rendered off screen (no window is shown).
-    public func debugRender(step: OnboardingStep) async -> Data? {
+    /// For `--debug-snapshot-ui` only: one step in its own off-screen window
+    /// (never ordered in), in the given appearance.
+    public func debugRender(step: OnboardingStep, appearance: NSAppearance.Name = .aqua) async -> Data? {
         let previous = model.step
         model.step = step
         defer { model.step = previous }
-        return await OffscreenRenderer.png(
-            OnboardingView(model: model),
-            size: CGSize(width: 600, height: 470),
-            chrome: .init(title: String(localized: "Welcome to \(AppVariant.current.displayName)"), styleMask: [.titled, .closable, .fullSizeContentView],
-                          transparentTitlebar: true)
-        )
+        let window = makeWindow()
+        window.appearance = NSAppearance(named: appearance)
+        return await OffscreenRenderer.capture(window)
     }
+
+    private func makeWindow() -> ShellWindow {
+        let window = ShellWindow(contentRect: NSRect(origin: .zero, size: OnboardingView.size),
+                                 styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
+        window.contentViewController = NSHostingController(rootView: OnboardingView(model: model))
+        window.setContentSize(OnboardingView.size)
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.title = String(localized: "Welcome to \(AppVariant.current.displayName)")
+        window.isMovableByWindowBackground = true
+        window.isReleasedWhenClosed = false
+        return window
+    }
+
     public var currentStep: OnboardingStep { model.step }
 
     public func show(step: OnboardingStep = .welcome) {
@@ -47,15 +59,7 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
         model.reason = step == .screenRecording && model.settings.hasCompletedOnboarding ? .permissionMissing : .welcome
         model.refreshShortcuts()
         if window == nil {
-            let hosting = NSHostingController(rootView: OnboardingView(model: model))
-            hosting.sizingOptions = [.preferredContentSize]
-            let window = NSWindow(contentViewController: hosting)
-            window.styleMask = [.titled, .closable, .fullSizeContentView]
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            window.title = String(localized: "Welcome to \(AppVariant.current.displayName)")
-            window.isMovableByWindowBackground = true
-            window.isReleasedWhenClosed = false
+            let window = makeWindow()
             window.delegate = self
             window.center()
             WindowPresenter.prepare(window)

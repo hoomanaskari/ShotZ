@@ -1,6 +1,9 @@
-// Draws Shotz's original app icon and writes Resources/AppIcon.icns.
-// Motif: two stacked snapshot cards (the quick-access stack) with a coral
-// annotation stroke on the front card, on a deep blue-to-teal tile.
+// Draws Shotz's original app icon.
+// Motif: a stack of two snapshot cards (the quick-access stack) with a bold
+// coral annotation arrow on the front card, on a deep indigo-to-teal tile.
+// Small sizes are drawn simplified (no decoration, heavier shapes) so the
+// icon reads at 16 and 32 px, as macOS icons are hinted per size.
+//
 // Writes both app icons: Resources/AppIcon.icns (Shotz) and
 // Resources/AppIcon-Dev.icns (Shotz Dev: the same icon with an amber DEV band
 // across the lower tile, so the two apps never look alike in Finder, the Dock
@@ -19,19 +22,22 @@ func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
             blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
 }
 
-func card(_ ctx: CGContext, center: CGPoint, size: CGSize, angle: CGFloat, radius: CGFloat, draw: (CGRect) -> Void) {
+/// Runs `draw` in a coordinate space centred on `center`, rotated by `angle`.
+func rotated(_ ctx: CGContext, center: CGPoint, angle: CGFloat, _ draw: () -> Void) {
     ctx.saveGState()
     ctx.translateBy(x: center.x, y: center.y)
     ctx.rotate(by: angle)
-    draw(CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height))
+    draw()
     ctx.restoreGState()
 }
 
-/// Amber band with "DEV", clipped by the tile's rounded shape (already clipped).
-func drawDevBand(_ ctx: CGContext, tile: CGRect) {
-    let band = CGRect(x: tile.minX, y: tile.minY + tile.height * 0.07, width: tile.width, height: tile.height * 0.19)
+/// Amber band with "DEV" (text only where it can be read), clipped by the tile.
+func drawDevBand(_ ctx: CGContext, tile: CGRect, px: Int) {
+    let band = CGRect(x: tile.minX, y: tile.minY + tile.height * 0.07, width: tile.width,
+                      height: tile.height * (px <= 32 ? 0.22 : 0.19))
     ctx.setFillColor(color(0xFF9F0A))
     ctx.fill(band)
+    guard px >= 64 else { return }
     let font = CTFontCreateUIFontForLanguage(.emphasizedSystem, tile.height * 0.13, nil)!
     let text = NSAttributedString(string: "DEV", attributes: [
         NSAttributedString.Key(kCTFontAttributeName as String): font,
@@ -44,100 +50,120 @@ func drawDevBand(_ ctx: CGContext, tile: CGRect) {
     CTLineDraw(line, ctx)
 }
 
+/// The coral arrow: a quadratic stroke with a head aligned to its end tangent.
+func drawArrow(_ ctx: CGContext, from start: CGPoint, control: CGPoint, to end: CGPoint, width: CGFloat) {
+    let coral = color(0xFF5A36)
+    let dx = end.x - control.x, dy = end.y - control.y
+    let len = max((dx * dx + dy * dy).squareRoot(), 0.001)
+    let ux = dx / len, uy = dy / len
+    let head = width * 2.9
+    // Stop the shaft inside the head so the joint is clean.
+    let shaftEnd = CGPoint(x: end.x - ux * head * 0.55, y: end.y - uy * head * 0.55)
+    ctx.setStrokeColor(coral)
+    ctx.setLineWidth(width)
+    ctx.setLineCap(.round)
+    ctx.move(to: start)
+    ctx.addQuadCurve(to: shaftEnd, control: control)
+    ctx.strokePath()
+    let base = CGPoint(x: end.x - ux * head, y: end.y - uy * head)
+    let px = -uy * head * 0.62, py = ux * head * 0.62
+    ctx.move(to: end)
+    ctx.addLine(to: CGPoint(x: base.x + px, y: base.y + py))
+    ctx.addLine(to: CGPoint(x: base.x - px, y: base.y - py))
+    ctx.closePath()
+    ctx.setFillColor(coral)
+    ctx.setStrokeColor(coral)
+    ctx.setLineJoin(.round)
+    ctx.setLineWidth(width * 0.35)
+    ctx.drawPath(using: .fillStroke)
+}
+
 func render(_ px: Int, dev: Bool = false) -> Data {
     let s = CGFloat(px)
+    let small = px <= 32
+    let tiny = px <= 16
     let ctx = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0,
                         space: srgb, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-    // macOS icon grid: 824/1024 tile, ~185/1024 corner radius.
-    let inset = s * 100 / 1024
+    // macOS icon grid: 824/1024 tile, ~185/1024 corner radius (use more of the
+    // canvas at tiny sizes, where the margin would only cost legibility).
+    let inset = tiny ? s * 0.06 : s * 100 / 1024
     let tile = CGRect(x: inset, y: inset, width: s - 2 * inset, height: s - 2 * inset)
     let tilePath = CGPath(roundedRect: tile, cornerWidth: tile.width * 0.225, cornerHeight: tile.width * 0.225, transform: nil)
 
-    ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: -s * 0.012), blur: s * 0.035, color: color(0x000000, 0.35))
-    ctx.addPath(tilePath)
-    ctx.setFillColor(color(0x1B2A6B))
-    ctx.fillPath()
-    ctx.restoreGState()
+    if !small {
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: -s * 0.012), blur: s * 0.035, color: color(0x000000, 0.35))
+        ctx.addPath(tilePath)
+        ctx.setFillColor(color(0x1E2A70))
+        ctx.fillPath()
+        ctx.restoreGState()
+    }
 
     ctx.saveGState()
     ctx.addPath(tilePath)
     ctx.clip()
-    let bg = CGGradient(colorsSpace: srgb, colors: [color(0x23307A), color(0x1F5F8B), color(0x14A39A)] as CFArray,
+    let bg = CGGradient(colorsSpace: srgb, colors: [color(0x2A2F86), color(0x1E5E96), color(0x10A79B)] as CFArray,
                         locations: [0, 0.55, 1])!
     ctx.drawLinearGradient(bg, start: CGPoint(x: tile.minX, y: tile.maxY), end: CGPoint(x: tile.maxX, y: tile.minY), options: [])
-    // Soft light from the top-left.
-    let glow = CGGradient(colorsSpace: srgb, colors: [color(0xFFFFFF, 0.18), color(0xFFFFFF, 0)] as CFArray, locations: [0, 1])!
-    ctx.drawRadialGradient(glow, startCenter: CGPoint(x: tile.minX + tile.width * 0.25, y: tile.maxY - tile.height * 0.2),
-                           startRadius: 0, endCenter: CGPoint(x: tile.minX + tile.width * 0.25, y: tile.maxY - tile.height * 0.2),
-                           endRadius: tile.width * 0.75, options: [])
-
-    let w = tile.width
-    let cardSize = CGSize(width: w * 0.62, height: w * 0.62 * 10 / 16 * 1.08)
-    let r = w * 0.06
-
-    // Back card.
-    card(ctx, center: CGPoint(x: tile.midX + w * 0.07, y: tile.midY + w * 0.12), size: cardSize, angle: 0.10, radius: r) { rect in
-        ctx.addPath(CGPath(roundedRect: rect, cornerWidth: r, cornerHeight: r, transform: nil))
-        ctx.setFillColor(color(0xFFFFFF, 0.35))
-        ctx.fillPath()
+    if !small {
+        let glow = CGGradient(colorsSpace: srgb, colors: [color(0xFFFFFF, 0.20), color(0xFFFFFF, 0)] as CFArray, locations: [0, 1])!
+        let c = CGPoint(x: tile.minX + tile.width * 0.25, y: tile.maxY - tile.height * 0.18)
+        ctx.drawRadialGradient(glow, startCenter: c, startRadius: 0, endCenter: c, endRadius: tile.width * 0.75, options: [])
     }
 
-    // Front card with an image well and a coral annotation arrow.
-    card(ctx, center: CGPoint(x: tile.midX - w * 0.04, y: tile.midY - w * 0.06), size: cardSize, angle: -0.06, radius: r) { rect in
+    let w = tile.width
+    let cardSize = CGSize(width: w * (small ? 0.70 : 0.64), height: w * (small ? 0.50 : 0.45))
+    let r = w * (small ? 0.08 : 0.065)
+
+    // Back card: brighter at small sizes so the stack still reads; dropped at 16 px.
+    if !tiny {
+        rotated(ctx, center: CGPoint(x: tile.midX + w * 0.08, y: tile.midY + w * 0.12), angle: 0.12) {
+            ctx.addPath(CGPath(roundedRect: CGRect(x: -cardSize.width / 2, y: -cardSize.height / 2,
+                                                   width: cardSize.width, height: cardSize.height),
+                               cornerWidth: r, cornerHeight: r, transform: nil))
+            ctx.setFillColor(color(0xFFFFFF, small ? 0.55 : 0.40))
+            ctx.fillPath()
+        }
+    }
+
+    // Front card.
+    let frontCenter = CGPoint(x: tile.midX - w * (tiny ? 0 : 0.04), y: tile.midY - w * (tiny ? 0.02 : 0.06))
+    rotated(ctx, center: frontCenter, angle: tiny ? 0 : -0.07) {
+        let rect = CGRect(x: -cardSize.width / 2, y: -cardSize.height / 2, width: cardSize.width, height: cardSize.height)
         ctx.saveGState()
-        ctx.setShadow(offset: CGSize(width: 0, height: -w * 0.015), blur: w * 0.05, color: color(0x0A1440, 0.45))
+        if !small {
+            ctx.setShadow(offset: CGSize(width: 0, height: -w * 0.018), blur: w * 0.055, color: color(0x0A1440, 0.45))
+        }
         ctx.addPath(CGPath(roundedRect: rect, cornerWidth: r, cornerHeight: r, transform: nil))
         ctx.setFillColor(color(0xFFFFFF))
         ctx.fillPath()
         ctx.restoreGState()
 
-        let well = rect.insetBy(dx: w * 0.035, dy: w * 0.035)
-        let wr = r * 0.6
-        ctx.saveGState()
-        ctx.addPath(CGPath(roundedRect: well, cornerWidth: wr, cornerHeight: wr, transform: nil))
-        ctx.clip()
-        let wellGradient = CGGradient(colorsSpace: srgb, colors: [color(0xDCEBF5), color(0xC4DCEC)] as CFArray, locations: [0, 1])!
-        ctx.drawLinearGradient(wellGradient, start: CGPoint(x: well.midX, y: well.maxY), end: CGPoint(x: well.midX, y: well.minY), options: [])
-        // Two abstract "content" bars.
-        ctx.setFillColor(color(0x9FBFD6))
-        for (i, frac) in [0.62, 0.42].enumerated() {
-            let bar = CGRect(x: well.minX + well.width * 0.1, y: well.maxY - well.height * (0.28 + 0.2 * CGFloat(i)),
-                             width: well.width * frac, height: well.height * 0.09)
+        if !small {
+            // Image well with a soft sky gradient and one abstract content bar.
+            let well = rect.insetBy(dx: w * 0.032, dy: w * 0.032)
+            let wr = r * 0.55
+            ctx.saveGState()
+            ctx.addPath(CGPath(roundedRect: well, cornerWidth: wr, cornerHeight: wr, transform: nil))
+            ctx.clip()
+            let sky = CGGradient(colorsSpace: srgb, colors: [color(0xE3EEF7), color(0xC9DDEC)] as CFArray, locations: [0, 1])!
+            ctx.drawLinearGradient(sky, start: CGPoint(x: well.midX, y: well.maxY), end: CGPoint(x: well.midX, y: well.minY), options: [])
+            ctx.setFillColor(color(0xA9C5DA))
+            let bar = CGRect(x: well.minX + well.width * 0.1, y: well.maxY - well.height * 0.3,
+                             width: well.width * 0.5, height: well.height * 0.11)
             ctx.addPath(CGPath(roundedRect: bar, cornerWidth: bar.height / 2, cornerHeight: bar.height / 2, transform: nil))
             ctx.fillPath()
+            ctx.restoreGState()
         }
-        ctx.restoreGState()
 
-        // Annotation: a curved coral arrow sweeping in from the lower right.
-        let coral = color(0xFF6B4A)
-        let start = CGPoint(x: well.maxX - well.width * 0.08, y: well.minY + well.height * 0.14)
-        let end = CGPoint(x: well.minX + well.width * 0.42, y: well.minY + well.height * 0.5)
-        let control = CGPoint(x: well.minX + well.width * 0.78, y: well.minY + well.height * 0.62)
-        ctx.setStrokeColor(coral)
-        ctx.setLineWidth(w * 0.042)
-        ctx.setLineCap(.round)
-        ctx.move(to: start)
-        ctx.addQuadCurve(to: end, control: control)
-        ctx.strokePath()
-        // Arrowhead along the tangent at `end`.
-        let dx = end.x - control.x, dy = end.y - control.y
-        let len = max(sqrt(dx * dx + dy * dy), 0.001)
-        let ux = dx / len, uy = dy / len
-        let head = w * 0.11
-        let tip = CGPoint(x: end.x + ux * head * 0.45, y: end.y + uy * head * 0.45)
-        let base = CGPoint(x: tip.x - ux * head, y: tip.y - uy * head)
-        let px = -uy * head * 0.55, py = ux * head * 0.55
-        ctx.move(to: tip)
-        ctx.addLine(to: CGPoint(x: base.x + px, y: base.y + py))
-        ctx.addLine(to: CGPoint(x: base.x - px, y: base.y - py))
-        ctx.closePath()
-        ctx.setFillColor(coral)
-        ctx.setLineJoin(.round)
-        ctx.setLineWidth(w * 0.012)
-        ctx.drawPath(using: .fillStroke)
+        // The annotation: sweeps in from the lower right and points at the centre-left.
+        let start = CGPoint(x: rect.maxX - rect.width * 0.12, y: rect.minY + rect.height * 0.16)
+        let end = CGPoint(x: rect.minX + rect.width * (small ? 0.30 : 0.33), y: rect.minY + rect.height * 0.56)
+        let control = CGPoint(x: rect.minX + rect.width * 0.80, y: rect.minY + rect.height * 0.70)
+        drawArrow(ctx, from: start, control: control, to: end, width: w * (tiny ? 0.085 : small ? 0.07 : 0.05))
     }
-    if dev { drawDevBand(ctx, tile: tile) }
+
+    if dev { drawDevBand(ctx, tile: tile, px: px) }
     ctx.restoreGState()
 
     let rep = NSBitmapImageRep(cgImage: ctx.makeImage()!)

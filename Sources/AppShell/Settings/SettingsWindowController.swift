@@ -2,46 +2,34 @@ import AppKit
 import ShotzCore
 import SwiftUI
 
-/// The Settings window: SwiftUI tabs hosted in an AppKit window (SPEC §7).
+/// The Settings window (SPEC §7): a standard preferences window with toolbar
+/// tabs (icon + label). The title follows the tab, and the window animates its
+/// height to fit each pane, so short panes never scroll. ⌘1…⌘6 switch tabs,
+/// ⌘W closes.
 @MainActor public final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let context: SettingsContext
-    private let selection = SettingsSelection()
-    private var window: NSWindow?
+    private var window: ShellWindow?
+    private var tabs: SettingsTabViewController?
 
     public init(context: SettingsContext) {
         self.context = context
     }
 
     public var isVisible: Bool { window?.isVisible ?? false }
-    /// For `--debug-snapshot-ui` only: one tab rendered off screen (no window is shown).
-    public func debugRender(tab: SettingsTab) async -> Data? {
-        let selection = SettingsSelection()
-        selection.tab = tab
-        return await OffscreenRenderer.png(
-            SettingsRootView(context: context, selection: selection),
-            size: CGSize(width: 560, height: 500),
-            chrome: .init(title: String(localized: "\(AppVariant.current.displayName) Settings"), styleMask: [.titled, .closable, .miniaturizable])
-        )
-    }
 
     public func show(tab: SettingsTab? = nil) {
-        if let tab { selection.tab = tab }
         if window == nil {
-            let root = SettingsRootView(context: context, selection: selection)
-            let hosting = NSHostingController(rootView: root)
-            hosting.sizingOptions = [.preferredContentSize]
-            let window = NSWindow(contentViewController: hosting)
-            window.title = String(localized: "\(AppVariant.current.displayName) Settings")
-            window.styleMask = [.titled, .closable, .miniaturizable]
-            window.isReleasedWhenClosed = false
+            let tabs = SettingsTabViewController(context: context)
+            let window = Self.makeWindow(tabs: tabs)
             window.delegate = self
-            // Each app variant has its own preferences domain, so the saved
-            // frame never crosses between Shotz and Shotz Dev.
             window.setFrameAutosaveName("ShotzSettings")
             if !window.setFrameUsingName("ShotzSettings") { window.center() }
             WindowPresenter.prepare(window)
+            self.tabs = tabs
             self.window = window
         }
+        if let tab { tabs?.select(tab) }
+        tabs?.fitWindowToSelection(animate: false)
         if window?.isVisible != true { context.screenRecording.startPolling() }
         if let window { WindowPresenter.bringToFront(window, name: "Settings") }
     }
@@ -50,40 +38,84 @@ import SwiftUI
         context.screenRecording.stopPolling()
         context.hotkeys.isSuspended = false
     }
-}
 
-/// Selected tab, shared so `show(tab:)` can switch an open window.
-@MainActor final class SettingsSelection: ObservableObject {
-    @Published var tab: SettingsTab = .general
-}
-
-/// Tabs as a segmented control over the selected pane. (SwiftUI's `TabView`
-/// tab strip does not draw in off-screen renders; a segmented picker does,
-/// and looks the same.)
-struct SettingsRootView: View {
-    let context: SettingsContext
-    @ObservedObject var selection: SettingsSelection
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Picker(String(localized: "Settings section"), selection: $selection.tab) {
-                ForEach(SettingsTab.allCases, id: \.self) { tab in
-                    Text(tab.title).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 4)
-            pane
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+    static func makeWindow(tabs: SettingsTabViewController) -> ShellWindow {
+        let window = ShellWindow(contentRect: NSRect(x: 0, y: 0, width: PrefMetrics.paneWidth, height: 400),
+                                 styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        window.contentViewController = tabs
+        window.toolbarStyle = .preference
+        window.isReleasedWhenClosed = false
+        window.onSelectIndex = { [weak tabs] index in
+            guard let tabs, SettingsTab.allCases.indices.contains(index) else { return }
+            tabs.select(SettingsTab.allCases[index])
         }
-        .frame(width: 560, height: 500)
+        return window
     }
 
-    @ViewBuilder private var pane: some View {
-        switch selection.tab {
+    /// For `--debug-snapshot-ui`: one tab in its own off-screen window (never
+    /// ordered in), in the given appearance.
+    public func debugRender(tab: SettingsTab, appearance: NSAppearance.Name = .aqua) async -> Data? {
+        let tabs = SettingsTabViewController(context: context)
+        let window = Self.makeWindow(tabs: tabs)
+        window.appearance = NSAppearance(named: appearance)
+        tabs.select(tab)
+        tabs.fitWindowToSelection(animate: false)
+        return await OffscreenRenderer.capture(window)
+    }
+}
+
+/// Toolbar-style tabs, one hosting controller per pane.
+final class SettingsTabViewController: NSTabViewController {
+    private let context: SettingsContext
+
+    init(context: SettingsContext) {
+        self.context = context
+        super.init(nibName: nil, bundle: nil)
+        tabStyle = .toolbar
+        transitionOptions = [.crossfade]
+        for tab in SettingsTab.allCases {
+            let hosting = NSHostingController(rootView: AnyView(pane(for: tab)))
+            hosting.sizingOptions = []
+            let item = NSTabViewItem(viewController: hosting)
+            item.label = tab.title
+            item.image = tab.icon.nsImage(pointSize: 17)
+            item.identifier = tab.rawValue
+            addTabViewItem(item)
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    func select(_ tab: SettingsTab) {
+        guard let index = SettingsTab.allCases.firstIndex(of: tab) else { return }
+        selectedTabViewItemIndex = index
+    }
+
+    override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        super.tabView(tabView, didSelect: tabViewItem)
+        fitWindowToSelection(animate: view.window?.isVisible == true)
+    }
+
+    /// Sizes the window to the selected pane, keeping its top edge in place.
+    func fitWindowToSelection(animate: Bool) {
+        guard let item = tabViewItems[safe: selectedTabViewItemIndex],
+              let hosting = item.viewController as? NSHostingController<AnyView>,
+              let window = view.window else { return }
+        window.title = item.label
+        // Ask SwiftUI for the pane's natural height at the fixed width (the
+        // hosting view's own fitting size is bounded by its current frame).
+        let ideal = hosting.sizeThatFits(in: CGSize(width: PrefMetrics.paneWidth, height: 10_000))
+        let size = NSSize(width: PrefMetrics.paneWidth, height: ceil(ideal.height))
+        var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: size))
+        frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
+        if frame.size != window.frame.size {
+            window.setFrame(frame, display: true, animate: animate)
+        }
+    }
+
+    @ViewBuilder private func pane(for tab: SettingsTab) -> some View {
+        switch tab {
         case .general:
             GeneralSettingsView(context: context, settings: context.settings, loginItem: context.loginItem,
                                 screenRecording: context.screenRecording)
@@ -112,4 +144,19 @@ extension SettingsTab {
         case .advanced: String(localized: "Advanced")
         }
     }
+
+    var icon: ShellIcon {
+        switch self {
+        case .general: .general
+        case .shortcuts: .shortcuts
+        case .quickAccess: .quickAccess
+        case .capture: .capture
+        case .editor: .editor
+        case .advanced: .advanced
+        }
+    }
+}
+
+extension Array {
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }
