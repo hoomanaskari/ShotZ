@@ -1,154 +1,170 @@
+<p align="center">
+  <img src="docs/screenshots/app-icon.png" width="128" height="128" alt="ShotZ app icon" />
+</p>
+
 # ShotZ
 
-ShotZ is an original, open-source macOS screenshot and annotation app. It is a
-menu-bar agent: a global shortcut captures the screen, the capture appears in
-a quick-access stack of thumbnail cards, and one click opens it in an
-annotation editor. It is native Swift 6, AppKit-first, built for macOS 15 and
-later, with no third-party dependencies, no network access and no telemetry.
+**A fast, native screenshot and annotation app for macOS.** Free and open source (MIT).
 
-- Behaviour: [docs/SPEC.md](docs/SPEC.md)
-- Structure, module contracts and conventions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+<p align="center">
+  <a href="https://github.com/hoomanaskari/ShotZ/releases/latest">
+    <img src="https://img.shields.io/badge/Download_for_Mac-DMG-black?style=for-the-badge&logo=apple&logoColor=white" alt="Download for Mac" />
+  </a>
+</p>
 
-## Phase 1 scope
+Press ⌘⇧4, drag over what you want, and the capture lands in a small stack of cards in the corner of the screen. Copy it, save it, drag it into another app, or open it in the editor to add arrows, boxes, text, numbered steps and blur, then put it on a background for sharing. ShotZ lives in the menu bar and keeps your captures on your Mac.
 
-- Still screenshots: area, window, fullscreen and all-in-one, driven by the
-  system `screencapture` tool behind a `CaptureEngine` protocol.
-- Global shortcuts ⌘⇧3 / ⌘⇧4 / ⌘⇧5 (rebindable).
-- The quick-access stack: copy, save, drag out, annotate, Quick Look, close.
-- The annotation editor: arrows, shapes, text, highlighter, blur/pixelate,
-  counters, pen, crop and presentation backgrounds, with full undo.
-- History of recent captures under `~/Library/Application Support/Shotz/`.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/editor-dark.png" />
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshots/editor-light.png" />
+  <img src="docs/screenshots/editor-light.png" alt="The ShotZ editor: a tool strip and options bar above a capture of a sign-ups report. A yellow highlight marks the title, a red box surrounds the total, an arrow and a 'Best week yet' label point at the tallest bar, numbered markers 1 to 3 label each part, and an API token is blurred. Zoom controls sit at the bottom left; Copy, Save and Done at the bottom right." />
+</picture>
 
-Out of scope for Phase 1: video/GIF recording, scrolling capture, OCR, cloud
-upload, pinning.
+> **Status: first release.** ShotZ 0.1 takes still screenshots. It doesn't record video, capture scrolling pages, read text (OCR) or upload anywhere.
 
-The repository currently holds the foundation: the `ShotzCore` contracts,
-settings and export service, the `AnnotationKit` document model, and small
-working stubs for the other modules wired end to end.
+## What it does
 
-## Build, run, test
+- **Captures like macOS does.** ShotZ uses the system's own capture tool, so the crosshair, live coordinates and Space-to-capture-a-window behave exactly as you know them. Area (⌘⇧4), fullscreen (⌘⇧3) and the all-in-one capture toolbar (⌘⇧5); every shortcut can be changed. Window captures keep their shadow on a transparent background.
+- **A quick-access stack.** Each capture appears as a card at the bottom-left of the screen (or right, if you prefer) without taking focus from what you're doing. Hover a card for **Copy**, **Save**, **Annotate**, **Quick Look** and **Close**, with keyboard shortcuts while the pointer is over it. Drag a card straight into Finder, Mail, a chat or a design tool. Double-click to open it in the editor.
+- **An annotation editor.** Arrows (straight, curved, tapered, double-headed, line with a dot), rectangles, ellipses, lines, text with outline and pill styles, a highlighter that keeps text readable, blur, pixelate and solid redaction, numbered counters, a smoothed pen and non-destructive crop. Everything stays editable until you export: select, move, restyle, duplicate and reorder objects, with unlimited undo. Eight preset colours, a custom colour well and an eyedropper.
+- **Backgrounds for sharing.** Wrap a capture in a solid colour or one of 12 gradients, with padding, rounded corners, a shadow and a fixed aspect ratio (1:1, 4:3, 16:9, 3:2). Save your own presets.
+- **Drag out from anywhere.** Drag the finished image out of the editor (the thumbnail at the bottom right) or straight off a stack card.
+- **Closing is saving.** Close the editor and your edits are kept with the capture; its card returns to the stack showing the annotated image. Reopen it later and every object is still editable.
+- **Recent captures** stay in the menu-bar menu for re-opening; how long they're kept is up to you (a month by default).
 
-Requires Xcode 16 or later (Swift 6 toolchain) on macOS 15 or later.
+<table>
+  <tr>
+    <td width="50%"><img alt="The editor with the Background panel open: the annotated report on a blue-to-teal gradient with padding, rounded corners and a soft shadow; the panel shows the gradient presets, colours, angle, padding, corners, shadow, aspect and position." src="docs/screenshots/background-panel.png" /></td>
+    <td width="50%"><img alt="The exported image: the annotated report centred on a blue-to-teal gradient." src="docs/screenshots/background-result.png" /></td>
+  </tr>
+  <tr>
+    <td><img alt="The quick-access stack: three capture cards, a mountain sunset, a checklist and a banner. The newest card is hovered and shows Close, Annotate, Copy, Save, Quick Look and its size, 1800 × 440." src="docs/screenshots/stack-light.png" width="282" /> <img alt="The same stack in dark mode." src="docs/screenshots/stack-dark.png" width="282" /></td>
+    <td><img alt="ShotZ Settings, General tab: launch at login, menu-bar icon, capture sound, what to do after a capture, the export folder and the Screen Recording status." src="docs/screenshots/settings-general.png" /></td>
+  </tr>
+</table>
 
-```bash
-swift build                          # debug build of all modules
-swift test                           # all unit tests
-scripts/bundle.sh dev                # → build/ShotZ Dev.app (development app, debug build)
-scripts/bundle.sh release            # → build/ShotZ.app (production app, release build)
-scripts/run.sh [app args…]           # build and run ShotZ Dev; quits only its own previous instance
-scripts/install.sh                   # production release → /Applications/ShotZ.app (manager/owner only)
-swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG
-```
+## Requirements
 
-### Debug launch arguments
+- macOS 15 Sequoia or later.
+- Apple silicon or Intel: the release app is universal (`arm64` and `x86_64`), signed with a Developer ID and notarized by Apple.
 
-To exercise the stack and editor without Screen Recording permission, make a
-sample image and pass it to the app (`run.sh` passes arguments through and
-makes file paths absolute):
+## Install
 
-```bash
-swift scripts/make-sample.swift 5120 2880 build/sample-5k.png
-```
+1. Download the newest `.dmg` from [Releases](https://github.com/hoomanaskari/ShotZ/releases/latest).
+2. Open it and drag **ShotZ** to Applications.
+3. Open ShotZ. It lives in the menu bar, not in the Dock. The first time, a short welcome walks you through the steps below.
 
-```bash
-scripts/run.sh --debug-present build/sample-5k.png
-```
+### Screen Recording permission
 
-```bash
-scripts/run.sh --debug-edit build/sample-5k.png
-```
+macOS asks you to allow ShotZ under **System Settings ▸ Privacy & Security ▸ Screen & System Audio Recording**. It's the only permission ShotZ needs. macOS may ask you to quit and reopen ShotZ after you allow it. Without it, a capture shows you how to grant the permission instead of an empty image. Settings ▸ General shows whether it's allowed.
 
-- `--debug-present <png> [<png>…]` copies each image into the captures folder,
-  adds it to history (kind area, scale 2) and shows it in the quick-access stack.
-- `--debug-edit <png>` opens the image in the editor.
-- `--debug-edit-capture <png>` imports the image into history like
-  `--debug-present`, then opens it as a capture (`openEditor(for:)`), so edits
-  and Save's export overwrite persist. The same source path always maps to the
-  same history entry, so a second launch reopens that capture instead of
-  importing again (it is re-imported, under the same id, only if its file is
-  gone). `--debug-capture-id <uuid>` forces the id.
+### Free ⌘⇧3, ⌘⇧4 and ⌘⇧5
 
-### Two apps: ShotZ and ShotZ Dev
+These shortcuts belong to macOS until you turn its own off: **System Settings ▸ Keyboard ▸ Keyboard Shortcuts… ▸ Screenshots**, then uncheck the screenshot shortcuts. If another screenshot app uses them, turn them off in that app too. ShotZ never changes your system settings itself; the welcome window checks these shortcuts and shows the steps if they're still taken. You can also give ShotZ different shortcuts in Settings ▸ Shortcuts.
 
-There are two builds of the same code, told apart by their bundle id
-(`AppVariant` in ShotzCore). They run side by side and never share anything:
+More detail, including launch at login, is in [docs/INSTALL.md](docs/INSTALL.md). To remove ShotZ and everything it stored, see [docs/UNINSTALL.md](docs/UNINSTALL.md).
 
-| | ShotZ (production) | ShotZ Dev (development) |
-|---|---|---|
-| Built by | `scripts/bundle.sh release` | `scripts/bundle.sh dev`, `scripts/run.sh` |
-| Bundle | `build/ShotZ.app`, installed to `/Applications` | `build/ShotZ Dev.app` |
-| Bundle id / preferences | `app.shotz.Shotz` | `app.shotz.Shotz.dev` |
-| Data | `~/Library/Application Support/Shotz` | `~/Library/Application Support/ShotZ Dev` |
-| Default capture shortcuts | ⌘⇧3 / ⌘⇧4 / ⌘⇧5 | ⌃⌥⌘3 / ⌃⌥⌘4 / ⌃⌥⌘5 |
-| Icon / menu-bar glyph | standard | amber DEV band / amber glyph |
-| Login item | its own (only from Applications) | its own (off by default) |
-| Screen Recording | its own grant | its own grant, given once |
+## Shortcuts
 
-`scripts/run.sh` only ever builds and runs ShotZ Dev, and `scripts/install.sh`
-only ever installs ShotZ; neither quits, replaces or unregisters the other.
+**Anywhere**
 
-Rules for engineers and test runs:
+| Shortcut | Action |
+|---|---|
+| ⌘⇧3 | Capture the screen under the pointer |
+| ⌘⇧4 | Capture an area (press Space to capture a window instead) |
+| ⌘⇧5 | All-in-one capture toolbar |
 
-- From a git worktree, `scripts/run.sh` starts ShotZ Dev as a **test run**
-  (`--no-hotkeys`), executes it directly and keeps it out of Launch Services.
-  Every `--debug-*` flag, `-QuickAccessSelfTest` and `SHOTZ_EDITOR_SCRIPT`
-  also make a test run. Test runs are hermetic: their own preferences
-  (`app.shotz.Shotz.dev.testrun`) and data (`Application Support/ShotZ Dev
-  Test Runs`), no shortcuts, no login item, no menu-bar icon, and they never
-  open or record the welcome window, so they never touch the owner's ShotZ
-  or ShotZ Dev.
-- A run exec'd directly from a shell inherits the launcher's Screen Recording
-  permission, so "granted" there proves nothing; check through Launch
-  Services (`open -n`).
-- Never bundle, launch or quit `build/` in the main checkout or anything in
-  `/Applications`: those are the owner's.
+**Pointer over a stack card**
 
-The launch log starts with `Variant: …` and has one `Hotkey …` line per action
-(`registered`, `FAILED (Carbon status …)` or `not registered` with the reason).
+| Shortcut | Action |
+|---|---|
+| ⌘C | Copy |
+| ⌘S | Save to the export folder (Desktop by default) |
+| ⌘E or Return | Open in the editor |
+| Space | Quick Look |
+| ⌘W or Esc | Close the card (the capture stays in your recent captures) |
+| ⌘⌫ | Close and delete the capture |
 
-Signing: `bundle.sh` uses `$SHOTZ_SIGN_IDENTITY` if set, otherwise the first
-"Apple Development" identity in the keychain, otherwise ad-hoc, with the same
-rule for debug and release so the Screen Recording grant carries over. A
-release build refuses ad-hoc signing unless `SHOTZ_ALLOW_ADHOC=1`, uses the
-hardened runtime (checked after signing) and never contacts the network (no
-secure timestamp). The version comes from `Resources/Info.plist`.
+**Editor**
 
-`install.sh` (owner/manager, main checkout only; it refuses to run from a
-worktree) builds a release, stages and verifies the copy next to
-`/Applications/ShotZ.app`, quits only the installed copy (politely, then by
-force after 5 s), swaps the new bundle in with two renames (the old copy is
-restored if the swap fails) and relaunches ShotZ if it was running.
+| Key | Tool | | Shortcut | Action |
+|---|---|---|---|---|
+| V | Select | | ⇧⌘C | Copy the image |
+| A | Arrow (again to change style) | | ⌘S | Save |
+| R | Rectangle | | ⇧⌘S | Save As (PNG, JPEG or HEIC, 1× or 2×) |
+| O | Ellipse | | ⌘W | Done: close and return to the stack |
+| L | Line | | ⌘Z / ⇧⌘Z | Undo / redo |
+| T | Text | | ⌘D | Duplicate |
+| H | Highlighter | | ⌘0 / ⌘1 | Zoom to fit / actual size |
+| B | Blur and redact | | ⌘+ / ⌘− | Zoom in / out |
+| N | Numbered counter | | 1–8 | Preset colours |
+| P | Pen | | Esc | Deselect, then back to Select |
+| C | Crop | | | |
+| G | Background panel | | | |
 
-### App icon
+## Updates
+<!-- MANAGER CHECK: written for Sparkle as engineer A is adding it. Confirm the menu item, the Settings location, the check interval and that no system profile is sent once it lands. -->
 
-The app icon is the owner's artwork (`Resources/icon-master/owner-artwork-clean.png`) on a generated
-macOS tile, set up in `Resources/icon-master/icon.json`. To rebuild it, run:
+ShotZ updates itself with [Sparkle](https://sparkle-project.org). It reads the update feed (`appcast.xml` in this repository) in the background and asks before installing anything; **Check for Updates…** in the menu-bar menu checks right away. Updates are downloaded from this repository's releases and installed only if they carry ShotZ's EdDSA signature and Apple's notarization. You can turn automatic checks off in Settings.
+
+## Privacy
+
+- **No accounts, no analytics, no telemetry.**
+- **Your captures stay on your Mac**, in `~/Library/Application Support/Shotz/`, until you save, copy or drag them somewhere. Old captures are removed after the time you choose in Settings ▸ Advanced.
+- **The only network access is the update check**, which reads ShotZ's update feed from GitHub. It sends nothing about you or your captures. Turn automatic checks off and ShotZ makes no network requests on its own.
+
+## Building from source
+
+You need Xcode 16 or later (Swift 6) on macOS 15 or later. Swift Package Manager fetches the dependencies on the first build.
 
 ```bash
-scripts/make-icons.sh
+git clone https://github.com/hoomanaskari/ShotZ.git
+cd ShotZ
+swift build
+swift test
 ```
 
-This writes `Resources/AppIcon.icns` and `Resources/AppIcon-Dev.icns` (with the amber DEV band).
-A finished tile master can be used instead: `scripts/make-icons.sh path/to/AppIcon.png`.
-Then rebuild the app with `scripts/bundle.sh release`. See [docs/ICON.md](docs/ICON.md).
+Run the development app, **ShotZ Dev**. It's a separate app with its own settings, captures, icon and Screen Recording permission, and its default shortcuts are ⌃⌥⌘3/4/5, so it can run next to an installed ShotZ:
 
-## Installing
+```bash
+scripts/run.sh
+```
 
-See [docs/INSTALL.md](docs/INSTALL.md): installing into `/Applications`, the
-Screen Recording permission, launch at login, freeing ⌘⇧3/4/5 and rolling back.
+Build the release app into `build/ShotZ.app`:
 
-## Permissions
+```bash
+scripts/bundle.sh release
+```
 
-ShotZ needs **Screen Recording** permission (System Settings ▸ Privacy &
-Security ▸ Screen & System Audio Recording). Without it, a capture shows a
-prompt explaining how to grant it instead of producing an empty image.
-Signing with a stable identity keeps the grant across rebuilds; ad-hoc builds
-may need to be re-approved after each rebuild.
+A release build needs a code-signing identity (set `SHOTZ_SIGN_IDENTITY`, or it uses your first Apple Development certificate). With none, set `SHOTZ_ALLOW_ADHOC=1`; macOS then asks for the Screen Recording permission again after every rebuild.
 
-For ⌘⇧3/4/5 to reach ShotZ, macOS's own screenshot shortcuts (System Settings
-▸ Keyboard ▸ Keyboard Shortcuts ▸ Screenshots) must be turned off. ShotZ only
-reads that setting; it never changes system settings.
+Releases (signing, notarization, the DMG and the update feed) are built with `scripts/release.sh`; see [docs/RELEASE.md](docs/RELEASE.md). The app icon is rebuilt with `scripts/make-icons.sh` ([docs/ICON.md](docs/ICON.md)). The README screenshots are made from the app itself with `scripts/screenshots/make-screenshots.sh` (synthetic sample images, no screen reading).
 
-## License
+## Project layout
 
-MIT. See [LICENSE](LICENSE).
+ShotZ is Swift 6 and AppKit, split into small modules:
+
+| Module | What it holds |
+|---|---|
+| `ShotzCore` | Shared types, settings, export and the protocols the modules talk through |
+| `ShotzUI` | The design system: tokens and every control in the app |
+| `CaptureKit` | Capture, through the system `screencapture` tool |
+| `QuickAccess` | The quick-access stack |
+| `AnnotationKit` | The annotation document, renderer, undo and export |
+| `AnnotationEditor` | The editor window, canvas, tools and chrome |
+| `AppShell` | Shortcuts, permissions, welcome window, Settings, menu-bar item, history |
+| `Shotz` | The app itself, where the modules meet |
+
+- [docs/SPEC.md](docs/SPEC.md): what ShotZ does, in detail.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): modules, contracts, build and conventions.
+- [docs/DESIGN.md](docs/DESIGN.md): the design system and its rules.
+- [docs/RELEASE.md](docs/RELEASE.md): how a release is built.
+
+## Contributing
+
+Bug reports and fixes with tests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security problems, see [SECURITY.md](SECURITY.md).
+
+## Licence
+
+<!-- MANAGER CHECK: Sparkle is named here and under Updates; confirm it is in Package.swift and THIRD-PARTY-NOTICES once engineer A lands it. -->
+[MIT](LICENSE). ShotZ uses [Phosphor Icons](https://github.com/phosphor-icons/core) (MIT) for its interface icons and [Sparkle](https://github.com/sparkle-project/Sparkle) (MIT) for updates. Their licences and copyright notices are in [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES).

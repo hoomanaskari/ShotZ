@@ -1,0 +1,40 @@
+wait 500
+appearance light
+textstyle solidPill
+tool h
+drag 140 160 592 160 16
+tool r
+drag 1024 264 1476 700 12
+tool a
+drag 740 424 866 330 12
+tool b
+drag 392 776 940 860 12
+tool n
+click 624 150
+click 900 290
+click 1050 292
+tool t
+click 430 410
+type Best week yet
+key return command
+wait 200
+tool a
+key escape
+wait 300
+snapshot {{RAW}}/editor-light@2x.png 2
+snapshot {{RAW}}/editor-light@1x.png 1
+appearance dark
+wait 300
+snapshot {{RAW}}/editor-dark@2x.png 2
+snapshot {{RAW}}/editor-dark@1x.png 1
+appearance light
+tool v
+panel
+background on
+wait 500
+snapshot {{RAW}}/background-light@2x.png 2
+appearance dark
+wait 300
+snapshot {{RAW}}/background-dark@2x.png 2
+export {{RAW}}/background-export.png
+wait 500
