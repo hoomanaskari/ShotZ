@@ -89,6 +89,25 @@ struct FileHistoryStoreTests {
         #expect(await reopened.exportURL(for: UUID()) == nil)
     }
 
+    /// The exact closure types `EditorCoordinator(previousExport:recordExport:)`
+    /// takes, built the way AppCoordinator builds them.
+    @Test func editorExportHooksRoundTrip() async throws {
+        defer { cleanup() }
+        let history = FileHistoryStore(paths: paths)
+        let previousExport: @Sendable (CaptureResult.ID) async -> URL? = { await history.exportURL(for: $0) }
+        let recordExport: @Sendable (CaptureResult.ID, URL) async -> Void = { await history.markExported(id: $0, url: $1) }
+        let a = try capture()
+        await history.add(a)
+        #expect(await previousExport(a.id) == nil)
+        let export = paths.root.appending(path: "Shotz A.png")
+        try FakeCaptureEngine.writePNG(width: 2, height: 2, to: export)
+        await recordExport(a.id, export)
+        #expect(await previousExport(a.id) == export)
+        let reopened = FileHistoryStore(paths: paths)
+        let previousAfterReopen: @Sendable (CaptureResult.ID) async -> URL? = { await reopened.exportURL(for: $0) }
+        #expect(await previousAfterReopen(a.id) == export)
+    }
+
     @Test func orderIsByCreationDateNotInsertion() async throws {
         defer { cleanup() }
         let store = FileHistoryStore(paths: paths)

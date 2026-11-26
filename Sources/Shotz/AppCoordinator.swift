@@ -42,11 +42,15 @@ import ShotzCore
         exporter = DefaultExportService(paths: paths)
         quickAccess = QuickAccessController(settings: settings, exporter: exporter)
         let history = self.history
-        // When EditorCoordinator gains export memory (engineer D), pass it in the
-        // same closure style:
-        //   previousExport: { await history.exportURL(for: $0) },
-        //   recordExport: { await history.markExported(id: $0, url: $1) }
-        editor = EditorCoordinator(settings: settings, exporter: exporter) { history.documentURL(for: $0) }
+        // Export memory: the editor's Save overwrites the export recorded in
+        // history, and records new ones, across reopen (SPEC §5.5).
+        editor = EditorCoordinator(
+            settings: settings,
+            exporter: exporter,
+            documentURL: { history.documentURL(for: $0) },
+            previousExport: { await history.exportURL(for: $0) },
+            recordExport: { await history.markExported(id: $0, url: $1) }
+        )
         hotkeys = HotkeyCenter(settings: settings, devHotkeys: HotkeyCenter.devHotkeysRequested())
         statusItem = StatusItemController(hotkeys: hotkeys)
         loginItem = LoginItemController(settings: settings)
