@@ -1,3 +1,4 @@
+import Accelerate
 import CoreGraphics
 import CoreImage
 
@@ -36,42 +37,45 @@ enum Redactor {
 
     /// `rect` must be integral and inside the image. Each cell is the exact mean of its pixels,
     /// written fully opaque, so no original pixel can show through anywhere in the rect.
+    /// Vectorised with Accelerate (fast in debug builds too): each band of rows is summed per
+    /// column, each cell reduced with `vDSP_sve`, and output rows filled by pattern copies.
     static func pixelate(_ image: CGImage, rect: CGRect, block: CGFloat) -> CGImage? {
         guard let crop = image.cropping(to: rect) else { return nil }
         let w = Int(rect.width), h = Int(rect.height)
         guard w > 0, h > 0 else { return nil }
         let (cols, rows) = cellGrid(for: rect.size, block: block)
         let space = workingSpace(of: image)
-        // Opaque working copy (transparent areas, e.g. a window shadow, average against black,
-        // the same as the premultiplied pixels).
+        // Opaque working copy in BGRA premultiplied (transparent areas average against black).
         guard let ctx = bitmap(width: w, height: h, space: space), let data = ctx.data else { return nil }
         ctx.draw(crop, in: CGRect(x: 0, y: 0, width: w, height: h))
         let rowBytes = ctx.bytesPerRow
         let px = data.bindMemory(to: UInt8.self, capacity: rowBytes * h)
+        let n = w * 4
+        let rowF = UnsafeMutablePointer<Float>.allocate(capacity: n)
+        let acc = UnsafeMutablePointer<Float>.allocate(capacity: n)
+        let pattern = UnsafeMutablePointer<UInt8>.allocate(capacity: n)
+        defer { rowF.deallocate(); acc.deallocate(); pattern.deallocate() }
         // Cell boundaries split the rect evenly (integer pixel edges).
         let xs = (0...cols).map { $0 * w / cols }
         let ys = (0...rows).map { $0 * h / rows }
         for r in 0..<rows {
-            for c in 0..<cols {
-                var sum = (0, 0, 0, 0)
-                for y in ys[r]..<ys[r + 1] {
-                    var i = y * rowBytes + xs[c] * 4
-                    for _ in xs[c]..<xs[c + 1] {
-                        sum.0 += Int(px[i]); sum.1 += Int(px[i + 1]); sum.2 += Int(px[i + 2]); sum.3 += Int(px[i + 3])
-                        i += 4
-                    }
-                }
-                let n = max((ys[r + 1] - ys[r]) * (xs[c + 1] - xs[c]), 1)
-                // BGRA premultiplied: composite the mean over black so every cell is opaque.
-                let b = UInt8(sum.0 / n), g = UInt8(sum.1 / n), rr = UInt8(sum.2 / n)
-                for y in ys[r]..<ys[r + 1] {
-                    var i = y * rowBytes + xs[c] * 4
-                    for _ in xs[c]..<xs[c + 1] {
-                        px[i] = b; px[i + 1] = g; px[i + 2] = rr; px[i + 3] = 255
-                        i += 4
-                    }
-                }
+            let y0 = ys[r], y1 = ys[r + 1]
+            vDSP_vclr(acc, 1, vDSP_Length(n))
+            for y in y0..<y1 {
+                vDSP_vfltu8(px + y * rowBytes, 1, rowF, 1, vDSP_Length(n))
+                vDSP_vadd(acc, 1, rowF, 1, acc, 1, vDSP_Length(n))
             }
+            for c in 0..<cols {
+                let x0 = xs[c], cw = xs[c + 1] - x0
+                let count = Float(cw * (y1 - y0))
+                var cell: (UInt8, UInt8, UInt8, UInt8) = (0, 0, 0, 255)
+                var sum: Float = 0
+                vDSP_sve(acc + x0 * 4, 4, &sum, vDSP_Length(cw)); cell.0 = UInt8(min((sum / count).rounded(), 255))
+                vDSP_sve(acc + x0 * 4 + 1, 4, &sum, vDSP_Length(cw)); cell.1 = UInt8(min((sum / count).rounded(), 255))
+                vDSP_sve(acc + x0 * 4 + 2, 4, &sum, vDSP_Length(cw)); cell.2 = UInt8(min((sum / count).rounded(), 255))
+                withUnsafeBytes(of: &cell) { memset_pattern4(pattern + x0 * 4, $0.baseAddress!, cw * 4) }
+            }
+            for y in y0..<y1 { memcpy(px + y * rowBytes, pattern, n) }
         }
         return ctx.makeImage()
     }
