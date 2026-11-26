@@ -39,6 +39,7 @@ public struct ShotzToggleChipStyle: ToggleStyle {
                 .background { if let bg = fills.background { Capsule().fill(Color(nsColor: bg)) } }
                 .overlay { if let b = fills.border { Capsule().strokeBorder(Color(nsColor: b), lineWidth: 1) } }
                 .contentShape(Capsule())
+                .contentShape(.focusEffect, Capsule())
                 .frame(minHeight: size.hitHeight)
             }
             .buttonStyle(.plain)

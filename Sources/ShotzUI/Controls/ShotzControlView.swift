@@ -1,7 +1,8 @@
 import AppKit
 import ShotzCore
 
-/// Base for every ShotZ control: hover/press tracking, keyboard focus with ShotZ's own focus ring,
+/// Base for every ShotZ control: hover/press tracking, keyboard focus with ShotZ's own focus ring
+/// (shown only for keyboard navigation, see `ShotzUI.FocusRing`),
 /// first-mouse in non-activating panels, and drawing through the shared state → fills mapping.
 /// Layer-backed; draws in `draw(_:)` with a top-left (flipped) coordinate space.
 @MainActor
@@ -16,6 +17,8 @@ open class ShotzControlView: NSControl {
     var isHovered = false { didSet { if isHovered != oldValue { needsDisplay = true } } }
     var isPressed = false { didSet { if isPressed != oldValue { needsDisplay = true } } }
     private var trackingArea: NSTrackingArea?
+    /// Whether focus arrived by keyboard navigation (Tab); only then does the ring show.
+    public private(set) var focusCameFromKeyboard = false
 
     public override init(frame: NSRect) {
         super.init(frame: frame)
@@ -34,7 +37,13 @@ open class ShotzControlView: NSControl {
     public var controlState: ShotzUI.ControlState {
         if let stateOverride { return stateOverride }
         return ShotzUI.ControlState(isHovered: isHovered, isPressed: isPressed, isSelected: isSelected, isEnabled: isEnabled,
-                                    isFocused: window?.firstResponder === self && (window?.isKeyWindow ?? false))
+                                    isFocused: showsFocusRing)
+    }
+
+    /// The ring shows while this control has keyboard focus that came from the keyboard, in a key window.
+    public var showsFocusRing: Bool {
+        guard let window, window.firstResponder === self, focusCameFromKeyboard else { return false }
+        return ShotzUI.FocusRing.isKeyWindow(window)
     }
 
     // MARK: Drawing
@@ -112,11 +121,25 @@ open class ShotzControlView: NSControl {
     // MARK: Interaction
 
     open override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    open override var acceptsFirstResponder: Bool { isEnabled }
+    /// Keyboard focus never comes from a pointer click (no ring after a click, and the click doesn't
+    /// take the keyboard from, say, the editor canvas); Tab and Full Keyboard Access still focus it.
+    open override var acceptsFirstResponder: Bool {
+        isEnabled && !ShotzUI.FocusRing.isPointer(ShotzUI.FocusRing.currentEvent())
+    }
     open override var canBecomeKeyView: Bool { isEnabled }
     open override var needsPanelToBecomeKey: Bool { false }
-    open override func becomeFirstResponder() -> Bool { needsDisplay = true; return super.becomeFirstResponder() }
-    open override func resignFirstResponder() -> Bool { needsDisplay = true; return super.resignFirstResponder() }
+    open override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        if accepted { focusCameFromKeyboard = ShotzUI.FocusRing.isKeyViewNavigation(ShotzUI.FocusRing.currentEvent()) }
+        needsDisplay = true
+        return accepted
+    }
+    open override func resignFirstResponder() -> Bool {
+        let accepted = super.resignFirstResponder()
+        if accepted { focusCameFromKeyboard = false }
+        needsDisplay = true
+        return accepted
+    }
 
     open override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -131,10 +154,12 @@ open class ShotzControlView: NSControl {
 
     open override func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }
+        // A click on a keyboard-focused control hides its ring; it keeps focus.
+        if focusCameFromKeyboard { focusCameFromKeyboard = false; needsDisplay = true }
         isPressed = true
         mouseDownAt(convert(event.locationInWindow, from: nil))
         // Track until mouse-up; the press shows only while the pointer is inside.
-        while let next = window?.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
+        while let window, let next = Self.nextTrackingEvent(window) {
             let p = convert(next.locationInWindow, from: nil)
             if next.type == .leftMouseUp {
                 isPressed = false
@@ -145,6 +170,10 @@ open class ShotzControlView: NSControl {
             mouseDraggedTo(p)
         }
     }
+
+    /// The click-tracking loop's event source (drags and the mouse-up). A seam for tests, which
+    /// script the mouse-up instead of running AppKit's event loop.
+    static var nextTrackingEvent: (NSWindow) -> NSEvent? = { $0.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) }
 
     open override func keyDown(with event: NSEvent) {
         if event.charactersIgnoringModifiers == " " || event.keyCode == 36 {

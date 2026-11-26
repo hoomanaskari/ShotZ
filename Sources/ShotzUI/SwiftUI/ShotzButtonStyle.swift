@@ -82,10 +82,11 @@ private struct ShotzButtonBody: View {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.colorScheme) private var colorScheme
     @State private var isHovered = false
-    @FocusState private var isFocused: Bool
 
     var body: some View {
-        let state = ShotzUI.ControlState(isHovered: isHovered, isPressed: configuration.isPressed, isEnabled: isEnabled, isFocused: isFocused)
+        // No focus state of its own: the button is focused only by keyboard navigation, and the
+        // system draws that ring along `contentShape(.focusEffect, …)`. A click never focuses it.
+        let state = ShotzUI.ControlState(isHovered: isHovered, isPressed: configuration.isPressed, isEnabled: isEnabled)
         let fills = ShotzUI.fills(for: role, state: state)
         let shape = RoundedRectangle(cornerRadius: role == .glass ? size.height / 2 : size.radius, style: .continuous)
         configuration.label
@@ -101,12 +102,10 @@ private struct ShotzButtonBody: View {
                 }
             }
             .overlay { if let border = fills.border { shape.strokeBorder(Color(nsColor: border), lineWidth: 1) } }
-            .overlay { if isFocused { shape.inset(by: -3).strokeBorder(Color(nsColor: ShotzUI.Palette.focusRing), lineWidth: 3) } }
+            .contentShape(.focusEffect, shape)
             .contentShape(Rectangle())
             .frame(minHeight: size.hitHeight)
             .environment(\.shotzControlSize, size)
-            .focusable()
-            .focused($isFocused)
             .onHover { isHovered = $0 }
             .animation(.easeOut(duration: 0.12), value: isHovered)
     }
