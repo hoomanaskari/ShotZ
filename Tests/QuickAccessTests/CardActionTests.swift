@@ -95,7 +95,7 @@ struct CardOverlayLayoutTests {
 
     @Test func perSizeLayouts() {
         let small = laidOut(.small), medium = laidOut(.medium), large = laidOut(.large)
-        #expect(!small.pairIsLabelled && small.button(for: .copy) is ShotzGlassIconButton)
+        #expect(!small.pairIsLabelled && (small.button(for: .copy) as? ShotzButton)?.title == nil && (small.button(for: .copy) as? ShotzButton)?.role == .glass)
         #expect(!small.controlFrames.contains { $0.name == "caption" })
         #expect(small.button(for: .copy)?.toolTip?.contains("⌘C") == true) // icon-only still names its shortcut
         #expect(medium.pairIsLabelled && medium.controlFrames.contains { $0.name == "caption" })
