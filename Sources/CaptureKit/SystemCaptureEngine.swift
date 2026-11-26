@@ -79,7 +79,10 @@ public actor SystemCaptureEngine: CaptureEngine {
         let name = FileNaming.format(options.fileNamePattern, date: capturedAt)
         let final = try place(temp, in: options.destinationDirectory, base: name)
 
-        let kind = CaptureOutcome.kind(for: mode, hasAlpha: info.hasAlpha)
+        // Only interactive modes need the (cheap, ≤64 px) corner check.
+        let interactive = mode == .area || mode == .allInOne
+        let corners = interactive && info.hasAlpha && ImageInfo.cornersAreTransparent(url: final)
+        let kind = CaptureOutcome.kind(for: mode, transparentCorners: corners)
         let displayID = mode == .fullscreen ? startDisplay.displayID : env.displayUnderPointer().displayID
         log.info("Captured \(final.lastPathComponent, privacy: .public) \(Int(info.pixelSize.width))×\(Int(info.pixelSize.height)) @\(info.scale)x")
         return CaptureResult(

@@ -15,10 +15,11 @@ struct CaptureOutcomeTests {
     }
 
     @Test func kinds() {
-        #expect(CaptureOutcome.kind(for: .fullscreen, hasAlpha: true) == .fullscreen)
-        #expect(CaptureOutcome.kind(for: .window, hasAlpha: false) == .window)
-        #expect(CaptureOutcome.kind(for: .area, hasAlpha: false) == .area)
-        #expect(CaptureOutcome.kind(for: .area, hasAlpha: true) == .window)
-        #expect(CaptureOutcome.kind(for: .allInOne, hasAlpha: true) == .window)
+        #expect(CaptureOutcome.kind(for: .fullscreen, transparentCorners: true) == .fullscreen)
+        #expect(CaptureOutcome.kind(for: .window, transparentCorners: false) == .window)
+        #expect(CaptureOutcome.kind(for: .area, transparentCorners: false) == .area)
+        #expect(CaptureOutcome.kind(for: .area, transparentCorners: true) == .window)
+        #expect(CaptureOutcome.kind(for: .allInOne, transparentCorners: true) == .window)
+        #expect(CaptureOutcome.kind(for: .allInOne, transparentCorners: false) == .area)
     }
 }

@@ -26,13 +26,14 @@ enum CaptureOutcome: Equatable {
     }
 
     /// Kind of a finished capture. Interactive modes cannot tell us whether the
-    /// user pressed Space for a window; window captures carry an alpha channel
-    /// (transparent shadow/corners) while area and screen captures do not.
-    static func kind(for mode: CaptureMode, hasAlpha: Bool) -> CaptureKind {
+    /// user pressed Space for a window; window captures have transparent
+    /// corners (rounded window, optional shadow margin) while area and screen
+    /// captures are opaque edge to edge, even when the PNG has an alpha channel.
+    static func kind(for mode: CaptureMode, transparentCorners: Bool) -> CaptureKind {
         switch mode {
         case .fullscreen: .fullscreen
         case .window: .window
-        case .area, .allInOne: hasAlpha ? .window : .area
+        case .area, .allInOne: transparentCorners ? .window : .area
         }
     }
 }

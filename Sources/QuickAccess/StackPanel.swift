@@ -1,5 +1,6 @@
 import AppKit
 import Quartz
+import ShotzCore
 
 /// One per display that has cards (ARCHITECTURE §4): borderless, non-activating,
 /// above full-screen apps, on all Spaces, invisible to screen captures.
@@ -28,7 +29,7 @@ import Quartz
         isExcludedFromWindowsMenu = true
         let content = StackContainerView(frame: CGRect(origin: .zero, size: frame.size))
         contentView = content
-        if StackDebugSnapshot.enabled, let name = UserDefaults.standard.string(forKey: "QuickAccessDebugAppearance") {
+        if StackDebugSnapshot.enabled, let name = DevProfile.defaults.string(forKey: "QuickAccessDebugAppearance") {
             appearance = NSAppearance(named: name == "light" ? .aqua : .darkAqua)
         }
         setAccessibilityRole(.group)

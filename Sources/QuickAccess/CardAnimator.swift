@@ -24,7 +24,7 @@ import AppKit
             layer.removeAnimation(forKey: "move")
             return
         }
-        let spring = CASpringAnimation(perceptualDuration: entranceDuration + 0.1, bounce: 0.12)
+        let spring = CASpringAnimation(perceptualDuration: entranceDuration, bounce: 0.12)
         spring.keyPath = "position"
         spring.fromValue = NSValue(point: startPosition)
         spring.toValue = NSValue(point: endPosition)
