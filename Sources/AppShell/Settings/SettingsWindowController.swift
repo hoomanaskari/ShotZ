@@ -14,11 +14,12 @@ import SwiftUI
 
     public var isVisible: Bool { window?.isVisible ?? false }
     /// For `--debug-snapshot-ui` only: one tab rendered off screen (no window is shown).
-    public func debugRender(tab: SettingsTab) async -> Data? {
+    /// `recorded` shows those Shortcuts rows as if just recorded.
+    public func debugRender(tab: SettingsTab, recorded: Set<HotkeyAction> = []) async -> Data? {
         let selection = SettingsSelection()
         selection.tab = tab
         return await OffscreenRenderer.png(
-            SettingsRootView(context: context, selection: selection),
+            SettingsRootView(context: context, selection: selection, previewRecorded: recorded),
             size: CGSize(width: 560, height: 500),
             chrome: .init(title: String(localized: "Shotz Settings"), styleMask: [.titled, .closable, .miniaturizable])
         )
@@ -65,6 +66,7 @@ import SwiftUI
 struct SettingsRootView: View {
     let context: SettingsContext
     @ObservedObject var selection: SettingsSelection
+    var previewRecorded: Set<HotkeyAction> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -90,7 +92,7 @@ struct SettingsRootView: View {
             GeneralSettingsView(context: context, settings: context.settings, loginItem: context.loginItem,
                                 screenRecording: context.screenRecording)
         case .shortcuts:
-            ShortcutsSettingsView(settings: context.settings, hotkeys: context.hotkeys)
+            ShortcutsSettingsView(settings: context.settings, hotkeys: context.hotkeys, previewRecorded: previewRecorded)
         case .quickAccess:
             QuickAccessSettingsView(settings: context.settings)
         case .capture:
