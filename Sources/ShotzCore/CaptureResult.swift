@@ -37,3 +37,12 @@ public struct CaptureResult: Identifiable, Hashable, Codable, Sendable {
         self.createdAt = createdAt
     }
 }
+
+extension CaptureResult {
+    /// The same capture, placed on another display (e.g. a card returning
+    /// from an editor window on that display). Identity is unchanged.
+    public func onDisplay(_ displayID: UInt32) -> CaptureResult {
+        CaptureResult(id: id, fileURL: fileURL, displayName: displayName, kind: kind,
+                      pixelSize: pixelSize, scale: scale, displayID: displayID, createdAt: createdAt)
+    }
+}

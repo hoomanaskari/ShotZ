@@ -49,7 +49,7 @@ extension AppCoordinator {
     /// After-capture steps (SPEC §3.5): history, stack, then optional copy/save.
     func deliver(_ result: CaptureResult, actions: AfterCaptureActions) async {
         await history.add(result)
-        if actions.showQuickAccess { quickAccess.present(result) }
+        if actions.showQuickAccess { editingFlow.presentInStack(result) }
         refreshHistoryMenu()
         if actions.copyToClipboard {
             do { try await exporter.copyToPasteboard(imageAt: result.fileURL) } catch {
@@ -77,13 +77,12 @@ extension AppCoordinator {
     func openLastInEditor() {
         Task {
             guard let last = await history.recent(limit: 1).first else { return }
-            editor.openEditor(for: last)
+            editingFlow.openInEditor(last)
         }
     }
 
     func reopenFromHistory(_ capture: CaptureResult) {
-        closedCards.removeAll { $0.id == capture.id }
-        quickAccess.present(capture)
+        editingFlow.presentInStack(capture)   // drops it from closedCards via didPresent
     }
 
     // MARK: Restore last closed
@@ -96,7 +95,7 @@ extension AppCoordinator {
         while let last = closedCards.popLast() {
             guard FileManager.default.fileExists(atPath: last.fileURL.path(percentEncoded: false)) else { continue }
             log.info("Restoring last closed card")
-            quickAccess.present(last)
+            editingFlow.presentInStack(last)
             return
         }
         log.info("Nothing to restore")
@@ -105,7 +104,7 @@ extension AppCoordinator {
     // MARK: QuickAccessDelegate
 
     func quickAccess(requestAnnotate capture: CaptureResult) {
-        editor.openEditor(for: capture)
+        editingFlow.openInEditor(capture)
     }
 
     func quickAccess(didClose capture: CaptureResult, deleteFile: Bool) {
@@ -148,6 +147,6 @@ extension AppCoordinator {
             refreshHistoryMenu()
             log.info("Debug edit capture: imported \(source.lastPathComponent, privacy: .public) as \(id.uuidString, privacy: .public)")
         }
-        editor.openEditor(for: capture)
+        editingFlow.openInEditor(capture)
     }
 }

@@ -18,6 +18,8 @@ import ShotzCore
     /// Where each capture's editable document lives (`HistoryStore.documentURL(for:)`).
     private let documentURL: (CaptureResult.ID) -> URL
     private var windows: [Key: EditorWindowController] = [:]
+    // TEMP (engineer A, M4 step 1 compile stub): never called until engineer D implements it.
+    public weak var delegate: AnnotationEditingDelegate?
     private let library: ToolSettingsLibrary
     private let backgroundPresets: BackgroundPresets
     private let previousExport: @Sendable (CaptureResult.ID) async -> URL?

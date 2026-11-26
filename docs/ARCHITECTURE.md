@@ -76,10 +76,12 @@ public struct CaptureOptions: Sendable {
 /// The overlay. Implemented by QuickAccess.
 @MainActor public protocol QuickAccessPresenting: AnyObject {
     var delegate: QuickAccessDelegate? { get set }
-    func present(_ capture: CaptureResult)
-    func dismiss(id: CaptureResult.ID)
+    /// imageURL: what the card shows and delivers (annotated render); nil = capture.fileURL.
+    func present(_ capture: CaptureResult, imageURL: URL?)   // present(_:) = imageURL nil
+    func dismiss(id: CaptureResult.ID)   // programmatic; never calls didClose
     func dismissAll()
 }
+// Annotate removes the card and calls requestAnnotate, not didClose.
 @MainActor public protocol QuickAccessDelegate: AnyObject {
     func quickAccess(requestAnnotate capture: CaptureResult)
     func quickAccess(didClose capture: CaptureResult, deleteFile: Bool)
@@ -88,8 +90,13 @@ public struct CaptureOptions: Sendable {
 
 /// The editor. Implemented by AnnotationEditor.
 @MainActor public protocol AnnotationEditing: AnyObject {
+    var delegate: AnnotationEditingDelegate? { get set }
     func openEditor(for capture: CaptureResult)
     func openEditor(imageAt url: URL)
+}
+@MainActor public protocol AnnotationEditingDelegate: AnyObject {
+    /// renderedImageURL: flattened full-res PNG (at renderedURL(for:)) when edited, else nil.
+    func editor(didClose capture: CaptureResult, renderedImageURL: URL?, onDisplay displayID: UInt32?)
 }
 
 /// Shared export behaviour (file naming, format, export folder, pasteboard).
@@ -108,6 +115,9 @@ public protocol HistoryStore: Sendable {
     func recent(limit: Int) async -> [CaptureResult]
     func remove(id: CaptureResult.ID, deleteFile: Bool) async
     func documentURL(for id: CaptureResult.ID) -> URL   // editor's editable document
+    func renderedURL(for id: CaptureResult.ID) -> URL   // flattened annotated PNG, next to it
+    func exportURL(for id: CaptureResult.ID) async -> URL?
+    func markExported(id: CaptureResult.ID, url: URL) async
 }
 ```
 
@@ -120,7 +130,14 @@ Capture flow (`AppCoordinator`, main actor):
 hotkey → guard permission → engine.capture(mode) → history.add → sound
        → quickAccess.present(result)
 quickAccess.requestAnnotate → editor.openEditor(for:)
+editor didClose → quickAccess.present(capture.onDisplay(display), imageURL: rendered)   (SPEC §4.6)
 ```
+
+`CaptureEditingFlow` (AppShell) holds these routing rules and is the editor's
+delegate: opening in the editor from a card, history or the menu dismisses any
+card for that capture first; closing returns the card on the editor's display
+with the annotated render; other stack presents (history, restore) use the
+render when `renderedURL(for:)` exists.
 
 ## 3. CaptureKit
 

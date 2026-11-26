@@ -57,6 +57,10 @@ public actor FileHistoryStore: HistoryStore {
         paths.documents.appending(path: "\(id.uuidString).json", directoryHint: .notDirectory)
     }
 
+    public nonisolated func renderedURL(for id: CaptureResult.ID) -> URL {
+        paths.documents.appending(path: "\(id.uuidString).png", directoryHint: .notDirectory)
+    }
+
     // MARK: Queries
 
     public func recentEntries(limit: Int) -> [HistoryEntry] {
@@ -284,8 +288,10 @@ public actor FileHistoryStore: HistoryStore {
         deleteDocument(of: capture.id)
     }
 
+    /// The editable document and its flattened render.
     private func deleteDocument(of id: CaptureResult.ID) {
         remove(documentURL(for: id))
+        remove(renderedURL(for: id))
     }
 
     private func remove(_ url: URL) {

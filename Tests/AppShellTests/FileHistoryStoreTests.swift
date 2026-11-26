@@ -384,6 +384,20 @@ struct FileHistoryStoreTests {
         #expect(dev.root.path(percentEncoded: false).contains("/Application Support/Shotz-Dev"))
     }
 
+    @Test func renderedPNGLivesNextToTheDocumentAndGoesWithTheCapture() async throws {
+        defer { cleanup() }
+        let store = FileHistoryStore(paths: paths)
+        let a = try capture()
+        await store.add(a)
+        #expect(store.renderedURL(for: a.id).deletingLastPathComponent() == store.documentURL(for: a.id).deletingLastPathComponent())
+        #expect(store.renderedURL(for: a.id).lastPathComponent == "\(a.id.uuidString).png")
+        try Data("{}".utf8).write(to: store.documentURL(for: a.id))
+        try FakeCaptureEngine.writePNG(width: 2, height: 2, to: store.renderedURL(for: a.id))
+        await store.remove(id: a.id, deleteFile: true)
+        #expect(!exists(store.renderedURL(for: a.id)))
+        #expect(!exists(store.documentURL(for: a.id)))
+    }
+
     @Test func documentURLPerID() {
         let id = UUID()
         let store = FileHistoryStore(paths: paths)
