@@ -261,9 +261,21 @@ public enum DocumentExport {
 swift build                      # debug build of all modules
 swift test                       # all unit tests (must pass before any merge)
 scripts/bundle.sh [debug|release]   # → build/Shotz.app (Info.plist, icon, codesign)
-scripts/run.sh [--dev-hotkeys]   # bundle (debug) and launch; kills a previous dev instance of Shotz only
+scripts/run.sh [--dev-hotkeys] [app args…]   # bundle (debug) and launch; kills a previous dev instance of Shotz only
 scripts/install.sh               # release bundle → /Applications/Shotz.app (manager/owner only)
+swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradient, shapes, text; 144 dpi)
 ```
+
+- `run.sh` passes every argument through to the app; arguments that name an
+  existing file are made absolute first.
+- Debug launch arguments (handled in `AppCoordinator.start()`, for exercising
+  features without Screen Recording permission):
+  - `--debug-present <png> [<png>…]`: copies each image into the captures
+    folder, builds a `CaptureResult` (kind area, real pixel size, scale 2, main
+    display), adds it to history and presents it in the stack.
+  - `--debug-edit <png>`: opens the image in the editor (`openEditor(imageAt:)`).
+  - Example: `swift scripts/make-sample.swift 5120 2880 build/sample-5k.png &&
+    scripts/run.sh --dev-hotkeys --debug-present build/sample-5k.png`.
 
 - Bundle id `app.shotz.Shotz`, `LSUIElement = true`, `LSMinimumSystemVersion = 15.0`.
 - Signing: `bundle.sh` signs with `$SHOTZ_SIGN_IDENTITY` if set, otherwise the

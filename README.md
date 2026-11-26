@@ -34,9 +34,32 @@ Requires Xcode 16 or later (Swift 6 toolchain) on macOS 15 or later.
 swift build                          # debug build of all modules
 swift test                           # all unit tests
 scripts/bundle.sh [debug|release]    # → build/Shotz.app (Info.plist, icon, codesign)
-scripts/run.sh [--dev-hotkeys]       # bundle (debug) and launch; quits a previous dev instance only
+scripts/run.sh [--dev-hotkeys] [app args…]   # bundle (debug) and launch; quits a previous dev instance only
 scripts/install.sh                   # release bundle → /Applications/Shotz.app (manager/owner only)
+swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG
 ```
+
+### Debug launch arguments
+
+To exercise the stack and editor without Screen Recording permission, make a
+sample image and pass it to the app (`run.sh` passes arguments through and
+makes file paths absolute):
+
+```bash
+swift scripts/make-sample.swift 5120 2880 build/sample-5k.png
+```
+
+```bash
+scripts/run.sh --dev-hotkeys --debug-present build/sample-5k.png
+```
+
+```bash
+scripts/run.sh --dev-hotkeys --debug-edit build/sample-5k.png
+```
+
+- `--debug-present <png> [<png>…]` copies each image into the captures folder,
+  adds it to history (kind area, scale 2) and shows it in the quick-access stack.
+- `--debug-edit <png>` opens the image in the editor.
 
 `--dev-hotkeys` (or `SHOTZ_DEV_HOTKEYS=1`) uses ⌃⌥⌘3/4/5 for the run instead
 of the stored shortcuts, so Shotz can run next to another screenshot app that

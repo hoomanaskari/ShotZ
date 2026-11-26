@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 # Bundles a debug build and launches it, quitting a previous dev instance of
 # Shotz first (matched by this repo's bundle path only; no other app is touched).
-# Usage: scripts/run.sh [--dev-hotkeys]
+# Usage: scripts/run.sh [--dev-hotkeys] [other app arguments...]
+# Every argument is passed through to the app. Arguments naming an existing
+# file are made absolute first (the app does not run in this directory), e.g.
+#   scripts/run.sh --dev-hotkeys --debug-present build/sample.png
+#   scripts/run.sh --dev-hotkeys --debug-edit build/sample.png
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -10,10 +14,10 @@ EXE="$APP/Contents/MacOS/Shotz"
 
 ARGS=()
 for arg in "$@"; do
-  case "$arg" in
-    --dev-hotkeys) ARGS+=(--dev-hotkeys) ;;
-    *) echo "usage: $0 [--dev-hotkeys]" >&2; exit 64 ;;
-  esac
+  if [[ "$arg" != -* && -e "$arg" ]]; then
+    arg="$(cd "$(dirname "$arg")" && pwd)/$(basename "$arg")"
+  fi
+  ARGS+=("$arg")
 done
 
 "$ROOT/scripts/bundle.sh" debug

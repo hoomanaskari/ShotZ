@@ -64,6 +64,30 @@ import ShotzCore
             refreshHistoryMenu()
         }
         log.info("Shotz started")
+        runDebugLaunchArguments(DebugLaunchArguments())
+    }
+
+    /// `--debug-present` / `--debug-edit`: exercise the stack and editor without Screen Recording.
+    private func runDebugLaunchArguments(_ debug: DebugLaunchArguments) {
+        guard !debug.isEmpty else { return }
+        let options = settings.captureOptions(paths: paths)
+        Task {
+            for url in debug.present {
+                do {
+                    let result = try DebugCaptureImporter.importImage(at: url, options: options)
+                    await history.add(result)
+                    quickAccess.present(result)
+                    log.info("Debug present \(url.lastPathComponent, privacy: .public)")
+                } catch {
+                    log.error("Debug present failed for \(url.path(percentEncoded: false), privacy: .public): \(String(describing: error), privacy: .public)")
+                }
+            }
+            if !debug.present.isEmpty { refreshHistoryMenu() }
+            if let edit = debug.edit {
+                log.info("Debug edit \(edit.lastPathComponent, privacy: .public)")
+                editor.openEditor(imageAt: edit)
+            }
+        }
     }
 
     func stop() {
