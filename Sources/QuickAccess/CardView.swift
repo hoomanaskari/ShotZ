@@ -33,7 +33,23 @@ import ShotzCore
     private let backdropTint = CALayer()
     private let contactShadow = CALayer()
     private let borderLayer = CALayer()
-    let overlay: CardOverlayView
+    /// Built on first use (hover, confirmation, VoiceOver): its glass
+    /// controls are the costliest part of a card, and most cards are never hovered.
+    private var overlayStorage: CardOverlayView?
+    var overlay: CardOverlayView {
+        if let overlayStorage { return overlayStorage }
+        let o = CardOverlayView(style: style, captionText: source.caption)
+        o.onAction = { [weak self] action in
+            guard let self else { return }
+            self.delegate?.card(self, perform: action)
+        }
+        o.frame = clip.bounds
+        clip.addSubview(o)
+        o.apply(CardStyle.palette(for: effectiveAppearance))
+        o.layoutSubtreeIfNeeded()
+        overlayStorage = o
+        return o
+    }
     private var thumbnail: CGImage?
     private var trackingArea: NSTrackingArea?
     private var mouseDownPoint: NSPoint?
@@ -42,7 +58,6 @@ import ShotzCore
     init(source: CardSource, size: CardSize) {
         self.source = source
         style = CardStyle(size: size)
-        overlay = CardOverlayView(style: style, captionText: source.caption)
         super.init(frame: CGRect(origin: .zero, size: CGSize(width: size.width, height: size.height)))
         wantsLayer = true
         layerContentsRedrawPolicy = .never
@@ -75,14 +90,9 @@ import ShotzCore
         clip.layer?.addSublayer(backdropTint)
         clip.layer?.addSublayer(imageLayer)
         addSubview(clip)
-        clip.addSubview(overlay)
-        // Border above the overlay's dim so the edge stays crisp.
+        // Border above the overlay's scrim so the edge stays crisp.
         clip.layer?.addSublayer(borderLayer)
         borderLayer.zPosition = 10
-        overlay.onAction = { [weak self] action in
-            guard let self else { return }
-            self.delegate?.card(self, perform: action)
-        }
         applyPalette()
     }
 
@@ -134,7 +144,7 @@ import ShotzCore
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         clip.frame = bounds
-        overlay.frame = clip.bounds
+        overlayStorage?.frame = clip.bounds
         imageLayer.frame = clip.bounds
         backdropLayer.frame = clip.bounds
         backdropTint.frame = clip.bounds
@@ -167,7 +177,7 @@ import ShotzCore
         borderLayer.borderColor = palette.border
         layer?.shadowOpacity = palette.ambientShadowOpacity
         contactShadow.shadowOpacity = palette.contactShadowOpacity
-        overlay.apply(palette)
+        overlayStorage?.apply(palette)
         CATransaction.commit()
     }
 
@@ -206,7 +216,7 @@ import ShotzCore
         let effective = hovered && !isExiting && !isDragging
         guard effective != isHovered else { return }
         isHovered = effective
-        overlay.setRevealed(effective)
+        if effective || overlayStorage != nil { overlay.setRevealed(effective) }
         delegate?.card(self, hoverChanged: effective)
     }
 
@@ -225,7 +235,7 @@ import ShotzCore
         guard !isExiting else { return nil }
         let local = convert(point, from: superview)
         guard bounds.contains(local) else { return nil }
-        return overlay.hitTest(convert(local, to: clip)) ?? self
+        return overlayStorage?.hitTest(convert(local, to: clip)) ?? self
     }
 
     override func mouseDown(with event: NSEvent) {
