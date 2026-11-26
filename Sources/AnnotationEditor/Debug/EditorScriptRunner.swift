@@ -28,6 +28,10 @@ import ShotzCore
 ///                              closing it then writes the annotated PNG to rendered.png
 ///   (paths with spaces: wrap them in "double quotes")
 ///   hover x y                  move the pointer over the canvas
+///   appearance light|dark|system   window appearance
+///   panel                      toggle the background panel
+///   size <w> <h>               window content size
+///   select all|none
 ///   textstyle <decoration>     the Text tool's decoration for the next text
 ///   down|move|up x y [mods]    one mouse event (snapshot mid-drag)
 ///   wait <ms>
@@ -178,6 +182,22 @@ import ShotzCore
                 controller = opened
                 log.notice("SCRIPT capture opened with \(opened.store.document.objects.count) objects")
             }
+        case "appearance":
+            // appearance light|dark|system: the window's appearance (snapshots of both themes).
+            switch args.first {
+            case "light": window?.appearance = NSAppearance(named: .aqua)
+            case "dark": window?.appearance = NSAppearance(named: .darkAqua)
+            default: window?.appearance = nil
+            }
+        case "size":
+            // size <w> <h>: the window's content size in points (720 × 480 is the minimum).
+            if nums.count >= 2 { window?.setContentSize(NSSize(width: nums[0], height: nums[1])) }
+        case "panel":
+            // panel: show or hide the background panel.
+            controller.toggleBackgroundPanel(nil)
+        case "select":
+            // select all | none
+            if args.first == "all" { controller.model.selectAll() } else { controller.model.clearSelection() }
         case "textstyle":
             // textstyle plain|outlined|solidPill|translucentPill: the Text tool's decoration.
             if let d = args.first.flatMap(TextStyle.Decoration.init(rawValue:)) {

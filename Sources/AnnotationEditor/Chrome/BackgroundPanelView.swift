@@ -9,7 +9,7 @@ import AppKit
     private let controls = OptionControls()
     private let stack = NSStackView()
     private var rebuildScheduled = false
-    static let width: CGFloat = 264
+    static let width: CGFloat = 288
 
     init(model: EditorModel, presets: BackgroundPresets) {
         self.model = model
@@ -27,8 +27,8 @@ import AppKit
         scroll.translatesAutoresizingMaskIntoConstraints = false
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
-        stack.edgeInsets = NSEdgeInsets(top: 14, left: 14, bottom: 14, right: 14)
+        stack.spacing = 8
+        stack.edgeInsets = NSEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)
         stack.translatesAutoresizingMaskIntoConstraints = false
         let flipped = FlippedView()
         flipped.translatesAutoresizingMaskIntoConstraints = false
@@ -86,7 +86,7 @@ import AppKit
         controls.reset()
 
         let title = NSTextField(labelWithString: String(localized: "Background"))
-        title.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
+        title.font = .systemFont(ofSize: NSFont.systemFontSize + 1, weight: .semibold)
         let toggle = NSSwitch()
         toggle.state = style == nil ? .off : .on
         toggle.controlSize = .small
@@ -104,52 +104,82 @@ import AppKit
             let note = NSTextField(wrappingLabelWithString: String(localized: "Wraps the image in padding, a fill and a shadow for presenting."))
             note.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
             note.textColor = .secondaryLabelColor
-            note.preferredMaxLayoutWidth = Self.width - 28
+            note.preferredMaxLayoutWidth = Self.contentWidth
             stack.addArrangedSubview(note)
             return
         }
+        divider()
         addFill(s)
-        section(String(localized: "Padding"))
-        stack.addArrangedSubview(controls.slider(value: s.padding * 100, min: 0, max: 25, width: 230, label: String(localized: "Padding")) { [weak self] v, final in
+        divider()
+        formRow(String(localized: "Padding"), controls.sliderRow(
+            value: s.padding * 100, min: 0, max: 25, width: Self.sliderWidth, label: String(localized: "Padding"), glyph: nil,
+            format: { "\(Int($0.rounded()))%" }) { [weak self] v, final in
             self?.update(final: final) { $0.padding = v / 100 }
         })
-        stack.addArrangedSubview(controls.checkbox(String(localized: "Auto-balance margins"), on: s.autoBalance) { [weak self] on in
+        formRow("", controls.checkbox(String(localized: "Auto-balance margins"), on: s.autoBalance) { [weak self] on in
             self?.update { $0.autoBalance = on }
         })
-        section(String(localized: "Corner radius"))
         let maxRadius = Double(model.unit * 24)
-        stack.addArrangedSubview(controls.slider(value: s.cornerRadius, min: 0, max: maxRadius, width: 230, label: String(localized: "Corner radius")) { [weak self] v, final in
+        formRow(String(localized: "Corners"), controls.sliderRow(
+            value: s.cornerRadius, min: 0, max: maxRadius, width: Self.sliderWidth, label: String(localized: "Corner radius"), glyph: nil,
+            format: { "\(Int($0.rounded()))" }) { [weak self] v, final in
             self?.update(final: final) { $0.cornerRadius = v }
         })
-        section(String(localized: "Shadow"))
         let shadows = AnnotationKit.BackgroundStyle.Shadow.allCases
-        stack.addArrangedSubview(controls.segmented(titles: [String(localized: "Off"), String(localized: "Soft"), String(localized: "Strong")],
-                                                    selected: shadows.firstIndex(of: s.shadow), label: String(localized: "Shadow")) { [weak self] i in
+        formRow(String(localized: "Shadow"), controls.segmented(
+            titles: [String(localized: "Off"), String(localized: "Soft"), String(localized: "Strong")],
+            selected: shadows.firstIndex(of: s.shadow), label: String(localized: "Shadow")) { [weak self] i in
             self?.update { $0.shadow = shadows[i] }
         })
-        section(String(localized: "Alignment"))
-        stack.addArrangedSubview(alignmentGrid(s))
-        section(String(localized: "Aspect"))
         let aspects = AnnotationKit.BackgroundStyle.Aspect.allCases
-        stack.addArrangedSubview(controls.segmented(titles: aspects.map { $0 == .auto ? String(localized: "Auto") : $0.rawValue },
-                                                    selected: aspects.firstIndex(of: s.aspect), label: String(localized: "Aspect")) { [weak self] i in
+        formRow(String(localized: "Aspect"), controls.segmented(
+            titles: aspects.map { $0 == .auto ? String(localized: "Auto") : $0.rawValue },
+            selected: aspects.firstIndex(of: s.aspect), label: String(localized: "Aspect")) { [weak self] i in
             self?.update { $0.aspect = aspects[i] }
         })
-        section(String(localized: "Presets"))
+        formRow(String(localized: "Position"), alignmentGrid(s))
+        divider()
         addPresets(s)
     }
 
     private var retained: [ControlAction] = []
 
+    /// Panel layout: a right-aligned label column and a control column.
+    static let labelWidth: CGFloat = 56
+    static var contentWidth: CGFloat { width - 32 }
+    static var sliderWidth: CGFloat { contentWidth - labelWidth - 8 - 40 }
+
+    private func formRow(_ label: String, _ control: NSView) {
+        let l = NSTextField(labelWithString: label)
+        l.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        l.textColor = .secondaryLabelColor
+        l.alignment = .right
+        l.widthAnchor.constraint(equalToConstant: Self.labelWidth).isActive = true
+        let r = NSStackView(views: [l, control])
+        r.orientation = .horizontal
+        r.spacing = 8
+        r.alignment = .centerY
+        r.heightAnchor.constraint(greaterThanOrEqualToConstant: EditorMetrics.optionHeight).isActive = true
+        r.widthAnchor.constraint(lessThanOrEqualToConstant: Self.contentWidth).isActive = true
+        stack.addArrangedSubview(r)
+    }
+
+    private func divider() {
+        let d = NSBox()
+        d.boxType = .separator
+        d.widthAnchor.constraint(equalToConstant: Self.contentWidth).isActive = true
+        stack.addArrangedSubview(d)
+    }
+
     private func addFill(_ s: AnnotationKit.BackgroundStyle) {
-        section(String(localized: "Fill"))
         let kind: Int = switch s.fill {
         case .none: 0
         case .solid: 1
         case .gradient: 2
         }
-        stack.addArrangedSubview(controls.segmented(titles: [String(localized: "None"), String(localized: "Solid"), String(localized: "Gradient")],
-                                                    selected: kind, label: String(localized: "Fill")) { [weak self] i in
+        formRow(String(localized: "Fill"), controls.segmented(
+            titles: [String(localized: "None"), String(localized: "Colour"), String(localized: "Gradient")],
+            selected: kind, label: String(localized: "Fill")) { [weak self] i in
             self?.update {
                 switch i {
                 case 0: $0.fill = .none
@@ -160,9 +190,9 @@ import AppKit
         })
         switch s.fill {
         case .none:
-            stack.addArrangedSubview(OptionControls.caption(String(localized: "Transparent")))
+            formRow("", OptionControls.caption(String(localized: "Transparent around the image")))
         case .solid(let c):
-            stack.addArrangedSubview(controls.colorWell(NSColor(cgColor: c.cgColor) ?? .white, label: String(localized: "Fill colour")) { [weak self] color, final in
+            formRow(String(localized: "Colour"), controls.colorWell(NSColor(cgColor: c.cgColor) ?? .white, label: String(localized: "Fill colour")) { [weak self] color, final in
                 self?.update(final: final) { $0.fill = .solid(Self.rgba(color)) }
             })
         case .gradient(let g):
@@ -173,25 +203,31 @@ import AppKit
             let to = controls.colorWell(NSColor(cgColor: g.to.cgColor) ?? .white, label: String(localized: "Gradient end")) { [weak self] color, final in
                 self?.update(final: final) { if case .gradient(var gg) = $0.fill { gg.to = Self.rgba(color); $0.fill = .gradient(gg) } }
             }
-            let angle = controls.slider(value: g.angle, min: 0, max: 360, width: 110, label: String(localized: "Gradient angle")) { [weak self] v, final in
+            formRow(String(localized: "Colours"), row([from, to, spacer()], width: Self.contentWidth - Self.labelWidth - 8))
+            formRow(String(localized: "Angle"), controls.sliderRow(
+                value: g.angle, min: 0, max: 360, width: Self.sliderWidth, label: String(localized: "Gradient angle"), glyph: nil,
+                format: { "\(Int($0.rounded()))°" }) { [weak self] v, final in
                 self?.update(final: final) { if case .gradient(var gg) = $0.fill { gg.angle = v; $0.fill = .gradient(gg) } }
-            }
-            let angleIcon = NSImageView(image: NSImage(systemSymbolName: "angle", accessibilityDescription: nil) ?? NSImage())
-            angleIcon.contentTintColor = .secondaryLabelColor
-            stack.addArrangedSubview(row([from, to, spacer(), angleIcon, angle]))
+            })
         }
     }
 
     private func gradientGrid(selected: AnnotationKit.BackgroundStyle.GradientFill) -> NSView {
+        let tile = NSSize(width: (Self.contentWidth - 3 * 8) / 4, height: 30)
         let buttons: [NSButton] = GradientPreset.all.map { preset in
             let g = preset.fill
-            return controls.imageButton(Self.gradientSwatch(g, selected: g == selected), label: preset.name) { [weak self] in
+            let b = controls.imageButton(Self.gradientSwatch(g, selected: g == selected, size: tile), label: preset.name) { [weak self] in
                 self?.update { $0.fill = .gradient(g) }
             }
+            b.setAccessibilityRole(.radioButton)
+            b.setAccessibilityValue(g == selected ? 1 : 0)
+            return b
         }
-        let grid = NSGridView(views: [Array(buttons[0..<6]), Array(buttons[6..<12])])
-        grid.rowSpacing = 6
-        grid.columnSpacing = 6
+        let rows = stride(from: 0, to: buttons.count, by: 4).map { Array(buttons[$0..<min($0 + 4, buttons.count)]) }
+        let grid = NSGridView(views: rows)
+        grid.rowSpacing = 8
+        grid.columnSpacing = 8
+        grid.setAccessibilityLabel(String(localized: "Gradient presets"))
         return grid
     }
 
@@ -199,19 +235,32 @@ import AppKit
         let all = AnnotationKit.BackgroundStyle.Alignment.allCases
         let buttons: [NSButton] = all.map { a in
             let on = a == s.alignment
-            let image = NSImage(systemSymbolName: on ? "circle.fill" : "circle", accessibilityDescription: nil) ?? NSImage()
-            let b = controls.imageButton(image, label: Self.alignmentName(a)) { [weak self] in self?.update { $0.alignment = a } }
-            b.contentTintColor = on ? .controlAccentColor : .tertiaryLabelColor
+            let b = controls.imageButton(Self.alignmentChip(on: on), label: Self.alignmentName(a)) { [weak self] in self?.update { $0.alignment = a } }
             b.setAccessibilityRole(.radioButton)
             b.setAccessibilityValue(on ? 1 : 0)
             return b
         }
         let grid = NSGridView(views: [Array(buttons[0..<3]), Array(buttons[3..<6]), Array(buttons[6..<9])])
-        grid.rowSpacing = 4
-        grid.columnSpacing = 10
+        grid.rowSpacing = 3
+        grid.columnSpacing = 3
         grid.setContentHuggingPriority(.required, for: .horizontal)
-        grid.setAccessibilityLabel(String(localized: "Image alignment"))
+        grid.setAccessibilityLabel(String(localized: "Image position"))
         return grid
+    }
+
+    /// A small rounded cell of the 3 × 3 position picker.
+    static func alignmentChip(on: Bool) -> NSImage {
+        NSImage(size: NSSize(width: 22, height: 15), flipped: true) { r in
+            let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: 3.5, yRadius: 3.5)
+            if on {
+                NSColor.controlAccentColor.setFill()
+                p.fill()
+            } else {
+                NSColor.quaternaryLabelColor.setFill()
+                p.fill()
+            }
+            return true
+        }
     }
 
     private func addPresets(_ s: AnnotationKit.BackgroundStyle) {
@@ -270,20 +319,13 @@ import AppKit
 
     // MARK: Helpers
 
-    private func section(_ title: String) {
-        let l = NSTextField(labelWithString: title)
-        l.font = .systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium)
-        l.textColor = .secondaryLabelColor
-        stack.addArrangedSubview(l)
-        stack.setCustomSpacing(4, after: l)
-    }
 
-    private func row(_ views: [NSView]) -> NSStackView {
+    private func row(_ views: [NSView], width: CGFloat? = nil) -> NSStackView {
         let r = NSStackView(views: views)
         r.orientation = .horizontal
         r.spacing = 8
         r.alignment = .centerY
-        r.widthAnchor.constraint(equalToConstant: Self.width - 28).isActive = true
+        r.widthAnchor.constraint(equalToConstant: width ?? Self.contentWidth).isActive = true
         return r
     }
 
@@ -312,8 +354,9 @@ import AppKit
         return RGBAColor(red: c.redComponent, green: c.greenComponent, blue: c.blueComponent)
     }
 
-    static func gradientSwatch(_ g: AnnotationKit.BackgroundStyle.GradientFill, selected: Bool) -> NSImage {
-        NSImage(size: NSSize(width: 32, height: 24), flipped: true) { r in
+    static func gradientSwatch(_ g: AnnotationKit.BackgroundStyle.GradientFill, selected: Bool,
+                               size: NSSize = NSSize(width: 48, height: 30)) -> NSImage {
+        NSImage(size: size, flipped: true) { r in
             let inner = r.insetBy(dx: 2, dy: 2)
             if let ctx = NSGraphicsContext.current?.cgContext {
                 // The image is flipped (top-left), as AnnotationKit's fill expects.

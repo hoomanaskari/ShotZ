@@ -10,18 +10,18 @@ extension OptionsBarView {
         })
         let decorations = TextStyle.Decoration.allCases
         add(controls.segmented(
-            images: decorations.map(EditorIcons.textDecoration),
+            images: decorations.map { EditorGlyphs.image(.textDecoration($0)) },
             labels: [String(localized: "Plain"), String(localized: "Outlined"), String(localized: "On solid pill"), String(localized: "On translucent pill")],
             selected: decorations.firstIndex(of: s.textStyle.decoration)
         ) { [weak self] i in
             self?.change(String(localized: "Text Style")) { $0.textStyle.decoration = decorations[i] }
         })
-        add(controls.toggle(symbol: "bold", label: String(localized: "Bold"), on: s.textStyle.isBold) { [weak self] on in
+        add(controls.toggleChip(.bold, label: String(localized: "Bold"), on: s.textStyle.isBold) { [weak self] on in
             self?.change(String(localized: "Bold")) { $0.textStyle.isBold = on }
         })
         let alignments = TextStyle.Alignment.allCases
         add(controls.segmented(
-            images: ["text.alignleft", "text.aligncenter", "text.alignright"].map { NSImage(systemSymbolName: $0, accessibilityDescription: nil) ?? NSImage() },
+            images: alignments.map { EditorGlyphs.image(.textAlign($0)) },
             labels: [String(localized: "Align left"), String(localized: "Align centre"), String(localized: "Align right")],
             selected: alignments.firstIndex(of: s.textStyle.alignment)
         ) { [weak self] i in
@@ -33,7 +33,7 @@ extension OptionsBarView {
     func addRedactOptions(_ s: ToolSettings) {
         let kinds = RedactMode.Kind.allCases
         add(controls.segmented(
-            images: ["square.grid.3x3.fill", "drop.fill", "rectangle.fill"].map { NSImage(systemSymbolName: $0, accessibilityDescription: nil) ?? NSImage() },
+            images: kinds.map { EditorGlyphs.image(.redactMode($0)) },
             labels: [String(localized: "Pixelate"), String(localized: "Blur"), String(localized: "Solid")],
             selected: kinds.firstIndex(of: s.redactMode.kind)
         ) { [weak self] i in
@@ -45,8 +45,8 @@ extension OptionsBarView {
         if s.redactMode.kind == .solid {
             addColors(s)
         } else {
-            add(OptionControls.icon("dial.medium", label: String(localized: "Strength")))
-            add(controls.slider(value: s.redactMode.strength, min: 0.2, max: 1, width: 90, label: String(localized: "Strength")) { [weak self] v, final in
+            add(controls.sliderRow(value: s.redactMode.strength, min: 0.2, max: 1, width: 90, label: String(localized: "Strength"),
+                                   glyph: .strength, format: OptionControls.percent) { [weak self] v, final in
                 self?.change(String(localized: "Strength"), final: final) { $0.redactMode.strength = v }
             })
         }

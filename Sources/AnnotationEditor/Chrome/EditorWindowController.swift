@@ -55,6 +55,7 @@ import ShotzCore
     var perf: PerfProbe?
     var lastFitZoom: CGFloat = -1
     var isRecentering = false
+    var thumbnailWork: DispatchWorkItem?
     let log = ShotzLog.logger("AnnotationEditor")
 
     init(store: DocumentStore, image: CGImage, base: BaseImageProvider, title: String, documentURL: URL?, env: EditorEnvironment) {
@@ -93,7 +94,7 @@ import ShotzCore
     /// Fits the image at ≤ 100 % within 80 % of the screen; minimum 720 × 480.
     static func initialContentSize(for extent: CGSize, scale: CGFloat) -> NSSize {
         let screen = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
-        let chrome = NSSize(width: 48, height: 36 + 48)
+        let chrome = NSSize(width: 48, height: EditorMetrics.barHeight + 48)
         let points = NSSize(width: extent.width / max(scale, 1), height: extent.height / max(scale, 1))
         let fit = min(1, (screen.width * 0.8 - chrome.width) / max(points.width, 1), (screen.height * 0.8 - chrome.height - 80) / max(points.height, 1))
         return NSSize(width: max(720, points.width * fit + chrome.width), height: max(480, points.height * fit + chrome.height))
@@ -151,7 +152,7 @@ import ShotzCore
         setUpZoomMenu()
         optionsBar.trailingView = zoomMenu
         // The options bar sits under the toolbar as part of the window's title bar.
-        optionsBar.frame = NSRect(x: 0, y: 0, width: 720, height: 36)
+        optionsBar.frame = NSRect(x: 0, y: 0, width: 720, height: EditorMetrics.barHeight)
         let accessory = NSTitlebarAccessoryViewController()
         accessory.view = optionsBar
         accessory.layoutAttribute = .bottom
