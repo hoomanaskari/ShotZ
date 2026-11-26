@@ -49,31 +49,20 @@ It lists your past submissions (or none). An error means the profile is missing 
 
 ### 3. Sparkle EdDSA key
 
-Sparkle signs every update with an EdDSA private key kept in your keychain; installed copies check
-it against the public key in ShotZ's `Info.plist` (`SUPublicEDKey`). Keep the private key backed up:
-losing it means installed copies can never update again.
+Sparkle signs every update with an EdDSA private key; installed copies check it against the public
+key built into the app (`SUPublicEDKey`). ShotZ has its own key:
 
-ShotZ either reuses the key you already have (Sparkle's default keychain account, used by your
-other app) or gets its own account. One variable covers both:
+- **Keychain account:** `shotz`, committed in `Resources/SparkleKeyAccount.txt`. `release.sh` reads
+  it from there (no shell profile needed) and passes it to `generate_appcast --account`.
+  `SPARKLE_KEY_ACCOUNT` overrides it for one run.
+- **Public key:** committed in `Resources/SparklePublicKey.txt`. `bundle.sh` writes it into the app's
+  `SUPublicEDKey`, and `release.sh` checks the built app carries exactly that key.
+- **Private key:** only in your login keychain, never in the repository or anywhere else on disk.
+  Keep your own backup of it; without it, installed copies can never update again.
 
-- `SPARKLE_KEY_ACCOUNT` unset or empty: Sparkle's default account (the existing key).
-- `SPARKLE_KEY_ACCOUNT=shotz` (or any name): that account. `release.sh` passes it to
-  `generate_appcast` as `--account`.
-
-To give ShotZ its own key (Sparkle's tools are in the Sparkle package artefacts after
-`swift package resolve`):
-
-```bash
-SPARKLE_BIN="$(dirname "$(find .build/artifacts -path '*/bin/generate_keys' | head -1)")"
-"$SPARKLE_BIN/generate_keys" --account shotz      # creates the key, prints the public key
-"$SPARKLE_BIN/generate_keys" --account shotz -x shotz-sparkle-private.key   # backup; store it safely, never in git
-```
-
-With either choice, put the matching public key (one line, `generate_keys [--account <name>] -p`
-prints it) into `Resources/SparklePublicKey.txt` and commit it. `bundle.sh` writes it into the app's
-`SUPublicEDKey`; while the file is empty, builds report updates as unavailable and `release.sh`
-refuses a real release. Set `SPARKLE_KEY_ACCOUNT` in your shell profile if you use a named account. On a new Mac, import the backup with
-`generate_keys [--account <name>] -f <backup file>`.
+The first time `generate_appcast` uses the key, macOS may ask whether it may access the keychain
+item. Allow it (Always Allow avoids the question next time). If the dialog is dismissed or the run
+times out, `release.sh` stops without retrying; run it again when you're at the Mac.
 
 ### 4. Tools and repository
 
@@ -140,7 +129,17 @@ scripts/release.sh --skip-notarize --dry-run-dir /tmp/shotz-rehearsal
 ```
 
 Everything except notarization and the appcast, with all outputs under the given folder. A
-rehearsal never touches the notary profile or the Sparkle key (no check, no submission, no signing).
+rehearsal never touches the notary profile, and doesn't use the Sparkle key unless you ask:
+
+```bash
+scripts/release.sh --skip-notarize --dry-run-dir /tmp/shotz-rehearsal --rehearse-appcast
+```
+
+also signs an appcast with the Sparkle key, entirely inside the given folder (its own
+`sparkle-releases/` and `appcast.xml`; the repository's are never touched), and verifies it: the new
+item's version and build, the enclosure URL (the GitHub release asset), its length, and its EdDSA
+signature against the committed public key (a deliberately changed copy of the archive must fail).
+Its summary then lists only "notarization skipped".
 The git checks only warn, so it runs from a worktree or with uncommitted changes. The summary says
 **NOT RELEASABLE** and lists why. `--skip-appcast` also skips the appcast step in a normal run. Never upload a
 rehearsal's files: Gatekeeper rejects them on other Macs. Rehearsals skip `create-dmg`'s Finder
@@ -208,8 +207,10 @@ Keep the ZIPs in `sparkle-releases/` after releasing: the next release makes its
   forced a host-only build.
 - **"Resources/SparklePublicKey.txt is empty"**: choose the Sparkle key and add its public key
   (one-time setup, step 3).
-- **"no Sparkle EdDSA key"**: create or import it (one-time setup, step 3); check
-  `SPARKLE_KEY_ACCOUNT`.
+- **"no Sparkle EdDSA key"**: the key for the account in `Resources/SparkleKeyAccount.txt` (`shotz`)
+  isn't in this Mac's login keychain; restore it from your backup.
+- **"generate_appcast did not finish within 180 s"**: a keychain access dialog was probably waiting.
+  Run again at the Mac and allow access.
 - **Sparkle refuses the update** ("improperly signed"): `SUPublicEDKey` in the shipped app doesn't
   match the key that signed the appcast, or the asset was changed after the appcast was made.
 - **Gatekeeper still warns for the DMG**: `xcrun stapler validate` it; if that fails, don't upload.

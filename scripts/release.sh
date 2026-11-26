@@ -6,11 +6,15 @@
 #   scripts/release.sh --skip-notarize               everything except the two notarization
 #                                                    submissions and stapling: NOT RELEASABLE
 #   scripts/release.sh --skip-appcast                no appcast (no Sparkle signing): NOT RELEASABLE
+#   scripts/release.sh --dry-run-dir <dir> --rehearse-appcast
+#                                                    a rehearsal that also signs the appcast with the
+#                                                    Sparkle key, inside <dir>, and verifies it against
+#                                                    the committed public key (still not notarized)
 #   scripts/release.sh --dry-run-dir <dir> [...]     a rehearsal: outputs go to <dir> (dist, sparkle
 #                                                    releases, appcast); git checks only warn; allowed
 #                                                    from a worktree
-# Rehearsals (--skip-notarize or --dry-run-dir) never touch the notary profile or the Sparkle
-# key: they skip the notarization and appcast steps and say NOT RELEASABLE.
+# Rehearsals (--skip-notarize or --dry-run-dir) never touch the notary profile, and never touch the
+# Sparkle key unless --rehearse-appcast is given; they say NOT RELEASABLE.
 #
 # Outputs (in dist/, or <dir>/dist for a rehearsal):
 #   ShotZ.app                 the signed (and, when notarized, stapled) app
@@ -29,8 +33,8 @@
 #   SHOTZ_GITHUB_REPO    owner/name of the GitHub repository the downloads come from (default:
 #                        the repository in SUFeedURL; must match it when both are set)
 #   SPARKLE_BIN          folder with Sparkle's generate_appcast (default: found in .build/artifacts)
-#   SPARKLE_KEY_ACCOUNT  keychain account of the Sparkle EdDSA key; empty = Sparkle's default account
-#                        (passed to generate_appcast as --account only when set)
+#   SPARKLE_KEY_ACCOUNT  keychain account of the Sparkle EdDSA key (default: Resources/SparkleKeyAccount.txt,
+#                        i.e. shotz; empty = Sparkle's default account)
 set -euo pipefail
 set +x
 
@@ -39,22 +43,28 @@ cd "$ROOT"
 
 SKIP_NOTARIZE=0
 SKIP_APPCAST=0
+REHEARSE_APPCAST=0
 DRY_RUN_DIR=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-notarize) SKIP_NOTARIZE=1; shift ;;
     --skip-appcast) SKIP_APPCAST=1; shift ;;
+    --rehearse-appcast) REHEARSE_APPCAST=1; shift ;;
     --dry-run-dir)
       [[ $# -ge 2 && -n "$2" ]] || { echo "release.sh: --dry-run-dir needs a directory" >&2; exit 64; }
       DRY_RUN_DIR="$2"; shift 2 ;;
-    -h|--help) sed -n '2,33p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,37p' "$0"; exit 0 ;;
     *) echo "release.sh: unknown option $1 (see --help)" >&2; exit 64 ;;
   esac
 done
 
 APP_NAME="ShotZ"
 NOTARY_PROFILE="${NOTARY_PROFILE:-notarytool-profile}"
-SPARKLE_KEY_ACCOUNT="${SPARKLE_KEY_ACCOUNT:-}"
+# The Sparkle key's keychain account is committed next to the public key, not set in a shell profile.
+SPARKLE_KEY_ACCOUNT="${SPARKLE_KEY_ACCOUNT-$(tr -d '[:space:]' < "$ROOT/Resources/SparkleKeyAccount.txt" 2>/dev/null || true)}"
+if [[ "$REHEARSE_APPCAST" == 1 && ( -z "$DRY_RUN_DIR" || "$SKIP_APPCAST" == 1 ) ]]; then
+  echo "release.sh: --rehearse-appcast needs --dry-run-dir <dir> (and not --skip-appcast)" >&2; exit 64
+fi
 PLIST="$ROOT/Resources/Info.plist"
 NOTES_DIR="$ROOT/release-notes"
 BUILT_APP="$ROOT/build/$APP_NAME.app"
@@ -179,7 +189,7 @@ fi
 
 REHEARSAL=0
 [[ "$SKIP_NOTARIZE" == 1 || -n "$DRY_RUN_DIR" ]] && REHEARSAL=1
-[[ "$REHEARSAL" == 1 ]] && SKIP_APPCAST=1
+[[ "$REHEARSAL" == 1 && "$REHEARSE_APPCAST" == 0 ]] && SKIP_APPCAST=1
 if [[ "$SKIP_NOTARIZE" == 1 || -n "$DRY_RUN_DIR" ]]; then
   SKIP_NOTARIZE=1
   warn "rehearsal: notary profile not checked, nothing is submitted or stapled"
@@ -209,7 +219,7 @@ fi
 PUBLIC_KEY="$(tr -d '[:space:]' < "$ROOT/Resources/SparklePublicKey.txt" 2>/dev/null || true)"
 if [[ -n "$PUBLIC_KEY" ]]; then
   ok "Sparkle public key set (Resources/SparklePublicKey.txt)"
-elif [[ "$REHEARSAL" == 1 || "$SKIP_APPCAST" == 1 ]]; then
+elif [[ ( "$REHEARSAL" == 1 && "$REHEARSE_APPCAST" == 0 ) || "$SKIP_APPCAST" == 1 ]]; then
   warn "Resources/SparklePublicKey.txt is empty (the Sparkle key isn't chosen yet): this build reports updates as unavailable"
 else
   stop "Resources/SparklePublicKey.txt is empty. Choose the Sparkle key and put its public key there (docs/RELEASE.md, one-time setup)."
@@ -386,19 +396,56 @@ if [[ "$HAVE_SPARKLE" == 1 ]]; then
   # Sparkle pairs release notes with the archive of the same name.
   [[ -s "$NOTES" ]] && cp "$NOTES" "$RELEASES_DIR/$APP_NAME-$VERSION.md"
   [[ -f "$APPCAST" ]] || cp "$ROOT/appcast.xml" "$APPCAST" 2>/dev/null || true
-  # (Only reached in a production run: rehearsals skip the appcast and never use the key.)
+  # Reached in a real run, or in a rehearsal with --rehearse-appcast (all inside the dry-run dir).
   account_args=()
   [[ -n "$SPARKLE_KEY_ACCOUNT" ]] && account_args=(--account "$SPARKLE_KEY_ACCOUNT")
-  "$SPARKLE_BIN/generate_appcast" \
+  # Run once, with a time limit: the first use of the key can show a keychain access dialog. A
+  # timeout or keychain error stops the release; it is never retried automatically.
+  set +e
+  perl -e 'alarm shift; exec @ARGV' 180 "$SPARKLE_BIN/generate_appcast" \
     ${account_args[@]+"${account_args[@]}"} \
     --download-url-prefix "https://github.com/$SHOTZ_GITHUB_REPO/releases/download/$TAG/" \
     --embed-release-notes \
     --link "https://github.com/$SHOTZ_GITHUB_REPO" \
     -o "$APPCAST" \
-    "$RELEASES_DIR" 2>&1 | sed 's/^/    /'
-  grep -q "sparkle:version=\"$BUILD\"\|<sparkle:version>$BUILD</sparkle:version>" "$APPCAST" || stop "the appcast has no item for build $BUILD."
-  grep -q 'sparkle:edSignature=' "$APPCAST" || stop "the appcast's enclosures are not EdDSA-signed."
-  ok "appcast item for $VERSION ($BUILD), EdDSA-signed"
+    "$RELEASES_DIR" > "$STAGE/generate_appcast.log" 2>&1
+  status=$?
+  set -e
+  sed 's/^/    /' "$STAGE/generate_appcast.log"
+  if [[ $status -eq 142 ]]; then
+    stop "generate_appcast did not finish within 180 s (a keychain access dialog may be waiting). Not retried."
+  elif [[ $status -ne 0 ]]; then
+    stop "generate_appcast failed (exit $status, output above). Not retried."
+  fi
+  # Verify the new item: version, build, enclosure URL, length and the EdDSA signature against
+  # the committed public key (checked here with CryptoKit, without the private key).
+  xp() { xmllint --xpath "$1" "$APPCAST" 2>/dev/null || true; }
+  item="//*[local-name()='item'][*[local-name()='version']='$BUILD']"
+  [[ -n "$(xp "string($item/*[local-name()='version'])")" ]] || stop "the appcast has no item for build $BUILD."
+  [[ "$(xp "string($item/*[local-name()='shortVersionString'])")" == "$VERSION" ]] || stop "the appcast item for build $BUILD is not version $VERSION."
+  enc_url="$(xp "string($item/*[local-name()='enclosure']/@url)")"
+  expected_url="https://github.com/$SHOTZ_GITHUB_REPO/releases/download/$TAG/$APP_NAME-$VERSION.zip"
+  [[ "$enc_url" == "$expected_url" ]] || stop "the enclosure URL is $enc_url, expected $expected_url."
+  enc_sig="$(xp "string($item/*[local-name()='enclosure']/@*[local-name()='edSignature'])")"
+  enc_len="$(xp "string($item/*[local-name()='enclosure']/@length)")"
+  [[ -n "$enc_sig" ]] || stop "the appcast enclosure has no sparkle:edSignature."
+  [[ "$enc_len" == "$(stat -f %z "$ZIP")" ]] || stop "the enclosure length ($enc_len) doesn't match the zip."
+  cat > "$STAGE/verify-ed25519.swift" <<'SWIFT'
+import CryptoKit
+import Foundation
+let args = CommandLine.arguments
+guard args.count == 4, let key = Data(base64Encoded: args[1]), let sig = Data(base64Encoded: args[2]),
+      let data = FileManager.default.contents(atPath: args[3]),
+      let publicKey = try? Curve25519.Signing.PublicKey(rawRepresentation: key) else { print("unreadable"); exit(2) }
+print(publicKey.isValidSignature(sig, for: data) ? "valid" : "invalid")
+SWIFT
+  verdict="$(swift "$STAGE/verify-ed25519.swift" "$PUBLIC_KEY" "$enc_sig" "$ZIP" 2>/dev/null || true)"
+  [[ "$verdict" == valid ]] || stop "the enclosure's EdDSA signature does not verify against Resources/SparklePublicKey.txt ($verdict)."
+  cp "$ZIP" "$STAGE/tampered.zip"
+  printf 'x' >> "$STAGE/tampered.zip"
+  tampered="$(swift "$STAGE/verify-ed25519.swift" "$PUBLIC_KEY" "$enc_sig" "$STAGE/tampered.zip" 2>/dev/null || true)"
+  [[ "$tampered" == invalid ]] || stop "signature check is not discriminating (a changed archive gave '$tampered')."
+  ok "appcast item $VERSION ($BUILD): enclosure $enc_url, length matches, EdDSA signature verifies against the committed public key (a changed archive fails)"
   while IFS= read -r d; do DELTAS+=("$d"); done < <(find "$RELEASES_DIR" -maxdepth 1 -name "${APP_NAME}${BUILD}-*.delta" | sort)
 fi
 
