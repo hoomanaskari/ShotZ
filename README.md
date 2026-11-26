@@ -110,7 +110,7 @@ ShotZ updates itself with [Sparkle](https://sparkle-project.org). It reads the u
 ## Privacy
 
 - **No accounts, no analytics, no telemetry.**
-- **Your captures stay on your Mac**, in `~/Library/Application Support/Shotz/`, until you save, copy or drag them somewhere. Old captures are removed after the time you choose in Settings ▸ Advanced.
+- **Your captures stay on your Mac**, in ShotZ's own folder (listed in [docs/UNINSTALL.md](docs/UNINSTALL.md)), until you save, copy or drag them somewhere. Old captures are removed after the time you choose in Settings ▸ Advanced.
 - **The only network access is the update check**, which reads ShotZ's update feed from GitHub. It sends nothing about you or your captures. Turn automatic checks off and ShotZ makes no network requests on its own.
 
 ## Building from source

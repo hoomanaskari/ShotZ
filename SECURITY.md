@@ -12,4 +12,4 @@ You'll get a reply within a week. Once a fix is released, we'll credit you in th
 
 ## Scope
 
-ShotZ has no accounts and no server of its own. Its only network access is the update check against this repository's releases. Captures stay in `~/Library/Application Support/Shotz/` until you export them. Problems in those areas, in how updates are verified, or anything that exposes captures to other apps or users are in scope.
+ShotZ has no accounts and no server of its own. Its only network access is the update check against this repository's releases. Captures stay in ShotZ's own folder on your Mac ([docs/UNINSTALL.md](docs/UNINSTALL.md) lists where) until you export them. Problems in those areas, in how updates are verified, or anything that exposes captures to other apps or users are in scope.
