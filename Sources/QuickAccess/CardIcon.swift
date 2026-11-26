@@ -1,45 +1,34 @@
 import AppKit
+import ShotzCore
 
-/// Every glyph the stack draws, in one place.
-/// TEMP until ShotzCore's `ShotzIcon` (Phosphor, one weight) is on main:
-/// SF Symbols stand in; the Phosphor names are in `phosphorName`.
+/// Every glyph the stack draws, mapped onto ShotzCore's shared `ShotzIcon`
+/// set (Phosphor regular plus Shotz glyphs, rendered from vectors).
 enum CardIcon: Equatable {
     case action(CardAction)
     case success
     case failure
 
-    var phosphorName: String {
+    var shotzIcon: ShotzIcon {
         switch self {
-        case .success: "check-circle"
-        case .failure: "warning-circle"
+        case .success: .check
+        case .failure: .warning
         case .action(let a):
             switch a {
-            case .close: "x"
-            case .annotate: "pencil-simple"
-            case .quickLook: "eye"
-            case .copy: "copy"
-            case .save: "download-simple"
-            case .closeAndDelete: "trash"
-            case .showInFinder: "folder-open"
-            case .copyFilePath: "link-simple"
-            case .closeAll: "x-square"
+            case .close: .close
+            case .annotate: .annotate
+            case .quickLook: .quickLook
+            case .copy: .copy
+            case .save: .save
+            case .closeAndDelete: .trash
+            case .showInFinder: .folder
+            case .copyFilePath: .share // TODO: a link glyph if ShotzIcon gains one
+            case .closeAll: .stack
             }
         }
     }
 
-    private var fallbackSymbol: String {
-        switch self {
-        case .success: "checkmark.circle.fill"
-        case .failure: "exclamationmark.circle.fill"
-        case .action(let a): a.symbolName
-        }
-    }
-
-    /// A template image sized for `pointSize`, tinted by the view that shows it.
+    /// A template image `pointSize` square, tinted by the view that shows it.
     @MainActor func image(pointSize: CGFloat) -> NSImage? {
-        let config = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
-        let image = NSImage(systemSymbolName: fallbackSymbol, accessibilityDescription: nil)?.withSymbolConfiguration(config)
-        image?.isTemplate = true
-        return image
+        shotzIcon.image(pointSize: pointSize)
     }
 }
