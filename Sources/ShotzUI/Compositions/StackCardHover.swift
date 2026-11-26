@@ -72,7 +72,7 @@ public final class StackCardHover: NSView {
             ShotzUI.Palette.surfaceSunken.composited(over: ShotzUI.Palette.surface.resolved(in: effectiveAppearance)).setFill()
             bounds.fill()
             drawImage?(ctx, bounds)
-            NSColor.black.withAlphaComponent(0.25).setFill()
+            ShotzUI.Palette.scrim.setFill()
             bounds.fill()
             ctx.restoreGState()
             ShotzUI.Palette.border.setStroke()

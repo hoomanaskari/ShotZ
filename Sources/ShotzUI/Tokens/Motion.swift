@@ -28,7 +28,12 @@ extension ShotzUI {
         public static let control = Elevation(offsetY: 0.5, blur: 1.5, opacity: 0.10)
         /// Cards in Settings.
         public static let card = Elevation(offsetY: 1, blur: 3, opacity: 0.06)
-        /// Popovers, panels, toasts.
+        /// Popovers, panels, toasts inside windows.
         public static let overlay = Elevation(offsetY: 6, blur: 18, opacity: 0.18)
+        /// Overlays floating over arbitrary wallpaper (the quick-access stack): the overlay geometry,
+        /// much stronger in dark mode where a soft shadow disappears against dark wallpapers.
+        public static func floating(dark: Bool) -> Elevation {
+            Elevation(offsetY: 6, blur: 18, opacity: dark ? 0.45 : 0.22)
+        }
     }
 }

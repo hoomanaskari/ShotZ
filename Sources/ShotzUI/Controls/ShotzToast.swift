@@ -57,11 +57,24 @@ public final class ShotzToast: NSView {
         }
     }
 
-    /// Shows the toast centred near the bottom of `view`, then removes it after `duration`.
-    public func show(in view: NSView, duration: TimeInterval = 1.4) {
+    public enum Position: Sendable {
+        /// Centred in the view (flashes on a card).
+        case center
+        /// Centred horizontally, `Space.l` above the bottom edge (windows).
+        case bottom
+    }
+
+    /// Shows the toast in `view` at `position`, fading in (`Motion.fast`) and out (`Motion.standard`)
+    /// after `duration`, and removes it. Announces the text to VoiceOver.
+    public func show(in view: NSView, position: Position = .bottom, duration: TimeInterval = 1.4) {
         let size = intrinsicContentSize
-        frame = CGRect(x: ((view.bounds.width - size.width) / 2).rounded(), y: view.isFlipped ? view.bounds.height - size.height - ShotzUI.Space.l : ShotzUI.Space.l,
-                       width: size.width, height: size.height)
+        let x = ((view.bounds.width - size.width) / 2).rounded()
+        let y: CGFloat
+        switch position {
+        case .center: y = ((view.bounds.height - size.height) / 2).rounded()
+        case .bottom: y = view.isFlipped ? view.bounds.height - size.height - ShotzUI.Space.l : ShotzUI.Space.l
+        }
+        frame = CGRect(x: x, y: y, width: size.width, height: size.height)
         alphaValue = 0
         view.addSubview(self)
         NSAccessibility.post(element: self, notification: .announcementRequested, userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
@@ -77,6 +90,8 @@ public final class ShotzToast: NSView {
             }, completionHandler: { [weak self] in MainActor.assumeIsolated { self?.removeFromSuperview() } })
         }
     }
+
+    public override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 /// Key caps for shortcuts: "⌘", "⇧", "4" each in a small raised cap.

@@ -29,6 +29,13 @@ struct GalleryStep2Tests {
         sheet.row("Pop-up (compact)", [ShotzPopUpButton(items: ["PNG", "JPEG", "HEIC"], size: .compact),
                                        ShotzPopUpButton(items: ["Arrange"], icon: .bringForward, role: .quiet, size: .compact)], columnWidth: 160)
 
+        sheet.header(["rest", "focused", "disabled"], columnWidth: 260)
+        let texts: [NSView] = [ShotzUI.ControlState.rest, .focused, .disabled].map { st in
+            let t = ShotzTextField("Shotz %Y-%m-%d at %H.%M.%S", placeholder: "Pattern", label: "File name pattern")
+            t.usesMonospacedFont = true; t.preferredWidth = 240; t.stateOverride = st; t.isEnabled = st.isEnabled; return t
+        }
+        sheet.row("Text field", texts, columnWidth: 260)
+
         sheet.title("Toolbar stack · separators")
         let stack = ShotzToolbarStack(groups: [[ShotzButton(icon: .undo, role: .quiet), ShotzButton(icon: .redo, role: .quiet)],
                                                [ShotzButton(icon: .bringForward, role: .quiet), ShotzButton(icon: .sendBackward, role: .quiet)],
@@ -110,9 +117,11 @@ struct GalleryStep2Tests {
         put(ShotzButton.glass("Copy", icon: .copy, cardSize: .large)); put(ShotzButton.glass("Save", icon: .save, cardSize: .medium))
         put(ShotzButton.glass("Save", icon: .save, cardSize: .small))
         for size in ShotzUI.CardSize.allCases { put(ShotzCaptionPill("1920 × 1080", cardSize: size)) }
-        put(ShotzToast("Copied", compact: true)); put(ShotzToast("Couldn't save", tone: .failure, compact: true)); put(ShotzToast("Saved"))
+        put(ShotzGlassLabel("Drag to share", style: .caption))
+        put(ShotzButton.glass("Copy", icon: .copy, cardSize: .small, iconOnly: true))
+        put(ShotzToast("Copied", compact: true)); put(ShotzToast("Couldn't save", tone: .failure, compact: true))
         sheet.block(strip, height: 52)
-        sheet.label("Glass circles 30 / 28 / 22 pt (by card size), pressed; Copy · Save pairs (large, medium, small); caption pills; toasts.",
+        sheet.label("Glass circles 30 / 28 / 22 pt, pressed; Copy · Save (large, medium, small); caption pills and a glass label (inert); icon-only glass; toasts.",
                     at: CGPoint(x: 24, y: sheet.cursor - 6))
         sheet.spacer(12)
         sheet.finish()

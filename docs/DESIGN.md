@@ -14,13 +14,15 @@ styling of their own. The gallery shows every control in every state:
 | | icons 14 / 16 / 18 · radius 6 / 7 / 8 · padding 8 / 10 / 14 | |
 | `ToolMetrics` | 32-pt square, 18-pt glyph, radius 8, 2-pt gap | Tool strip only |
 | `Radius` | small 4 · card 10 · panel 12 | Key caps / cards and banners / panels and popovers |
-| `Typography` | title 15 semibold · sectionHeader 13 semibold · body 13 · control 13 medium · label 12 medium · caption 11 · value 12 medium monospaced digits | NSFont `.font`, SwiftUI `.swiftUIFont` |
+| `Typography` | display 20 semibold (onboarding / page titles) · title 15 semibold · sectionHeader 13 semibold · body 13 · control 13 medium · label 12 medium · caption 11 · value 12 medium monospaced digits | NSFont `.font`, SwiftUI `.swiftUIFont` |
 | `Palette` | windowBackground, surface, surfaceSunken, raised · separator, border · textPrimary / Secondary / Tertiary · fillHover, fillPressed · accentFill, onAccent, selectedFill, selectedContent, selectedBorder, focusRing · danger, success, warning · glassFill, glassEdge | Semantic only; each resolves for light, dark and increased contrast |
 | `ControlState` | rest · hover · pressed · selected · disabled · focused (combinable) | |
 | `ControlRole` | primary · secondary · quiet · tool · chip · glass · destructive | |
 | `fills(for:state:)` | role × state → background, border, content, raised | The only place state styling lives |
 | `Motion` | fast 0.12 s · standard 0.2 s · slow 0.3 s; `arrive`, `move` curves | 0 under Reduce Motion; `reduceTransparency` makes glass solid |
-| `Elevation` | control · card · overlay | Shadows in light; dark relies on surface steps and borders |
+| `Elevation` | control · card · overlay · `floating(dark:)` | Shadows in light; dark relies on surface steps and borders. `floating` is for overlays over arbitrary wallpaper (the stack): 0.45 opacity in dark |
+| `Palette.scrim` | black 25 % (35 % with increased contrast) | Dim over an image under hover controls |
+| `ShotzUI.isDark(in:)`, `isIncreasedContrast(in:)` | | Appearance checks for surface code (instead of comparing appearance names) |
 
 The accent family follows the system accent. `accentFill` and `selectedContent` are derived so labels
 always reach 4.5:1 (7:1 with Increase Contrast), so an orange or yellow accent gets dark labels
@@ -40,7 +42,9 @@ first-mouse, Space/Return activation, VoiceOver role/label/value, `stateOverride
 | `ShotzButton` `.destructive` | Delete, Clear history |
 | `ShotzButton.glass(_:icon:cardSize:)` | The icon + label Copy / Save pair on a card (tighter metrics on small cards) |
 | `ShotzGlassIconButton` | Circular glass corner buttons on a card; 30 / 28 / 22 pt (large / medium / small), hit ≥ 28 |
-| `ShotzCaptionPill` | The size caption on a card |
+| `ShotzGlassLabel` | Non-interactive text over images (static text, never takes the mouse) |
+| `ShotzCaptionPill` | The size caption on a card (a `ShotzGlassLabel` with monospaced digits) |
+| `ShotzButton.glass(_:icon:cardSize:iconOnly: true)` | Icon-only glass Copy / Save where labels don't fit |
 | `ShotzToolButton` | Editor tools; selected = soft accent tint + accent edge + accent glyph |
 | `ShotzSegmentedControl` | Mutually exclusive styles (arrow style, fill mode, text style); text or icon segments |
 | `ShotzSegmentedControl.thicknessPicker` | The stepped thickness picker |
@@ -52,7 +56,8 @@ first-mouse, Space/Return activation, VoiceOver role/label/value, `stateOverride
 | `ShotzSeparator` | Between toolbar groups (vertical) or rows (horizontal) |
 | `ShotzToolbarStack` | Any bar: groups with 4-pt gaps, 12 pt + separator between groups |
 | `ShotzPanel` + `ShotzFormStack` | Popovers and side panels (background, crop): label column + controls |
-| `ShotzToast` | Confirmations: "Copied", "Saved", "Couldn't save"; `compact: true` on cards |
+| `ShotzToast` | Confirmations: "Copied", "Saved", "Couldn't save"; `compact: true` on cards; `show(in:position: .center / .bottom, duration:)` |
+| `ShotzTextField` | Single-line text (file-name pattern, preset names); `usesMonospacedFont` for patterns |
 | `ShotzCheckbox`, `ShotzSwitch` | On/off settings inside editor panels |
 | `ShotzColorWell` | A single custom colour (gradient stops, background colour) |
 | `ShotzTileButton` | Image tiles: gradient presets, later wallpapers |
@@ -66,7 +71,7 @@ SwiftUI (Settings and onboarding), drawn from the same tokens and the same state
 `ShotzSliderView`, `ShotzSwatchPicker`, `ShotzSettingsPane`, `ShotzSettingsSection`, `ShotzCard`,
 `ShotzSettingsRow`, `ShotzSettingsTabBar` (onboarding / in-window tabs only), `ShotzBanner`, `ShotzKeyCapsView`, `ShotzStatusBadge`.
 
-SwiftUI also has `ShotzFormRow` (label column), `ShotzHelpText(tone:)` and `ShotzShortcutField`
+SwiftUI also has `ShotzTextFieldView`, `ShotzFormRow` (label column), `ShotzHelpText(tone:)` and `ShotzShortcutField`
 (the recorder's look; key capture stays with the caller).
 
 Reference compositions (built only from the above): `EditorActionArea` (zoom │ drag, more │
@@ -127,7 +132,9 @@ Editor (AnnotationEditor)
 Quick-access stack (QuickAccess)
 - [ ] Hover controls: `StackCardHover(cardSize:)` layout: `ShotzGlassIconButton` corners (inset 6 / 8 / 8 pt),
       `ShotzButton.glass` Copy / Save pair centred, `ShotzCaptionPill` bottom-left.
-- [ ] Flashes: `ShotzToast(_, tone:, compact: true)`; icons `.success`, `.failure`.
+- [ ] Flashes: `ShotzToast(_, tone:, compact: true).show(in: card, position: .center)`; icons `.success`, `.failure`.
+- [ ] Size caption: `ShotzCaptionPill` (inert), not a frozen glass button. Dim: `Palette.scrim`.
+- [ ] Panel shadow over wallpaper: `Elevation.floating(dark: ShotzUI.isDark(in: appearance))`.
 - [ ] Context menu items use `ShotzIcon` images (`image(pointSize: 16)`).
 
 Settings and onboarding (AppShell): one ShotzUI part per existing wrapper
@@ -151,7 +158,10 @@ Settings and onboarding (AppShell): one ShotzUI part per existing wrapper
       cards, rows and switches. (`ShotzSettingsTabBar` is for onboarding or in-window tab strips only.)
 - [ ] Swap each wrapper body for its ShotzUI part (the panes don't change).
 - [ ] Format and similar choices: `ShotzSegmentedPicker` (≤ 4 options) or `ShotzMenuPicker`.
-- [ ] Onboarding primary action: `.shotz(.primary, size: .large)`, one per page.
+- [ ] Onboarding primary action: `.shotz(.primary, size: .large)`, one per page; page titles in
+      `Typography.display`.
+- [ ] Switches and checkboxes in rows use `.labelsHidden()` (honoured: no label gap).
+- [ ] Text inputs (file-name pattern): `ShotzTextFieldView(…, monospaced: true)`.
 
 Every surface
 - [ ] No `import SwiftUI` `.bordered*` styles, no SF Symbols, no colour literals in chrome.

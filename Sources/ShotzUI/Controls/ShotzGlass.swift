@@ -78,15 +78,20 @@ public final class ShotzGlassIconButton: ShotzControlView {
     }
 }
 
-/// The size caption on a card ("1920 × 1080"): a small glass pill with monospaced digits.
+/// A non-interactive glass label over images: the size caption on a card, a hint, a value.
+/// Static text for VoiceOver; it never takes the mouse (no tracking, `hitTest` returns nil).
 @MainActor
-public final class ShotzCaptionPill: NSView {
+public class ShotzGlassLabel: NSView {
     public var text: String { didSet { invalidateIntrinsicContentSize(); needsDisplay = true; setAccessibilityLabel(text) } }
-    public var cardSize: ShotzUI.CardSize { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
+    /// `.caption` for words, `.value` for numbers (monospaced digits).
+    public var style: ShotzUI.Typography { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
+    /// Pill height (18 on small cards, 20 elsewhere).
+    public var pillHeight: CGFloat { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
 
-    public init(_ text: String, cardSize: ShotzUI.CardSize = .large) {
+    public init(_ text: String, style: ShotzUI.Typography = .caption, height: CGFloat = 20) {
         self.text = text
-        self.cardSize = cardSize
+        self.style = style
+        self.pillHeight = height
         super.init(frame: .zero)
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
@@ -97,17 +102,23 @@ public final class ShotzCaptionPill: NSView {
     public required init?(coder: NSCoder) { fatalError("ShotzUI views are built in code") }
 
     public override var isFlipped: Bool { true }
-    private var font: NSFont { NSFont.monospacedDigitSystemFont(ofSize: cardSize == .small ? 10 : 11, weight: .medium) }
-    private var height: CGFloat { cardSize == .small ? 18 : 20 }
+    public override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { false }
+
+    var font: NSFont {
+        let size = pillHeight < 20 ? style.size - 1 : style.size - (style == .caption ? 0 : 1)
+        return style == .value ? NSFont.monospacedDigitSystemFont(ofSize: size, weight: .medium) : NSFont.systemFont(ofSize: size, weight: .medium)
+    }
 
     public override var intrinsicContentSize: NSSize {
-        NSSize(width: ceil((text as NSString).size(withAttributes: [.font: font]).width) + 14, height: height)
+        NSSize(width: ceil((text as NSString).size(withAttributes: [.font: font]).width) + 14, height: pillHeight)
     }
 
     public override func draw(_ dirtyRect: NSRect) {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            let r = CGRect(x: 0, y: ((bounds.height - height) / 2).rounded(), width: bounds.width, height: height)
-            let path = NSBezierPath(roundedRect: r, xRadius: height / 2, yRadius: height / 2)
+            let h = pillHeight
+            let r = CGRect(x: 0, y: ((bounds.height - h) / 2).rounded(), width: bounds.width, height: h)
+            let path = NSBezierPath(roundedRect: r, xRadius: h / 2, yRadius: h / 2)
             (ShotzUI.Motion.reduceTransparency ? NSColor(white: 0.1, alpha: 1) : ShotzUI.Palette.glassFill).setFill()
             path.fill()
             let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.white]
@@ -117,9 +128,27 @@ public final class ShotzCaptionPill: NSView {
     }
 }
 
+/// The size caption on a card ("1920 × 1080"): a glass label with monospaced digits sized for the card.
+@MainActor
+public final class ShotzCaptionPill: ShotzGlassLabel {
+    public var cardSize: ShotzUI.CardSize { didSet { pillHeight = cardSize == .small ? 18 : 20 } }
+
+    public init(_ text: String, cardSize: ShotzUI.CardSize = .large) {
+        self.cardSize = cardSize
+        super.init(text, style: .value, height: cardSize == .small ? 18 : 20)
+    }
+}
+
 extension ShotzButton {
-    /// The labelled glass pair button for a card (Copy / Save, icon + label at every card size).
-    public static func glass(_ title: String, icon: ShotzIcon, cardSize: ShotzUI.CardSize) -> ShotzButton {
+    /// The glass pair button for a card (Copy / Save): icon + label at every card size, or icon-only
+    /// when `iconOnly` (the title becomes the accessibility label and tooltip).
+    public static func glass(_ title: String, icon: ShotzIcon, cardSize: ShotzUI.CardSize, iconOnly: Bool = false) -> ShotzButton {
+        if iconOnly {
+            let b = ShotzButton(icon: icon, role: .glass, size: cardSize.labelSize)
+            b.setAccessibilityLabel(title)
+            b.setShotzToolTip(title)
+            return b
+        }
         let b = ShotzButton(title: title, icon: icon, role: .glass, size: cardSize.labelSize)
         if cardSize.isTight {
             b.titleFont = NSFont.systemFont(ofSize: 11, weight: .medium)

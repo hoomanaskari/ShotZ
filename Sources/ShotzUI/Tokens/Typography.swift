@@ -4,7 +4,9 @@ import SwiftUI
 extension ShotzUI {
     /// The type ramp. System font throughout; values use monospaced digits so they don't jitter.
     public enum Typography: CaseIterable, Sendable {
-        /// 15 semibold: pane and onboarding titles.
+        /// 20 semibold: onboarding and page titles.
+        case display
+        /// 15 semibold: pane titles, panel headings.
         case title
         /// 13 semibold: section headers above grouped cards.
         case sectionHeader
@@ -21,6 +23,7 @@ extension ShotzUI {
 
         public var size: CGFloat {
             switch self {
+            case .display: 20
             case .title: 15
             case .sectionHeader, .body, .control: 13
             case .label, .value: 12
@@ -30,7 +33,7 @@ extension ShotzUI {
 
         public var weight: NSFont.Weight {
             switch self {
-            case .title, .sectionHeader: .semibold
+            case .display, .title, .sectionHeader: .semibold
             case .body, .caption: .regular
             case .control, .label, .value: .medium
             }
