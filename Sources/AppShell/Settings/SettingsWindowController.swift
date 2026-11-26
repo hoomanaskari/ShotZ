@@ -27,13 +27,17 @@ import SwiftUI
             window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
             window.delegate = self
-            window.setFrameAutosaveName("ShotzSettings")
-            if !window.setFrameUsingName("ShotzSettings") { window.center() }
+            if let name = WindowPresenter.autosaveName("ShotzSettings") {
+                window.setFrameAutosaveName(name)
+                if !window.setFrameUsingName(name) { window.center() }
+            } else {
+                window.center()
+            }
+            WindowPresenter.prepare(window)
             self.window = window
         }
         if window?.isVisible != true { context.screenRecording.startPolling() }
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        if let window { WindowPresenter.bringToFront(window, name: "Settings") }
     }
 
     public func windowWillClose(_ notification: Notification) {

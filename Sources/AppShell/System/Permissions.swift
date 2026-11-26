@@ -40,10 +40,13 @@ public enum Permissions {
 
     // MARK: Relaunch
 
-    /// Arguments worth keeping across a relaunch: only `--dev-hotkeys`
-    /// (debug-present/-edit must not run twice).
-    public static func relaunchArguments(from arguments: [String]) -> [String] {
-        arguments.dropFirst().contains("--dev-hotkeys") ? ["--dev-hotkeys"] : []
+    /// Arguments worth keeping across a relaunch: `--dev-hotkeys` and the dev
+    /// profile (as `--dev-profile`); `--debug-*` actions must not run twice.
+    public static func relaunchArguments(from arguments: [String], devProfile: Bool = DevProfile.isActive) -> [String] {
+        var out: [String] = []
+        if arguments.dropFirst().contains("--dev-hotkeys") { out.append("--dev-hotkeys") }
+        if devProfile { out.append("--dev-profile") }
+        return out
     }
 
     /// Quits and reopens this same bundle (macOS often applies a new Screen

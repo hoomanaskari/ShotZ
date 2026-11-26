@@ -39,6 +39,10 @@ import ShotzCore
             guard newValue != isVisible else { return }
             if newValue {
                 let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+                // AppKit keeps the item's position/visibility under this name in
+                // the standard domain; dev runs use their own so they never move
+                // or hide the owner's icon.
+                item.autosaveName = DevProfile.isActive ? "ShotzDevStatusItem" : "ShotzStatusItem"
                 item.button?.image = StatusItemIcon.make()
                 item.button?.toolTip = "Shotz"
                 item.button?.setAccessibilityLabel("Shotz")

@@ -91,10 +91,20 @@ struct LoginItemTests {
 }
 
 struct RelaunchTests {
-    @Test func keepsOnlyDevHotkeys() {
-        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--dev-hotkeys", "--debug-present", "/a.png"]) == ["--dev-hotkeys"])
-        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--debug-edit", "/a.png"]).isEmpty)
-        #expect(Permissions.relaunchArguments(from: ["--dev-hotkeys"]).isEmpty)   // argv[0] only
+    @Test func keepsDevHotkeysAndProfileOnly() {
+        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--dev-hotkeys", "--debug-present", "/a.png"], devProfile: false)
+            == ["--dev-hotkeys"])
+        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--debug-edit", "/a.png"], devProfile: false).isEmpty)
+        #expect(Permissions.relaunchArguments(from: ["--dev-hotkeys"], devProfile: false).isEmpty)   // argv[0] only
+        // A dev-profile run (even one started by --debug-*) relaunches in the dev profile.
+        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--debug-edit", "/a.png"], devProfile: true) == ["--dev-profile"])
+        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--dev-hotkeys", "--dev-profile"], devProfile: true)
+            == ["--dev-hotkeys", "--dev-profile"])
+    }
+
+    @MainActor @Test func standardProfileKeepsWindowAutosave() {
+        // The test process is not a dev launch.
+        #expect(WindowPresenter.autosaveName("ShotzSettings") == (DevProfile.isActive ? nil : "ShotzSettings"))
     }
 }
 

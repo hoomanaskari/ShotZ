@@ -48,6 +48,7 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()
+            WindowPresenter.prepare(window)
             self.window = window
         }
         if window?.isVisible != true {
@@ -55,8 +56,7 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
             model.screenRecording.startPolling()
         }
         log.info("Onboarding shown at step \(String(describing: step), privacy: .public)")
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        if let window { WindowPresenter.bringToFront(window, name: "Onboarding") }
     }
 
     public func windowWillClose(_ notification: Notification) {
