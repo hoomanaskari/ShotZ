@@ -83,8 +83,10 @@ struct RedactionStrengthTests {
             #expect(size >= c.fontSize * 0.4, "sigma \(size) too small for \(c.fontSize) px text")
             #expect(detailRatio < 0.08)
         }
-        // Measured 0.02–0.14 across these cases; originals differ by 1.0 by definition.
-        #expect(distinguishability < 0.2, "\(c.testDescription): \(distinguishability)")
+        // Measured with exact per-cell averaging: pixelate 0.11–0.19 (a pixelated cell inevitably
+        // keeps its mean ink density), blur 0.02–0.07. Originals differ by 1.0 by definition.
+        let limit = c.kind == .pixelate ? 0.25 : 0.1
+        #expect(distinguishability < limit, "\(c.testDescription): \(distinguishability)")
     }
 
     @Test(arguments: [RedactMode.pixelate, .blur, .solid], [1.0, 0.75, 1.5])
@@ -114,5 +116,36 @@ struct RedactionStrengthTests {
         if mode.kind != .solid {
             #expect(base.redactedImage(rect: box, mode: mode, scale: 2)?.width == Int(box.width))
         }
+    }
+
+    /// 1-px stripes average to mid-grey in every cell, edge cells included: proves cells are
+    /// uniform (no thin partial cell at the right/bottom edge) and that each cell is a true
+    /// average rather than a few sampled pixels.
+    @Test(arguments: [CGRect(x: 7, y: 5, width: 203, height: 61), CGRect(x: 0, y: 0, width: 97, height: 23),
+                      CGRect(x: 13, y: 11, width: 401, height: 137)])
+    func pixelateCellsAreUniformToTheEdges(_ rect: CGRect) throws {
+        let w = 420, h = 150
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: TestImages.sRGB,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        for x in 0..<w {
+            ctx.setFillColor(CGColor(gray: x % 2 == 0 ? 0 : 1, alpha: 1))
+            ctx.fill(CGRect(x: x, y: 0, width: 1, height: h))
+        }
+        let image = ctx.makeImage()!
+        let out = try Self.redact(image, rect: rect, mode: .pixelate, scale: 2)
+        var lo = 1.0, hi = 0.0
+        for y in Int(rect.minY)..<Int(rect.maxY) {
+            for x in Int(rect.minX)..<Int(rect.maxX) {
+                let l = out.luma(x, y)
+                lo = min(lo, l); hi = max(hi, l)
+            }
+        }
+        // Mid-grey everywhere (sRGB-encoded average of black and white ≈ 0.5–0.75 luma), with
+        // small spread; a partial or sparsely sampled cell would show near-black or near-white.
+        #expect(hi - lo < 0.12, "\(rect): luma spread \(lo)…\(hi)")
+        #expect(lo > 0.3 && hi < 0.85, "\(rect): \(lo)…\(hi)")
+        let block = Redactor.blockSize(strength: RedactMode.pixelate.strength, scale: 2, rect: rect)
+        let grid = Redactor.cellGrid(for: rect.size, block: block)
+        #expect(abs(rect.width / CGFloat(grid.cols) - block) <= block * 0.5)
     }
 }

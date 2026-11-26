@@ -126,7 +126,7 @@ extension AnnotationRenderer {
         let cell = mode.kind == .pixelate
             ? Redactor.blockSize(strength: mode.strength, scale: document.scale, rect: target)
             : Redactor.blurRadius(strength: mode.strength, scale: document.scale, rect: target) * 0.75
-        let cols = max(Int((target.width / cell).rounded()), 1), rows = max(Int((target.height / cell).rounded()), 1)
+        let (cols, rows) = Redactor.cellGrid(for: target.size, block: cell)
         guard let small = Redactor.bitmap(width: cols, height: rows, space: Redactor.workingSpace(of: preview)) else { return nil }
         small.interpolationQuality = .high
         small.draw(crop, in: CGRect(x: 0, y: 0, width: cols, height: rows))
