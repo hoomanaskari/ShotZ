@@ -2,7 +2,7 @@
 # Builds a release bundle and installs it to /Applications/ShotZ.app.
 # Manager/owner only, from the main checkout (never from a worktree).
 # Production only: it never quits, replaces or unregisters ShotZ Dev
-# (build/ShotZ Dev.app, app.shotz.Shotz.dev), which runs side by side.
+# (build/ShotZ Dev.app, com.pixelforty.shotz.dev), which runs side by side.
 #
 # - Replaces an installed copy under either spelling (/Applications/Shotz.app
 #   from before the rename, or ShotZ.app); afterwards only ShotZ.app remains.

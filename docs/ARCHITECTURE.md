@@ -3,8 +3,8 @@
 Native Swift 6 (strict concurrency), AppKit-first, macOS 15+. SwiftUI only for
 Settings and onboarding. One SwiftPM package, built from the command line and
 wrapped into `ShotZ.app` by a script (the product is "ShotZ"; modules,
-the `Shotz` executable target, bundle ids and the production data folder keep
-their original spelling). No third-party dependencies.
+and the `Shotz` executable target keep their original spelling; bundle ids are
+`com.pixelforty.shotz[.dev]`). No third-party dependencies.
 
 Behaviour is defined in [SPEC.md](SPEC.md). This file defines structure.
 
@@ -322,24 +322,48 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 
   | | `.production` | `.development` |
   |---|---|---|
-  | App / bundle id | `ShotZ.app`, `app.shotz.Shotz` | `ShotZ Dev.app`, `app.shotz.Shotz.dev` |
+  | App / bundle id | `ShotZ.app`, `com.pixelforty.shotz` | `ShotZ Dev.app`, `com.pixelforty.shotz.dev` |
   | Executable | `ShotZ` (SwiftPM product `Shotz`, renamed by `bundle.sh`) | same |
   | Preferences | `UserDefaults.standard` (its own domain) | same, its own domain |
-  | Data (`ShotzPaths.default`) | `Application Support/Shotz`, temp `Shotz` | `Application Support/ShotZ Dev`, temp `ShotZ Dev` |
+  | Data (`ShotzPaths.default`) | `Application Support/com.pixelforty.shotz`, temp the same name | `Application Support/com.pixelforty.shotz.dev`, temp the same name |
   | Default capture shortcuts | ⌘⇧3/4/5 | ⌃⌥⌘3/4/5 |
   | Launch at login default | on (registers only from Applications) | off (registers wherever it runs) |
   | Icon / glyph | `AppIcon.icns`, template glyph | `AppIcon-Dev.icns` (amber DEV band), amber glyph |
 
   Each has its own login item and Screen Recording permission (granted once
   for ShotZ Dev). `bundle.sh dev` derives the dev Info.plist from
-  `Resources/Info.plist` (bundle id, name, display name) and uses the dev icon.
+  `Resources/Info.plist` (bundle id + `.dev`, name, display name) and uses the dev icon.
   The launch log starts with `Variant: …`.
+- **Identity in one place per language:** `AppVariant.productionBundleID` for
+  Swift (the dev id is it + `.dev`), `CFBundleIdentifier` in
+  `Resources/Info.plist` for the scripts (`bundle.sh` derives the dev id and
+  the signing identifier from it). `AppVariantTests` fails if the two differ.
+  The log subsystem, background-activity id and data folders derive from it.
+  Data folders are named by bundle id, so "Shotz"/"ShotZ" spellings can never
+  collide on a case-insensitive volume.
+- **Migration from the pre-release identity** (`AppShell/System/LegacyDataMigration.swift`),
+  run by `AppDelegate` before anything reads settings or history, never in
+  test runs. Earlier builds were `app.shotz.Shotz[.dev]` with data in
+  `Application Support/Shotz` (`ShotZ Dev`). On first launch of the new id:
+  - preferences: every owned key (`SettingsKey.ownedPrefixes`) is copied from
+    the old domain, never over a key already set; the old domain is left as it
+    was; the marker `migration.legacyDefaultsCopied` makes it once-only, so a
+    later Restore Defaults does not bring old values back;
+  - data is **moved**: the old folder is copied into a staging sibling
+    (`<id>.migrating`), absolute paths in `history.json` and `Documents/*.json`
+    are rewritten, then the staging folder is renamed into place, or merged by
+    capture id into a new folder that already has content. Only then is
+    `MIGRATED.txt` written in the old folder and the rest of it removed. An
+    interruption leaves either the untouched old folder (a stale staging
+    folder is discarded and the move restarts) or a complete new folder (the
+    next run merges again, a no-op, and finishes). The new id needs its own
+    Screen Recording grant and login item.
 - **Test runs** (`AppVariant.isTestRun`): `--no-hotkeys`, set by `run.sh`
   from worktrees and implied by `--debug-*`, `-QuickAccessSelfTest` and
   `SHOTZ_EDITOR_SCRIPT`. Hermetic: preferences in the suite
   `<bundle id>.testrun` (`AppVariant.preferences`, used by `SettingsStore()`
-  and `ExportConfiguration.current()`), data in `Application Support/<name>
-  Test Runs` (`ShotzPaths.default`), no shortcuts, no login item, no
+  and `ExportConfiguration.current()`), data in `Application Support/<bundle
+  id>.testrun` (`ShotzPaths.default`), no migration, no shortcuts, no login item, no
   onboarding writes, no menu-bar icon, and one launch log line saying so.
   Argument-domain overrides still apply. Carbon lets two processes register
   the same combo, so test copies never hold shortcuts.
@@ -355,7 +379,7 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 - **Rule:** nobody bundles, launches or kills anything in the main checkout's
   `build/` or in `/Applications`: those are the owner's apps.
 
-- Bundle ids `app.shotz.Shotz` / `app.shotz.Shotz.dev`, `LSUIElement = true`, `LSMinimumSystemVersion = 15.0`.
+- Bundle ids `com.pixelforty.shotz` / `com.pixelforty.shotz.dev`, `LSUIElement = true`, `LSMinimumSystemVersion = 15.0`.
 - Signing: `bundle.sh` signs with `$SHOTZ_SIGN_IDENTITY` if set, otherwise the
   first "Apple Development" identity in the keychain, otherwise ad-hoc; the
   same rule for both apps. A stable identity matters: it keeps the
@@ -397,7 +421,7 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 - One type per file, file named after the type. No file over ~400 lines.
 - Errors are typed and surfaced; never swallowed with `try?` unless the
   failure is genuinely irrelevant (comment why).
-- Logging through `os.Logger` (subsystem `app.shotz.Shotz`, category = module).
+- Logging through `os.Logger` (subsystem `com.pixelforty.shotz` for both apps, category = module).
   No `print`. No analytics, no network.
 - User-facing strings via `String(localized:)`; English only for now.
 - Original assets only. Never copy icons, sounds, text or layouts from other apps.

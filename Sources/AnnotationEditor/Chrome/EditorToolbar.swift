@@ -3,7 +3,7 @@ import AppKit
 /// The window toolbar: tool strip on the left, background toggle, and the
 /// actions (Copy, Save, drag handle, More) on the right.
 @MainActor final class EditorToolbar: NSObject, NSToolbarDelegate {
-    let toolbar = NSToolbar(identifier: "app.shotz.editor")
+    let toolbar = NSToolbar(identifier: "com.pixelforty.shotz.editor")
     private let model: EditorModel
     private let commandMenu: NSMenu
     let dragHandle = DragHandleView(frame: .zero)

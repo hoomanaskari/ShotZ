@@ -4,7 +4,7 @@ import ShotzCore
 import UniformTypeIdentifiers
 
 /// Debug aid, active only with `-QuickAccessDebug YES`: posting the distributed
-/// notification `app.shotz.debug.snapshotStack` with a folder path as object
+/// notification `com.pixelforty.shotz.debug.snapshotStack` with a folder path as object
 /// renders each stack panel's own layer tree to `<folder>/stack-<display>.png`
 /// (no screen content is captured), and logs the card state.
 @MainActor final class StackDebugSnapshot {
@@ -14,7 +14,7 @@ import UniformTypeIdentifiers
     init(panels: @escaping @MainActor () -> [UInt32: NSPanel], log: @escaping @MainActor (String) -> Void) {
         guard Self.enabled else { return }
         observer = DistributedNotificationCenter.default().addObserver(
-            forName: Notification.Name("app.shotz.debug.snapshotStack"), object: nil, queue: .main
+            forName: Notification.Name("com.pixelforty.shotz.debug.snapshotStack"), object: nil, queue: .main
         ) { note in
             let folder = note.object as? String
             MainActor.assumeIsolated {

@@ -17,7 +17,7 @@ later, with no third-party dependencies, no network access and no telemetry.
 - The quick-access stack: copy, save, drag out, annotate, Quick Look, close.
 - The annotation editor: arrows, shapes, text, highlighter, blur/pixelate,
   counters, pen, crop and presentation backgrounds, with full undo.
-- History of recent captures under `~/Library/Application Support/Shotz/`.
+- History of recent captures under `~/Library/Application Support/com.pixelforty.shotz/`.
 
 Out of scope for Phase 1: video/GIF recording, scrolling capture, OCR, cloud
 upload, pinning.
@@ -77,8 +77,8 @@ There are two builds of the same code, told apart by their bundle id
 |---|---|---|
 | Built by | `scripts/bundle.sh release` | `scripts/bundle.sh dev`, `scripts/run.sh` |
 | Bundle | `build/ShotZ.app`, installed to `/Applications` | `build/ShotZ Dev.app` |
-| Bundle id / preferences | `app.shotz.Shotz` | `app.shotz.Shotz.dev` |
-| Data | `~/Library/Application Support/Shotz` | `~/Library/Application Support/ShotZ Dev` |
+| Bundle id / preferences | `com.pixelforty.shotz` | `com.pixelforty.shotz.dev` |
+| Data | `~/Library/Application Support/com.pixelforty.shotz` | `~/Library/Application Support/com.pixelforty.shotz.dev` |
 | Default capture shortcuts | ⌘⇧3 / ⌘⇧4 / ⌘⇧5 | ⌃⌥⌘3 / ⌃⌥⌘4 / ⌃⌥⌘5 |
 | Icon / menu-bar glyph | standard | amber DEV band / amber glyph |
 | Login item | its own (only from Applications) | its own (off by default) |
@@ -93,8 +93,8 @@ Rules for engineers and test runs:
   (`--no-hotkeys`), executes it directly and keeps it out of Launch Services.
   Every `--debug-*` flag, `-QuickAccessSelfTest` and `SHOTZ_EDITOR_SCRIPT`
   also make a test run. Test runs are hermetic: their own preferences
-  (`app.shotz.Shotz.dev.testrun`) and data (`Application Support/ShotZ Dev
-  Test Runs`), no shortcuts, no login item, no menu-bar icon, and they never
+  (`com.pixelforty.shotz.dev.testrun`) and data (`Application
+  Support/com.pixelforty.shotz.dev.testrun`), no shortcuts, no login item, no menu-bar icon, and they never
   open or record the welcome window, so they never touch the owner's ShotZ
   or ShotZ Dev.
 - A run exec'd directly from a shell inherits the launcher's Screen Recording

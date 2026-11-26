@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds and runs the development app, build/ShotZ Dev.app (app.shotz.Shotz.dev).
+# Builds and runs the development app, build/ShotZ Dev.app (com.pixelforty.shotz.dev).
 # It is a separate app from the installed ShotZ: own name, icon, settings,
 # history, login item, default shortcuts (⌃⌥⌘3/4/5) and Screen Recording
 # permission. This script never quits, replaces or unregisters the production

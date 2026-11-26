@@ -214,7 +214,7 @@ import ShotzUI
         check("drag file exists", FileManager.default.fileExists(atPath: url.path(percentEncoded: false)), url.lastPathComponent)
         check("drag file name and format", url.lastPathComponent == "\(card.capture.displayName).\(config.format.fileExtension)")
         // Round-trip through a private pasteboard, the way a drop target reads it.
-        let pb = NSPasteboard(name: NSPasteboard.Name("app.shotz.selftest.\(UUID().uuidString)"))
+        let pb = NSPasteboard(name: NSPasteboard.Name("com.pixelforty.shotz.selftest.\(UUID().uuidString)"))
         pb.clearContents()
         pb.writeObjects([writer])
         let readURL = (pb.readObjects(forClasses: [NSURL.self]) as? [URL])?.first

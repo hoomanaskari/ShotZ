@@ -9,7 +9,7 @@ import ShotzCore
 
     /// `work` is called roughly every `interval` seconds while the app runs.
     public init(interval: TimeInterval = 86_400, work: @escaping @Sendable () async -> Void) {
-        scheduler = NSBackgroundActivityScheduler(identifier: "app.shotz.Shotz.history-prune")
+        scheduler = NSBackgroundActivityScheduler(identifier: AppVariant.current.bundleIdentifier + ".history-prune")
         scheduler.repeats = true
         scheduler.interval = interval
         scheduler.tolerance = interval / 4
