@@ -21,6 +21,32 @@ Nothing here runs by itself. Read each step, inspect first, then remove what you
 > Copy out anything you want to keep before removing those folders. Files you exported or saved (default
 > `~/Desktop`) are ordinary files and are not touched by anything below.
 
+## The quick way: `scripts/clean-slate.sh`
+
+For testing a clean install from the GitHub download, `scripts/clean-slate.sh` does everything below
+in one go, from inside the source checkout:
+
+```bash
+scripts/clean-slate.sh            # dry run: lists what exists and what would be removed, with sizes
+scripts/clean-slate.sh --yes      # does it
+scripts/clean-slate.sh --yes --include-review   # also moves build/review to the Trash
+```
+
+- It quits running ShotZ / ShotZ Dev first (SIGTERM, then SIGKILL), resets Screen Recording per
+  bundle id, deletes both generations' preferences domains (and the `swift test` suites), unregisters
+  every ShotZ bundle from Launch Services, then removes apps, build products in the checkout and every
+  worktree, Application Support folders, caches (incl. Sparkle's), saved state and temp folders.
+- Installed apps, Application Support folders (your captures) and `build/review` go to the **Trash**;
+  build products, caches and temp folders are deleted.
+- It never touches the source, `.git`, `dist/`, `sparkle-releases/`, the keychain, SwiftPM `.build`
+  folders, exported screenshots, or Launch Services entries for `dist/`, `sparkle-releases/` and
+  mounted disk images. Every path is checked first; if one resolves outside the expected places it
+  stops without changing anything.
+- It cannot remove a lingering Login Items entry (only the app itself or System Settings can); it
+  prints that manual step, and a check of the Screen Recording list, at the end.
+
+The rest of this page explains each item, for doing it by hand.
+
 ## Names at a glance
 
 | | ShotZ (installed) | ShotZ Dev (built by `scripts/run.sh`) |
