@@ -23,6 +23,8 @@
 #   ShotZ<build>-<old>.delta  Sparkle deltas from earlier archives in sparkle-releases/ (second and
 #                             later releases)
 #   SHA256SUMS.txt            checksums of everything to upload (DMG, zip, deltas)
+#   ShotZ-<version>.dSYM.zip  the stripped executable's symbols (both architectures) for crash
+#                             reports: KEEP it, do NOT upload it (not in SHA256SUMS.txt)
 # and the appcast (appcast.xml, or <dir>/appcast.xml) from sparkle-releases/ (archives, deltas).
 #
 # This script never pushes, tags, publishes or uploads anything: it prints the go-live steps.
@@ -394,6 +396,32 @@ else
   stop "shipped binaries contain build-machine paths (see above). Release builds must be stripped (bundle.sh)."
 fi
 
+# The executable ships stripped; its symbols live only in the dSYM bundle.sh wrote to build/dSYMs/,
+# which clean-slate.sh and any rebuild wipe. Keep a copy with this release's outputs.
+step "dSYM (keep for crash reports; never uploaded)"
+DSYM_SRC="$ROOT/build/dSYMs/$APP_NAME-$VERSION-$BUILD.dSYM"
+DSYM_ZIP="$DIST/$APP_NAME-$VERSION.dSYM.zip"
+rm -f "$DSYM_ZIP"
+if [[ ! -d "$DSYM_SRC" ]]; then
+  DSYM_ZIP=""
+  if [[ -n "$DRY_RUN_DIR" || "$SKIP_NOTARIZE" == 1 ]]; then
+    warn "no dSYM in build/dSYMs/ for $VERSION ($BUILD): crash reports from this build could not be symbolicated"
+  else
+    stop "no dSYM in build/dSYMs/ for $VERSION ($BUILD) (bundle.sh release writes it with dsymutil); a release must keep its symbols."
+  fi
+else
+  exe="$APP/Contents/MacOS/$(plutil -extract CFBundleExecutable raw -o - "$APP/Contents/Info.plist")"
+  uuids() { xcrun dwarfdump --uuid "$1" 2>/dev/null | awk '/^UUID:/ { print $2, $3 }' | sort; }
+  exe_uuids="$(uuids "$exe")"
+  dsym_uuids="$(uuids "$DSYM_SRC")"
+  [[ -n "$exe_uuids" && "$exe_uuids" == "$dsym_uuids" ]] \
+    || stop "the dSYM's UUIDs don't match the shipped executable (rebuild with bundle.sh release)."
+  [[ "$exe_uuids" == *"(arm64)"* && "$exe_uuids" == *"(x86_64)"* ]] \
+    || stop "the dSYM does not cover both architectures (arm64 and x86_64)."
+  ditto -c -k --norsrc --keepParent "$DSYM_SRC" "$DSYM_ZIP"
+  ok "$(basename "$DSYM_ZIP"): UUIDs match the shipped executable (arm64, x86_64); keep it, do NOT upload it"
+fi
+
 # ---------------------------------------------------------------------------------------------
 notarize() { # notarize <file>: prints the submission id; on failure saves Apple's log in dist/
   local file="$1" name result id status
@@ -659,6 +687,7 @@ if [[ "$HAVE_SPARKLE" == 1 && ${#DELTAS[@]} -gt 0 ]]; then
   printf ' Deltas:\n'; for d in "${DELTAS[@]}"; do printf '   %s\n' "$DIST/$(basename "$d")"; done
 fi
 printf ' Upload:   %s (from %s, as listed in SHA256SUMS.txt)\n' "${UPLOADS[*]}" "$DIST"
+[[ -n "$DSYM_ZIP" ]] && printf ' dSYM:     %s (keep, do NOT upload; not in SHA256SUMS.txt)\n' "$DSYM_ZIP"
 if [[ ${#WARNINGS[@]} -gt 0 ]]; then
   printf ' Warnings:\n'; for w in "${WARNINGS[@]}"; do printf '   - %s\n' "$w"; done
 fi
@@ -676,6 +705,7 @@ Go-live steps (this script does none of them; see docs/RELEASE.md):
      (exactly the files in SHA256SUMS.txt):
 $(for u in "${UPLOADS[@]}"; do printf '       %s\n' "$u"; done)
      Check each asset is public and matches SHA256SUMS.txt.
+     Do NOT upload $(basename "${DSYM_ZIP:-dSYM.zip}"): keep it (with dist/) to symbolicate crash reports.
   5. Only then expose the update feed:  git push origin main
      and check the public appcast matches the local file.
 EOF

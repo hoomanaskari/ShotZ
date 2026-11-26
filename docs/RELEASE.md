@@ -120,7 +120,9 @@ overrides it only if it matches.)
       that `LICENSE` and `THIRD-PARTY-NOTICES` are in `Contents/Resources` and match the repository,
       that no Mach-O in the app (each architecture, raw bytes and `strings -a`) contains `/Users/`
       or the build user's name (the executable is stripped by `bundle.sh`; its dSYM stays in
-      `build/dSYMs/`);
+      `build/dSYMs/`), and copies that dSYM, after checking its UUIDs match the shipped executable
+      for both architectures, to `dist/ShotZ-<version>.dSYM.zip`: keep it for crash reports, never
+      upload it (it is not in `SHA256SUMS.txt`); a real release stops if there is no dSYM;
    2. notarizes the app (`notarytool submit --wait`, a few minutes), staples it and checks Gatekeeper;
    3. makes the Sparkle zip and the DMG (signed), notarizes and staples the DMG, and validates it;
    4. mounts the DMG and verifies the app inside and the Applications link;
