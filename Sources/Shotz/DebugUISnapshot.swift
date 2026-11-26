@@ -27,10 +27,13 @@ import ShotzCore
                     write(await coordinator.settingsWindow.debugRender(tab: tab, appearance: appearance, scale: scale),
                           to: dir.appending(path: "settings-\(tab.rawValue)-\(suffix).png"))
                 }
-                // The updates section without a signing key yet (what the first builds show).
-                write(await coordinator.settingsWindow.debugRender(tab: .advanced, appearance: appearance, scale: scale,
-                                                                   updates: .preview(.unavailable(.noPublicKey))),
-                      to: dir.appending(path: "settings-advanced-nokey-\(suffix).png"))
+                // The updates section without a signing key: only while Resources/SparklePublicKey.txt
+                // was empty when this app was bundled (release builds would show it then).
+                if !UpdatePolicy.hasPublicKey(Bundle.main.infoDictionary ?? [:]) {
+                    write(await coordinator.settingsWindow.debugRender(tab: .advanced, appearance: appearance, scale: scale,
+                                                                       updates: .preview(.unavailable(.noPublicKey))),
+                          to: dir.appending(path: "settings-advanced-nokey-\(suffix).png"))
+                }
                 write(await coordinator.statusItem.debugMenuSnapshot(appearance: appearance, scale: scale),
                       to: dir.appending(path: "status-menu-\(suffix).png"))
             }

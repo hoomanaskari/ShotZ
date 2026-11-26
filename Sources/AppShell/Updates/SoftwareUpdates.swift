@@ -37,6 +37,12 @@ public enum UpdatePolicy {
     public static let feedKey = "SUFeedURL"
     public static let publicKeyKey = "SUPublicEDKey"
 
+    /// Whether the bundle carries a public EdDSA key (bundle.sh copies it from
+    /// Resources/SparklePublicKey.txt into both apps).
+    public static func hasPublicKey(_ info: [String: Any]) -> Bool {
+        !((info[publicKeyKey] as? String)?.trimmingCharacters(in: .whitespaces) ?? "").isEmpty
+    }
+
     public static func decide(variant: AppVariant, testRun: Bool, info: [String: Any]) -> UpdateAvailability {
         guard variant == .production else { return .unavailable(.developmentApp) }
         guard !testRun else { return .unavailable(.testRun) }
