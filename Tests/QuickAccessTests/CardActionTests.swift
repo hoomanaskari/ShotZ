@@ -43,32 +43,53 @@ struct CardActionTests {
 }
 
 @MainActor
-struct CardButtonTests {
-    @Test(arguments: [CardSize.small, .medium, .large])
-    func hitTargetsAreAtLeast28(size: CardSize) {
-        let style = CardStyle(size: size)
-        let chip = CardButton(action: .close, showsTitle: false, style: style)
-        chip.frame = CGRect(x: 10, y: 10, width: style.chip, height: style.chip)
-        #expect(chip.hitFrame.width >= 28 && chip.hitFrame.height >= 28)
-        let pill = CardButton(action: .copy, showsTitle: true, style: style)
-        pill.frame = CGRect(x: 0, y: 0, width: pill.pillWidth, height: style.pillHeight)
-        #expect(pill.hitFrame.height >= 28)
-        #expect(pill.pillWidth > style.pillHeight)
+struct CardOverlayLayoutTests {
+    func laidOut(_ size: CardSize) -> CardOverlayView {
+        let overlay = CardOverlayView(style: CardStyle(size: size), captionText: "5120 × 2880")
+        overlay.frame = CGRect(x: 0, y: 0, width: size.width, height: size.height.rounded())
+        overlay.layoutSubtreeIfNeeded()
+        return overlay
     }
 
     @Test(arguments: [CardSize.small, .medium, .large])
-    func overlayControlsDoNotOverlap(size: CardSize) {
-        let style = CardStyle(size: size)
-        let overlay = CardOverlayView(style: style, captionText: "5120 × 2880")
-        overlay.frame = CGRect(x: 0, y: 0, width: size.width, height: size.height.rounded())
-        overlay.layoutSubtreeIfNeeded()
-        let buttons = (overlay.accessibilityChildren() as? [CardButton]) ?? []
-        #expect(buttons.count == 5)
-        for (i, a) in buttons.enumerated() {
-            #expect(overlay.bounds.contains(a.frame), "\(a.action) inside the card")
-            for b in buttons[(i + 1)...] {
-                #expect(!a.hitFrame.intersects(b.hitFrame), "\(a.action) vs \(b.action) at \(size)")
+    func hitTargetsAtLeast28AndInsideTheCard(size: CardSize) {
+        let overlay = laidOut(size)
+        #expect(overlay.buttons.count == 5)
+        for (action, button) in overlay.buttons {
+            #expect(button.frame.width >= 28 && button.frame.height >= 28, "\(action) at \(size)")
+            #expect(overlay.bounds.contains(button.frame), "\(action) inside the card at \(size)")
+        }
+    }
+
+    @Test(arguments: [CardSize.small, .medium, .large])
+    func controlsDoNotOverlap(size: CardSize) {
+        let overlay = laidOut(size)
+        let frames = overlay.buttons.map { ($0.action, $0.button.frame) }
+        for (i, a) in frames.enumerated() {
+            for b in frames[(i + 1)...] {
+                #expect(!a.1.intersects(b.1), "\(a.0) vs \(b.0) at \(size)")
             }
         }
+    }
+
+    @Test func copySaveAreEqualWidthGlassWithTooltips() {
+        let overlay = laidOut(.large)
+        let copy = overlay.button(for: .copy), save = overlay.button(for: .save)
+        #expect(copy?.frame.width == save?.frame.width)
+        for (action, button) in overlay.buttons {
+            #expect(button.role == .glass)
+            #expect(button.toolTip?.contains(action.title) == true)
+            #expect(button.acceptsFirstMouse(for: nil)) // works in the non-activating panel
+            #expect(!button.needsPanelToBecomeKey)
+        }
+        #expect(overlay.button(for: .copy)?.toolTip?.contains("⌘C") == true)
+    }
+
+    @Test func buttonsActivateTheirAction() {
+        let overlay = laidOut(.medium)
+        var fired: [CardAction] = []
+        overlay.onAction = { fired.append($0) }
+        for (_, button) in overlay.buttons { _ = button.accessibilityPerformPress() }
+        #expect(fired == [.close, .annotate, .quickLook, .copy, .save])
     }
 }

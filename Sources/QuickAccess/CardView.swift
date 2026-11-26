@@ -31,7 +31,6 @@ import ShotzCore
     /// Blurred aspect-fill of the thumbnail behind letterboxed images.
     private let backdropLayer = CALayer()
     private let backdropTint = CALayer()
-    private let contactShadow = CALayer()
     private let borderLayer = CALayer()
     /// Built on first use (hover, confirmation, VoiceOver): its glass
     /// controls are the costliest part of a card, and most cards are never hovered.
@@ -62,15 +61,8 @@ import ShotzCore
         wantsLayer = true
         layerContentsRedrawPolicy = .never
         layer?.masksToBounds = false
-        // Two shadows: a large soft ambient one on the card layer, and a tight
-        // contact shadow that keeps the edge defined on any background.
+        // ShotzUI `Elevation.overlay` (geometry set in applyPalette).
         layer?.shadowColor = .black
-        layer?.shadowOffset = CGSize(width: 0, height: -4)
-        layer?.shadowRadius = 12
-        contactShadow.shadowColor = .black
-        contactShadow.shadowOffset = CGSize(width: 0, height: -0.5)
-        contactShadow.shadowRadius = 1.5
-        layer?.addSublayer(contactShadow)
 
         clip.wantsLayer = true
         clip.layerContentsRedrawPolicy = .never
@@ -153,8 +145,6 @@ import ShotzCore
         borderLayer.borderWidth = 1 / scale
         let path = CGPath(roundedRect: bounds, cornerWidth: style.cornerRadius, cornerHeight: style.cornerRadius, transform: nil)
         layer?.shadowPath = path
-        contactShadow.frame = bounds
-        contactShadow.shadowPath = path
         CATransaction.commit()
     }
 
@@ -175,8 +165,10 @@ import ShotzCore
         clip.layer?.backgroundColor = palette.backdrop
         backdropTint.backgroundColor = palette.backdropTint
         borderLayer.borderColor = palette.border
-        layer?.shadowOpacity = palette.ambientShadowOpacity
-        contactShadow.shadowOpacity = palette.contactShadowOpacity
+        // CG blur ≈ 2 × CALayer shadowRadius; AppKit layers are y-up.
+        layer?.shadowOffset = CGSize(width: 0, height: -palette.shadow.offsetY)
+        layer?.shadowRadius = palette.shadow.blur / 2
+        layer?.shadowOpacity = Float(palette.shadow.opacity)
         overlayStorage?.apply(palette)
         CATransaction.commit()
     }
