@@ -44,7 +44,7 @@ import AppKit
     var pillWidth: CGFloat {
         guard let label else { return style.chip }
         let pad = style.pillHeight * 0.42
-        return (pad + style.pillIconSize + 6 + label.intrinsicContentSize.width + pad + 2).rounded(.up)
+        return (pad + style.pillIconSize + 4 + label.intrinsicContentSize.width + pad + 2).rounded(.up)
     }
 
     /// The (possibly larger) rectangle that counts as a hit, in the superview.
@@ -61,10 +61,10 @@ import AppKit
         if let label {
             let pad = (bounds.height * 0.42).rounded()
             let t = label.intrinsicContentSize
-            let content = iconSize + 6 + t.width
+            let content = iconSize + 4 + t.width
             let x0 = ((bounds.width - content) / 2).rounded()
             iconView.frame = CGRect(x: x0, y: 0, width: iconSize + 2, height: bounds.height)
-            label.frame = CGRect(x: x0 + iconSize + 6, y: ((bounds.height - t.height) / 2).rounded(), width: min(t.width + 2, bounds.width - pad), height: t.height)
+            label.frame = CGRect(x: x0 + iconSize + 4, y: ((bounds.height - t.height) / 2).rounded(), width: min(t.width + 2, bounds.width - pad), height: t.height)
         } else {
             iconView.frame = bounds
         }
