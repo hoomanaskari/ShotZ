@@ -317,9 +317,16 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 
 - Bundle id `app.shotz.Shotz`, `LSUIElement = true`, `LSMinimumSystemVersion = 15.0`.
 - Signing: `bundle.sh` signs with `$SHOTZ_SIGN_IDENTITY` if set, otherwise the
-  first "Apple Development" identity in the keychain, otherwise ad-hoc. A
-  stable identity matters: it keeps the Screen Recording grant across rebuilds.
-  Hardened runtime on for release. No notarisation, no upload.
+  first "Apple Development" identity in the keychain, otherwise ad-hoc; the
+  same rule for debug and release. A stable identity matters: it keeps the
+  Screen Recording grant across rebuilds, so a release build refuses ad-hoc
+  unless `SHOTZ_ALLOW_ADHOC=1`. Hardened runtime on for release (verified after
+  signing), `--timestamp=none` (no network). Version from `Resources/Info.plist`
+  (checked). No notarisation, no upload.
+- `install.sh`: main checkout only; stages and verifies the release next to
+  `/Applications/Shotz.app`, quits only the installed copy (resolved
+  executable path; SIGTERM, then SIGKILL after 5 s), swaps with two renames
+  (restores the old copy on failure), relaunches if it was running.
 - Not sandboxed (it must spawn `screencapture` and write to the export folder).
 
 ## 9. Test strategy

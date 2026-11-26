@@ -55,10 +55,38 @@ struct FileHistoryStoreTests {
         let a = try capture()
         await store.add(a)
         let export = URL(filePath: "/tmp/exported.png")
-        await store.markExported(id: a.id, to: export)
+        await store.markExported(id: a.id, url: export)
         await store.add(a)
         #expect(await store.count == 1)
         #expect(await store.entry(id: a.id)?.exportURL == export)
+    }
+
+    /// "Save overwrites the previous export" survives a relaunch, through the
+    /// ShotzCore protocol the editor will use.
+    @Test func exportURLPersistsAcrossReopenViaProtocol() async throws {
+        defer { cleanup() }
+        let a = try capture()
+        let first: any HistoryStore = FileHistoryStore(paths: paths)
+        await first.add(a)
+        #expect(await first.exportURL(for: a.id) == nil)
+        let export = paths.root.appending(path: "Exports/Shotz A.png")
+        try FileManager.default.createDirectory(at: export.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FakeCaptureEngine.writePNG(width: 2, height: 2, to: export)
+        await first.markExported(id: a.id, url: export)
+
+        let reopened: any HistoryStore = FileHistoryStore(paths: paths)
+        #expect(await reopened.exportURL(for: a.id) == export)
+        // A later export replaces it.
+        let second = paths.root.appending(path: "Exports/Shotz A 2.png")
+        try FakeCaptureEngine.writePNG(width: 2, height: 2, to: second)
+        await reopened.markExported(id: a.id, url: second)
+        #expect(await FileHistoryStore(paths: paths).exportURL(for: a.id) == second)
+        // Gone from disk: nil, so the editor makes a fresh export.
+        try FileManager.default.removeItem(at: second)
+        #expect(await reopened.exportURL(for: a.id) == nil)
+        // Unknown capture: nil, and marking it is a no-op.
+        await reopened.markExported(id: UUID(), url: export)
+        #expect(await reopened.exportURL(for: UUID()) == nil)
     }
 
     @Test func orderIsByCreationDateNotInsertion() async throws {
@@ -177,7 +205,7 @@ struct FileHistoryStoreTests {
         try encoder.encode([a]).write(to: paths.historyIndex)
         let store = FileHistoryStore(paths: paths)
         #expect(await store.recent(limit: 10).map(\.id) == [a.id])
-        await store.markExported(id: a.id, to: URL(filePath: "/tmp/x.png"))
+        await store.markExported(id: a.id, url: URL(filePath: "/tmp/x.png"))
         let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: paths.historyIndex)) as? [String: Any]
         #expect(raw?["version"] as? Int == 1)
     }
@@ -198,7 +226,7 @@ struct FileHistoryStoreTests {
         let outside = FileManager.default.temporaryDirectory.appending(path: "ShotzKeep-\(UUID().uuidString).png")
         try FakeCaptureEngine.writePNG(width: 2, height: 2, to: outside)
         defer { try? FileManager.default.removeItem(at: outside) }
-        await store.markExported(id: a.id, to: outside)
+        await store.markExported(id: a.id, url: outside)
 
         await store.clear()
         #expect(await store.count == 0)
@@ -245,7 +273,7 @@ struct FileHistoryStoreTests {
         await two.add(b)
         #expect(await two.count == 2)
         await one.remove(id: a.id, deleteFile: false)
-        await two.markExported(id: b.id, to: URL(filePath: "/tmp/b.png"))   // two's cache still had `a`
+        await two.markExported(id: b.id, url: URL(filePath: "/tmp/b.png"))   // two's cache still had `a`
         let fresh = FileHistoryStore(paths: paths)
         #expect(await fresh.recent(limit: 10).map(\.id) == [b.id])
         #expect(await fresh.entry(id: b.id)?.exportURL == URL(filePath: "/tmp/b.png"))

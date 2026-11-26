@@ -42,6 +42,10 @@ import ShotzCore
         exporter = DefaultExportService(paths: paths)
         quickAccess = QuickAccessController(settings: settings, exporter: exporter)
         let history = self.history
+        // When EditorCoordinator gains export memory (engineer D), pass it in the
+        // same closure style:
+        //   previousExport: { await history.exportURL(for: $0) },
+        //   recordExport: { await history.markExported(id: $0, url: $1) }
         editor = EditorCoordinator(settings: settings, exporter: exporter) { history.documentURL(for: $0) }
         hotkeys = HotkeyCenter(settings: settings, devHotkeys: HotkeyCenter.devHotkeysRequested())
         statusItem = StatusItemController(hotkeys: hotkeys)

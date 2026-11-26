@@ -19,6 +19,14 @@ struct KeyComboTests {
         #expect(KeyCombo.defaultFullscreen.description == "⇧⌘3")
         #expect(KeyCombo.devArea.description == "⌃⌥⌘4")
         #expect(KeyCombo(keyCode: 0x00, modifiers: []).description == "A")
+        #expect(KeyCombo(keyCode: 0x6F, modifiers: [.control, .option, .shift, .command]).description == "⌃⌥⇧⌘F12")
+        #expect(KeyCombo(keyCode: 0x7A, modifiers: []).description == "F1")
+        #expect(KeyCombo(keyCode: 0x50, modifiers: [.shift]).description == "⇧F19")
+        #expect(KeyCombo(keyCode: 0x31, modifiers: [.option]).description == "⌥Space")
+        #expect(KeyCombo(keyCode: 0x7E, modifiers: [.command]).description == "⌘↑")
+        #expect(KeyCombo(keyCode: 0x24, modifiers: [.command]).description == "⌘↩")
+        #expect(KeyCombo(keyCode: 0x2A, modifiers: [.command]).description == "⌘\\")
+        #expect(KeyCombo(keyCode: 0xEE, modifiers: [.command]).description == "⌘Key 238")
     }
 
     @Test func defaultsAreCmdShift345() {

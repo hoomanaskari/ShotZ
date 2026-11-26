@@ -192,10 +192,12 @@ import Foundation
         )
     }
 
-    /// Removes every Shotz key, restoring all defaults.
+    /// Restores every setting to its default. Keeps `hasCompletedOnboarding`:
+    /// resetting preferences is not a reinstall, so the welcome window does
+    /// not come back.
     public func resetAll() {
         objectWillChange.send()
-        for key in Self.allKeys {
+        for key in Self.allKeys where key != SettingsKey.hasCompletedOnboarding {
             defaults.removeObject(forKey: key)
         }
     }

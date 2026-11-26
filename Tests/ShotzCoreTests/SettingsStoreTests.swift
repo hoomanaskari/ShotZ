@@ -62,7 +62,9 @@ struct SettingsStoreTests {
         #expect(again.exportFolder.path(percentEncoded: false).hasPrefix("/tmp/shotz-export"))
         #expect(again.fileNamePattern == "X %H")
 
+        again.hasCompletedOnboarding = true
         again.resetAll()
+        #expect(again.hasCompletedOnboarding)   // reset is not a reinstall
         #expect(again.showMenuBarIcon)
         #expect(again.quickAccessSize == .large)
         #expect(again.exportFormat == .png)

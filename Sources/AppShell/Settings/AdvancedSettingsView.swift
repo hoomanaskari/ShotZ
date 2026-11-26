@@ -57,10 +57,7 @@ struct AdvancedSettingsView: View {
             isPresented: $confirmReset
         ) {
             Button(String(localized: "Reset"), role: .destructive) {
-                // Keep onboarding state: resetting preferences is not a reinstall.
-                let onboarded = settings.hasCompletedOnboarding
-                settings.resetAll()
-                settings.hasCompletedOnboarding = onboarded
+                settings.resetAll()   // keeps the onboarding-done flag
             }
         } message: {
             Text(String(localized: "Every setting, including shortcuts, goes back to its default."))

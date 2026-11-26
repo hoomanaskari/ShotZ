@@ -60,9 +60,9 @@ public enum KeyNames {
     public static func isSupported(_ keyCode: UInt32) -> Bool { table[keyCode] != nil }
     public static func isFunctionKey(_ keyCode: UInt32) -> Bool { functionKeyCodes.contains(keyCode) }
 
-    /// "⌃⌥⌘4", "⇧F5", …
+    /// "⌃⌥⌘4", "⇧F5", … (ShotzCore's `KeyCombo.description`, the one source of key names).
     public static func display(_ combo: KeyCombo) -> String {
-        modifierGlyphs(combo.modifiers) + (table[combo.keyCode]?.display ?? "Key \(combo.keyCode)")
+        combo.description
     }
 
     public static func modifierGlyphs(_ m: KeyCombo.Modifiers) -> String {

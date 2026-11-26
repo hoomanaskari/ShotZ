@@ -17,8 +17,11 @@ import SwiftUI
     public func debugRender(tab: SettingsTab) async -> Data? {
         let selection = SettingsSelection()
         selection.tab = tab
-        return await OffscreenRenderer.png(SettingsRootView(context: context, selection: selection),
-                                           size: CGSize(width: 560, height: 500))
+        return await OffscreenRenderer.png(
+            SettingsRootView(context: context, selection: selection),
+            size: CGSize(width: 560, height: 500),
+            chrome: .init(title: String(localized: "Shotz Settings"), styleMask: [.titled, .closable, .miniaturizable])
+        )
     }
 
     public func show(tab: SettingsTab? = nil) {
@@ -56,32 +59,59 @@ import SwiftUI
     @Published var tab: SettingsTab = .general
 }
 
+/// Tabs as a segmented control over the selected pane. (SwiftUI's `TabView`
+/// tab strip does not draw in off-screen renders; a segmented picker does,
+/// and looks the same.)
 struct SettingsRootView: View {
     let context: SettingsContext
     @ObservedObject var selection: SettingsSelection
 
     var body: some View {
-        TabView(selection: $selection.tab) {
-            GeneralSettingsView(context: context, settings: context.settings, loginItem: context.loginItem,
-                                screenRecording: context.screenRecording)
-                .tabItem { Label(String(localized: "General"), systemImage: "gearshape") }
-                .tag(SettingsTab.general)
-            ShortcutsSettingsView(settings: context.settings, hotkeys: context.hotkeys)
-                .tabItem { Label(String(localized: "Shortcuts"), systemImage: "command") }
-                .tag(SettingsTab.shortcuts)
-            QuickAccessSettingsView(settings: context.settings)
-                .tabItem { Label(String(localized: "Quick Access"), systemImage: "square.stack") }
-                .tag(SettingsTab.quickAccess)
-            CaptureSettingsView(settings: context.settings)
-                .tabItem { Label(String(localized: "Capture"), systemImage: "camera.aperture") }
-                .tag(SettingsTab.capture)
-            EditorSettingsView(settings: context.settings)
-                .tabItem { Label(String(localized: "Editor"), systemImage: "pencil.and.outline") }
-                .tag(SettingsTab.editor)
-            AdvancedSettingsView(context: context, settings: context.settings)
-                .tabItem { Label(String(localized: "Advanced"), systemImage: "slider.horizontal.3") }
-                .tag(SettingsTab.advanced)
+        VStack(spacing: 0) {
+            Picker(String(localized: "Settings section"), selection: $selection.tab) {
+                ForEach(SettingsTab.allCases, id: \.self) { tab in
+                    Text(tab.title).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+            pane
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 560, height: 500)
+    }
+
+    @ViewBuilder private var pane: some View {
+        switch selection.tab {
+        case .general:
+            GeneralSettingsView(context: context, settings: context.settings, loginItem: context.loginItem,
+                                screenRecording: context.screenRecording)
+        case .shortcuts:
+            ShortcutsSettingsView(settings: context.settings, hotkeys: context.hotkeys)
+        case .quickAccess:
+            QuickAccessSettingsView(settings: context.settings)
+        case .capture:
+            CaptureSettingsView(settings: context.settings)
+        case .editor:
+            EditorSettingsView(settings: context.settings)
+        case .advanced:
+            AdvancedSettingsView(context: context, settings: context.settings)
+        }
+    }
+}
+
+extension SettingsTab {
+    var title: String {
+        switch self {
+        case .general: String(localized: "General")
+        case .shortcuts: String(localized: "Shortcuts")
+        case .quickAccess: String(localized: "Quick Access")
+        case .capture: String(localized: "Capture")
+        case .editor: String(localized: "Editor")
+        case .advanced: String(localized: "Advanced")
+        }
     }
 }

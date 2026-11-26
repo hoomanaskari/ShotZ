@@ -61,7 +61,7 @@ extension AppCoordinator {
                 if let url = try await exporter.saveToExportFolder(
                     imageAt: result.fileURL, suggestedName: result.displayName, askDestination: false
                 ) {
-                    await history.markExported(id: result.id, to: url)
+                    await history.markExported(id: result.id, url: url)
                 }
             } catch {
                 log.error("Auto-save failed: \(String(describing: error), privacy: .public)")
@@ -123,6 +123,6 @@ extension AppCoordinator {
 
     func quickAccess(didExport capture: CaptureResult, to url: URL) {
         log.info("Exported \(capture.displayName, privacy: .public) to \(url.lastPathComponent, privacy: .public)")
-        Task { await history.markExported(id: capture.id, to: url) }
+        Task { await history.markExported(id: capture.id, url: url) }
     }
 }
