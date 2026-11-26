@@ -221,6 +221,85 @@ struct FileHistoryStoreTests {
         #expect(exists(outside))
     }
 
+    // MARK: Two processes sharing one folder (two stores = two open files, so
+    // they contend for the flock exactly like separate processes would).
+
+    @Test func storesSeeEachOthersWritesAndNeverDropThem() async throws {
+        defer { cleanup() }
+        let app = FileHistoryStore(paths: paths), dev = FileHistoryStore(paths: paths)
+        #expect(await dev.count == 0)          // dev has loaded (empty) first
+        let a = try capture(age: 5)
+        await app.add(a)
+        #expect(await dev.recent(limit: 10).map(\.id) == [a.id])   // reloads the replaced file
+        let b = try capture()
+        await dev.add(b)
+        #expect(await app.recent(limit: 10).map(\.id) == [b.id, a.id])
+        #expect(await FileHistoryStore(paths: paths).count == 2)
+    }
+
+    @Test func staleCacheNeverResurrectsARemovedEntry() async throws {
+        defer { cleanup() }
+        let one = FileHistoryStore(paths: paths), two = FileHistoryStore(paths: paths)
+        let a = try capture(age: 5), b = try capture()
+        await one.add(a)
+        await two.add(b)
+        #expect(await two.count == 2)
+        await one.remove(id: a.id, deleteFile: false)
+        await two.markExported(id: b.id, to: URL(filePath: "/tmp/b.png"))   // two's cache still had `a`
+        let fresh = FileHistoryStore(paths: paths)
+        #expect(await fresh.recent(limit: 10).map(\.id) == [b.id])
+        #expect(await fresh.entry(id: b.id)?.exportURL == URL(filePath: "/tmp/b.png"))
+    }
+
+    @Test func concurrentWritersInTwoStoresLoseNothing() async throws {
+        defer { cleanup() }
+        let one = FileHistoryStore(paths: paths), two = FileHistoryStore(paths: paths)
+        let captures = try (0..<40).map { try capture(age: Double($0)) }
+        await withTaskGroup(of: Void.self) { group in
+            for (i, c) in captures.enumerated() {
+                let store = i.isMultiple(of: 2) ? one : two
+                group.addTask { await store.add(c) }
+            }
+        }
+        #expect(await FileHistoryStore(paths: paths).recent(limit: 100).map(\.id) == captures.map(\.id))
+        #expect(exists(paths.root.appending(path: "history.lock")))
+    }
+
+    @Test func foundationWriterInterleavingIsMigratedNotLost() async throws {
+        defer { cleanup() }
+        let store = FileHistoryStore(paths: paths)
+        let a = try capture(age: 5)
+        await store.add(a)
+        // Another (older) build rewrites the index as a bare array with its own entry.
+        let b = try capture()
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode([b]).write(to: paths.historyIndex, options: .atomic)
+        #expect(await store.recent(limit: 10).map(\.id) == [b.id])   // sees the other writer's file
+        await store.add(a)
+        #expect(Set(await FileHistoryStore(paths: paths).recent(limit: 10).map(\.id)) == [a.id, b.id])
+    }
+
+    // MARK: Dev profile isolation
+
+    @Test func devProfileStoreNeverResolvesInsideTheRealFolder() {
+        let real = ShotzPaths.forProfile(dev: false)
+        let dev = ShotzPaths.forProfile(dev: true)
+        let realRoot = real.root.standardizedFileURL.path(percentEncoded: false)
+        let realPrefix = realRoot.hasSuffix("/") ? realRoot : realRoot + "/"
+        let store = FileHistoryStore(paths: dev)
+        let devURLs = [dev.root, dev.captures, dev.documents, dev.historyIndex, dev.temporary, dev.dragExports,
+                       store.documentURL(for: UUID())]
+        for url in devURLs {
+            let path = url.standardizedFileURL.path(percentEncoded: false)
+            #expect(!path.hasPrefix(realPrefix), "\(path) is inside \(realPrefix)")
+            #expect(path != realRoot)
+        }
+        #expect(dev.historyIndex != real.historyIndex)
+        #expect(dev.temporary != real.temporary)
+        #expect(dev.root.path(percentEncoded: false).contains("/Application Support/Shotz-Dev"))
+    }
+
     @Test func documentURLPerID() {
         let id = UUID()
         let store = FileHistoryStore(paths: paths)
