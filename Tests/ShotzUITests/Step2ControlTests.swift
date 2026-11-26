@@ -96,3 +96,49 @@ struct EditorPanelControlTests {
         }
     }
 }
+
+@MainActor
+struct Step3Tests {
+    init() { _ = NSApplication.shared }
+
+    @Test func glassLabelIsInert() {
+        let label = ShotzGlassLabel("Copied", style: .caption)
+        #expect(label.hitTest(NSPoint(x: 5, y: 5)) == nil)
+        #expect(label.accessibilityRole() == .staticText && label.accessibilityLabel() == "Copied")
+        #expect(label.trackingAreas.isEmpty)
+        let pill = ShotzCaptionPill("1920 × 1080", cardSize: .small)
+        #expect(pill.hitTest(NSPoint(x: 5, y: 5)) == nil && pill.intrinsicContentSize.height == 18)
+    }
+
+    @Test func toastPositions() {
+        let host = NSView(frame: CGRect(x: 0, y: 0, width: 300, height: 200))
+        let centre = ShotzToast("Copied", compact: true)
+        centre.show(in: host, position: .center, duration: 60)
+        #expect(abs(centre.frame.midX - 150) <= 0.5 && abs(centre.frame.midY - 100) <= 0.5)
+        let bottom = ShotzToast("Saved")
+        bottom.show(in: host, position: .bottom, duration: 60)
+        #expect(bottom.frame.minY == ShotzUI.Space.l) // unflipped host: bottom edge is y = 0
+        #expect(bottom.hitTest(NSPoint(x: 1, y: 1)) == nil)
+    }
+
+    @Test func appearanceAccessorsAndTokens() {
+        #expect(ShotzUI.isDark(in: NSAppearance(named: .darkAqua)!))
+        #expect(!ShotzUI.isDark(in: NSAppearance(named: .aqua)!))
+        #expect(ShotzUI.Typography.display.size == 20 && ShotzUI.Typography.display.weight == .semibold)
+        #expect(ShotzUI.Elevation.floating(dark: true).opacity > ShotzUI.Elevation.floating(dark: false).opacity)
+        #expect(abs(ShotzUI.Palette.scrim.resolved(in: NSAppearance(named: .aqua)!).alphaComponent - 0.25) < 0.001)
+    }
+
+    @Test func textFieldReportsAndSizes() {
+        let f = ShotzTextField("Shotz %Y-%m-%d", placeholder: "Pattern", label: "File name pattern")
+        f.usesMonospacedFont = true
+        #expect(f.text == "Shotz %Y-%m-%d" && f.intrinsicContentSize.height >= 28)
+        f.text = "x"
+        #expect(f.text == "x")
+    }
+
+    @Test func iconOnlyGlassPair() {
+        let b = ShotzButton.glass("Copy", icon: .copy, cardSize: .small, iconOnly: true)
+        #expect(b.title == nil && b.accessibilityLabel() == "Copy" && b.toolTip == "Copy" && b.intrinsicContentSize.width >= 28)
+    }
+}

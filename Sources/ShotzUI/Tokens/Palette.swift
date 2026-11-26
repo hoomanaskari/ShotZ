@@ -78,6 +78,10 @@ extension ShotzUI {
         public static var success: NSColor { dynamic("success", hex(0x1A7F45), hex(0x4CD98E), hex(0x0E5C30), hex(0x7BEAB0)) }
         public static var warning: NSColor { dynamic("warning", hex(0x9A6100), hex(0xFFC453), hex(0x6E4500), hex(0xFFD88A)) }
 
+        // MARK: Scrim
+        /// Dim laid over an image under hover controls (25 %; 35 % with increased contrast).
+        public static var scrim: NSColor { dynamic("scrim", black(0.25), black(0.25), black(0.35), black(0.35)) }
+
         // MARK: Glass (over images: stack hover buttons)
         /// Background of controls floating over arbitrary image content.
         public static var glassFill: NSColor { dynamic("glassFill", hex(0x1A1A1D, 0.62), hex(0x1A1A1D, 0.62), hex(0x000000, 0.85), hex(0x000000, 0.85)) }

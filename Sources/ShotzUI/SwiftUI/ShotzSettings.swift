@@ -146,13 +146,15 @@ public struct ShotzSwitchStyle: ToggleStyle {
     private struct SwitchBody: View {
         let configuration: Configuration
         @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.labelsVisibility) private var labelsVisibility
         @FocusState private var focused: Bool
 
         var body: some View {
             let on = configuration.isOn
             let track = on ? Color(nsColor: ShotzUI.Palette.accentFill) : Color(nsColor: ShotzUI.Palette.fillPressed)
             HStack(spacing: ShotzUI.Space.s) {
-                configuration.label
+                // `.labelsHidden()` drops the label and its gap (the switch stands alone in a row).
+                if labelsVisibility != .hidden { configuration.label }
                 ZStack(alignment: on ? .trailing : .leading) {
                     Capsule().fill(track)
                         .overlay(Capsule().strokeBorder(Color(nsColor: ShotzUI.Palette.border), lineWidth: on ? 0 : 1))
@@ -168,7 +170,7 @@ public struct ShotzSwitchStyle: ToggleStyle {
             }
             .focusable()
             .focused($focused)
-            .accessibilityElement(children: .ignore)
+            .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityValue(on ? Text("On") : Text("Off"))
         }
@@ -179,6 +181,17 @@ public struct ShotzSwitchStyle: ToggleStyle {
 public struct ShotzCheckboxStyle: ToggleStyle {
     public init() {}
     public func makeBody(configuration: Configuration) -> some View {
+        CheckboxBody(configuration: configuration)
+    }
+
+    private struct CheckboxBody: View {
+        let configuration: Configuration
+        @Environment(\.labelsVisibility) private var labelsVisibility
+        var body: some View { shotzCheckboxBody(configuration, showsLabel: labelsVisibility != .hidden) }
+    }
+}
+
+@MainActor private func shotzCheckboxBody(_ configuration: ToggleStyleConfiguration, showsLabel: Bool) -> some View {
         let on = configuration.isOn
         let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
         return Button { configuration.isOn.toggle() } label: {
@@ -189,16 +202,17 @@ public struct ShotzCheckboxStyle: ToggleStyle {
                     if on { ShotzIconView(.check, size: 11).foregroundStyle(Color(nsColor: ShotzUI.Palette.onAccent)) }
                 }
                 .frame(width: 14, height: 14)
-                configuration.label
-                    .font(ShotzUI.Typography.body.swiftUIFont)
-                    .foregroundStyle(Color(nsColor: ShotzUI.Palette.textPrimary))
+                if showsLabel {
+                    configuration.label
+                        .font(ShotzUI.Typography.body.swiftUIFont)
+                        .foregroundStyle(Color(nsColor: ShotzUI.Palette.textPrimary))
+                }
             }
             .frame(minHeight: 28)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityValue(on ? Text("On") : Text("Off"))
-    }
 }
 
 extension ToggleStyle where Self == ShotzSwitchStyle { public static var shotzSwitch: ShotzSwitchStyle { ShotzSwitchStyle() } }
