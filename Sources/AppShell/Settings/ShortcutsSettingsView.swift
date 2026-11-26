@@ -17,7 +17,7 @@ struct ShortcutsSettingsView: View {
     ]
 
     private var captureFailures: Bool {
-        !hotkeys.devHotkeys
+        hotkeys.mode == .standard
             && [.captureFullscreen, .captureArea, .captureAllInOne].contains { hotkeys.registrationFailures[$0] != nil }
     }
 
@@ -33,9 +33,13 @@ struct ShortcutsSettingsView: View {
                 Note(String(localized: "Click a shortcut, then press the new keys. Esc cancels, Delete clears it."))
             }
 
-            if hotkeys.devHotkeys {
+            if let note = hotkeys.mode.sessionNote {
                 Section {
-                    Note(String(localized: "Launched with --dev-hotkeys: this session uses ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5 for the capture shortcuts. Changes here are saved and apply on a normal launch."))
+                    Note(note)
+                }
+            } else if hotkeys.registersNothing {
+                Section {
+                    Note(String(localized: "No global shortcuts are registered: every shortcut is cleared. Use the menu-bar menu, or set a shortcut above."))
                 }
             }
 
@@ -115,8 +119,8 @@ struct ShortcutRecorder: View {
             if let problem = recorder.problem, problem.action == action {
                 Text(problem.message).font(.callout).foregroundStyle(.red)
             }
-            if hotkeys.isDevOverridden(action), let effective = hotkeys.binding(for: action) {
-                Text(String(localized: "This session: \(KeyNames.display(effective))"))
+            if hotkeys.isDevOverridden(action) {
+                Text(String(localized: "This session: \(hotkeys.binding(for: action).map(KeyNames.display) ?? String(localized: "none"))"))
                     .font(.callout).foregroundStyle(.secondary)
             }
         }

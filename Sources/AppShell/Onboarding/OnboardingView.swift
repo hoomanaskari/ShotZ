@@ -197,9 +197,11 @@ struct SystemShortcutsPage: View {
                     .foregroundStyle(.green)
                     .font(.headline)
             }
-            if model.hotkeys.devHotkeys {
-                Text(String(localized: "Running with --dev-hotkeys: this session uses ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5."))
+            if let note = model.hotkeys.mode.sessionNote {
+                Text(note)
                     .font(.callout).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             } else if !model.heldByAnotherApp.isEmpty {
                 VStack(spacing: 8) {
                     Text(String(localized: "Another app is already using \(model.heldByAnotherApp.compactMap { model.hotkeys.binding(for: $0).map(KeyNames.display) }.joined(separator: ", ")). Quit it or turn its shortcuts off, or use alternates."))
