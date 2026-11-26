@@ -99,7 +99,18 @@ than 1024 px, or fully transparent art.
 - At 16 px the current artwork reads as a framed camera, but the marker is lost. A simplified
   16 px treatment has been proposed to the owner and is not shipped.
 
-## The menu-bar glyph (optional)
+## The menu-bar glyph
+
+By default ShotZ draws its menu-bar glyph in code: **corners + lens**, four rounded capture corners
+around a lens ring, echoing the capture corners and lens of the app icon (the owner's pick from the
+options in `scripts/menubar-glyph-options.swift`). The geometry is in
+`Sources/AppShell/StatusItem/MenuBarGlyphGeometry.swift`, on ShotzIcon's 256-unit grid with round
+caps and joins, at menu-bar weight (2 px strokes at 1x, 3 px at 2x). Each backing scale gets its own
+pixel-snapped bitmap at the 18 pt status-item size; at 1x the lens dot is left out so the ring stays
+open. ShotZ uses it as a template image (menu-bar colour); ShotZ Dev draws it in amber
+(`StatusItemIcon.devTint`).
+
+### Replacing it with a supplied glyph (optional)
 
 ```bash
 scripts/make-icons.sh --glyph path/to/MenuBarGlyph.svg
@@ -111,7 +122,8 @@ scripts/make-icons.sh --glyph path/to/MenuBarGlyph.svg
   template image into `Sources/AppShell/StatusItem/MenuBarGlyph.generated.swift`. The master is
   kept as `Resources/icon-master/MenuBarGlyph.<ext>`.
 - ShotZ shows it in the menu bar's own colour. ShotZ Dev tints it amber in code
-  (`StatusItemIcon.devTint`). Without a glyph master, the glyph drawn in `StatusItemIcon` stays.
+  (`StatusItemIcon.devTint`). A supplied glyph overrides the drawn one; without a glyph master,
+  the drawn corners + lens glyph is used.
 
 ## Trying it without changing anything
 
