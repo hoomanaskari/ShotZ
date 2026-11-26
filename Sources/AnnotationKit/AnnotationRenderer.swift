@@ -86,7 +86,7 @@ public enum AnnotationRenderer {
     ) throws -> CGImage {
         let image = try base.image()
         let outputScale = rawScale > 0 ? rawScale : 1
-        let layout = BackgroundLayout(document: document, visibleContent: visibleContent(document, base: base))
+        let layout = backgroundLayout(document, base: base)
         let width = max(Int((layout.canvasSize.width * outputScale).rounded()), 1)
         let height = max(Int((layout.canvasSize.height * outputScale).rounded()), 1)
         let space = Redactor.workingSpace(of: image)
@@ -102,17 +102,12 @@ public enum AnnotationRenderer {
             ctx.setFillColor(opaqueMatte.cgColor)
             ctx.fill(canvas)
         }
-        if let background = document.background {
-            drawBackgroundFill(background.fill, in: canvas, ctx: ctx)
-        }
+        drawBackground(document, base: base, image: image, layout: layout, in: ctx)
 
         // Image group: base image, redactions, objects; clipped to the visible image with the
-        // background's corner radius, over its drop shadow.
+        // background's inner corner radius (`imageCornerRadius`).
         let rect = document.imageRect
-        let radius = min(document.background?.cornerRadius ?? 0, min(rect.width, rect.height) / 2)
-        if let bg = document.background, let shadow = shadowParameters(bg.shadow, imageSize: rect.size) {
-            drawShadow(shadow, image: image, document: document, layout: layout, radius: radius, in: ctx)
-        }
+        let radius = imageCornerRadius(document)
         ctx.saveGState()
         ctx.translateBy(x: layout.imageFrame.minX - rect.minX, y: layout.imageFrame.minY - rect.minY)
         if radius > 0 {
@@ -129,6 +124,35 @@ public enum AnnotationRenderer {
 
         guard let output = ctx.makeImage() else { throw RenderError.contextCreationFailed }
         return output
+    }
+
+    /// Draws the presentation background only: the fill over the whole canvas and the image's
+    /// drop shadow, no image or objects. Exactly what export draws beneath the image, so an editor
+    /// preview matches. `ctx` is in top-left canvas space (`BackgroundLayout.canvasSize`, base-image
+    /// pixels); scale the CTM for zoom. Does nothing when the document has no background.
+    public static func drawBackground(_ document: AnnotationDocument, base: BaseImageProvider, in ctx: CGContext) {
+        guard document.background != nil, let image = try? base.image() else { return } // unreadable base: no shadow shape
+        drawBackground(document, base: base, image: image, layout: backgroundLayout(document, base: base), in: ctx)
+    }
+
+    /// The background layout for `document`, using the provider's visible-content bounds for auto-balance.
+    public static func backgroundLayout(_ document: AnnotationDocument, base: BaseImageProvider) -> BackgroundLayout {
+        BackgroundLayout(document: document, visibleContent: visibleContent(document, base: base))
+    }
+
+    /// Inner corner radius applied to the image (0 without a background), clamped to the crop.
+    public static func imageCornerRadius(_ document: AnnotationDocument) -> CGFloat {
+        let rect = document.imageRect
+        return max(min(document.background?.cornerRadius ?? 0, min(rect.width, rect.height) / 2), 0)
+    }
+
+    static func drawBackground(_ document: AnnotationDocument, base: BaseImageProvider, image: CGImage,
+                               layout: BackgroundLayout, in ctx: CGContext) {
+        guard let bg = document.background else { return }
+        drawBackgroundFill(bg.fill, in: CGRect(origin: .zero, size: layout.canvasSize), ctx: ctx)
+        if let shadow = shadowParameters(bg.shadow, imageSize: document.imageRect.size) {
+            drawShadow(shadow, image: image, document: document, layout: layout, radius: imageCornerRadius(document), in: ctx)
+        }
     }
 
     /// The visible-content rect used for auto-balance, relative to the crop's origin.

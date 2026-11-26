@@ -302,6 +302,35 @@ struct ShadowTests {
     }
 }
 
+struct BackgroundDrawingTests {
+    /// The public background pass (fill + shadow) matches export everywhere outside the image.
+    @Test(arguments: [BackgroundStyle.Shadow.off, .soft, .strong]) func drawBackgroundMatchesExport(_ shadow: BackgroundStyle.Shadow) throws {
+        var doc = AnnotationDocument(baseImageURL: URL(filePath: "/x"), pixelSize: CGSize(width: 400, height: 240))
+        doc.background = BackgroundStyle(fill: .gradient(GradientPreset.all[4].fill), padding: 0.12, cornerRadius: 16, shadow: shadow, aspect: .square)
+        let base = BaseImageProvider(image: TestImages.base(width: 400, height: 240), url: doc.baseImageURL)
+        let exported = Pixels(try AnnotationRenderer.renderImage(doc, base: base, outputScale: 1))
+        let layout = AnnotationRenderer.backgroundLayout(doc, base: base)
+        let w = Int(layout.canvasSize.width), h = Int(layout.canvasSize.height)
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: TestImages.sRGB,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.translateBy(x: 0, y: CGFloat(h))
+        ctx.scaleBy(x: 1, y: -1)
+        AnnotationRenderer.drawBackground(doc, base: base, in: ctx)
+        let preview = Pixels(ctx.makeImage()!)
+        #expect(preview.width == exported.width && preview.height == exported.height)
+        let image = layout.imageFrame.insetBy(dx: -1, dy: -1)
+        var worst = 0
+        for y in stride(from: 0, to: h, by: 3) {
+            for x in stride(from: 0, to: w, by: 3) where !image.contains(CGPoint(x: x, y: y)) {
+                worst = max(worst, zip(preview.rgba(x, y), exported.rgba(x, y)).map { abs(Int($0) - Int($1)) }.max() ?? 0)
+            }
+        }
+        // ≤ 4/255: only the antialiased image border next to a dark shadow differs (measured 3).
+        #expect(worst <= 4, "\(shadow): max channel difference \(worst)")
+        #expect(AnnotationRenderer.imageCornerRadius(doc) == 16)
+    }
+}
+
 struct HighlightTests {
     @Test func multiplyOnLightScreenOnDark() throws {
         // TestImages.base has a dark band at 62–72 % of the height; the rest is light.
