@@ -2,7 +2,7 @@ import CoreGraphics
 
 /// Finds the display under the pointer and its `screencapture -D` number.
 enum DisplayLocator {
-    struct Located: Equatable {
+    struct Located: Equatable, Sendable {
         let displayID: CGDirectDisplayID
         /// 1-based, main display first (screencapture's ordering).
         let number: Int
@@ -10,6 +10,7 @@ enum DisplayLocator {
 
     static func displayUnderPointer() -> Located {
         let main = CGMainDisplayID()
+        // Global display coordinates (top-left origin), the space CGGetDisplaysWithPoint uses.
         let pointer = CGEvent(source: nil)?.location ?? .zero
         var count: UInt32 = 0
         var hit = CGDirectDisplayID()
@@ -26,7 +27,7 @@ enum DisplayLocator {
         return Array(ids.prefix(Int(count)))
     }
 
-    /// Main first, then the others in system order.
+    /// Main first, then the others in system order. Unknown displays map to the main one.
     static func number(of display: CGDirectDisplayID, in displays: [CGDirectDisplayID], main: CGDirectDisplayID) -> Int {
         let ordered = [main] + displays.filter { $0 != main }
         return (ordered.firstIndex(of: display) ?? 0) + 1

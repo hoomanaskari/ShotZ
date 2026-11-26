@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import Testing
 @testable import CaptureKit
 import ShotzCore
@@ -20,6 +21,15 @@ struct ScreencaptureArgumentsTests {
 
     @Test func shadowAndSound() {
         #expect(args(.window, shadow: false, sound: false) == ["-i", "-W", "-o", "-x", "-t", "png", out])
+        #expect(args(.area, sound: false) == ["-i", "-x", "-t", "png", out])
+        #expect(args(.allInOne, shadow: false) == ["-i", "-U", "-o", "-t", "png", out])
+        #expect(args(.fullscreen, shadow: false, sound: false, display: 1) == ["-D", "1", "-o", "-x", "-t", "png", out])
+    }
+
+    @Test func outputPathIsLast() {
+        for mode in [CaptureMode.area, .window, .fullscreen, .allInOne] {
+            #expect(args(mode).last == out)
+        }
     }
 
     @Test func displayNumbering() {
@@ -36,5 +46,14 @@ struct ScreencaptureArgumentsTests {
         let info = try #require(ImageInfo(url: url))
         #expect(info.pixelSize == CGSize(width: 12, height: 7))
         #expect(info.scale == 1)
+        #expect(info.hasAlpha)
+    }
+
+    @Test func imageInfoScaleFromDPI() throws {
+        let props: [CFString: Any] = [kCGImagePropertyPixelWidth: 100, kCGImagePropertyPixelHeight: 50, kCGImagePropertyDPIWidth: 144.0]
+        let info = try #require(ImageInfo(properties: props))
+        #expect(info.scale == 2)
+        #expect(!info.hasAlpha)
+        #expect(ImageInfo(properties: [kCGImagePropertyPixelWidth: 0, kCGImagePropertyPixelHeight: 5]) == nil)
     }
 }
