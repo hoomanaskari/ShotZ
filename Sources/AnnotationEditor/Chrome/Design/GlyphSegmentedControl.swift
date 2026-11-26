@@ -142,7 +142,7 @@ enum EditorMetrics {
                 glyphColor = style == .tools ? .labelColor.withAlphaComponent(0.82) : .secondaryLabelColor
             }
             if let image = segments[i].image {
-                let size: CGFloat = style == .tools ? 20 : 18
+                let size: CGFloat = style == .tools ? 18 : 16
                 let r = NSRect(x: f.midX - size / 2, y: f.midY - size / 2, width: size, height: size)
                 tinted(image, glyphColor).draw(in: r)
             } else if let title = segments[i].title {

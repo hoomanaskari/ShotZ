@@ -57,7 +57,7 @@ import AppKit
         switch id {
         case Self.toolsID:
             let segments = Self.toolOrder.map { kind in
-                GlyphSegmentedControl.Segment(image: EditorGlyphs.image(.tool(kind), size: 20, label: kind.title), title: nil,
+                GlyphSegmentedControl.Segment(image: EditorGlyphs.image(.tool(kind), size: 18, label: kind.title), title: nil,
                                               label: kind.title, shortcut: String(kind.key).uppercased())
             }
             let strip = GlyphSegmentedControl(style: .tools, segments: segments,
@@ -69,7 +69,7 @@ import AppKit
         case Self.backgroundID:
             let toggle = GlyphSegmentedControl(
                 style: .tools,
-                segments: [.init(image: EditorGlyphs.image(.background, size: 20, label: String(localized: "Background")), title: nil,
+                segments: [.init(image: EditorGlyphs.image(.background, size: 18, label: String(localized: "Background")), title: nil,
                                  label: String(localized: "Background"), shortcut: "G")],
                 selected: nil, label: String(localized: "Background"))
             toggle.setAccessibilityRole(.checkBox)
@@ -86,7 +86,7 @@ import AppKit
             return item(id, String(localized: "Drag"), dragHandle.toolTip ?? "", dragHandle)
         case Self.moreID:
             let more = NSMenuToolbarItem(itemIdentifier: id)
-            more.image = EditorGlyphs.image(.more, size: 18, label: String(localized: "More"))
+            more.image = EditorGlyphs.image(.more, size: 16, label: String(localized: "More"))
             more.menu = commandMenu
             more.showsIndicator = false
             more.label = String(localized: "More")

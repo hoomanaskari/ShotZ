@@ -8,7 +8,7 @@ import ShotzCore
 extension EditorCoordinator {
     func captureWindowClosed(_ capture: CaptureResult, _ info: EditorWindowController.CloseInfo) {
         guard !info.isTerminating else { return } // quitting: documents are saved, no cards (SPEC §4.6)
-        let target = renderedURL?(capture.id)
+        let target = renderedURL(capture.id)
         Task { @MainActor [weak self] in
             let rendered = await Self.writeRendered(info.document, base: info.base, to: target)
             self?.log.notice("Editor closed for \(capture.displayName, privacy: .public): rendered \(rendered?.lastPathComponent ?? "none", privacy: .public)")
