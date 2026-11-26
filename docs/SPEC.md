@@ -31,20 +31,23 @@ Units are points unless stated. "Capture" means one still image plus metadata.
 
 ## 2. Global shortcuts
 
-| Action | Default | Dev alternate (while the old app is installed) |
+| Action | ShotZ (production) | ShotZ Dev (development app) |
 |---|---|---|
 | Capture fullscreen | ⌘⇧3 | ⌃⌥⌘3 |
 | Capture area | ⌘⇧4 | ⌃⌥⌘4 |
 | All-in-one | ⌘⇧5 | ⌃⌥⌘5 |
 
 - All three are rebindable in Settings (recorder control), and can be cleared.
-- ⌘⇧6 is reserved for a later recording phase; Shotz does not bind it.
+- ⌘⇧6 is reserved for a later recording phase; ShotZ does not bind it.
 - Shortcuts work from any app, including full-screen apps, with no extra
   permission (Carbon hot keys).
 - If a shortcut cannot be registered, Settings shows a warning beside it.
-- The dev alternates are selected by launching with `--dev-hotkeys` (or the
-  `SHOTZ_DEV_HOTKEYS=1` environment variable); they override stored bindings
-  for that run only and never write to preferences.
+  macOS does not always report a shortcut held by another app, and Settings
+  says so.
+- ShotZ Dev is a separate app (own bundle id, name, icon, settings, data and
+  Screen Recording grant) so it can run next to the installed ShotZ; its
+  default shortcuts never collide with production. Engineer and automated
+  test runs register no shortcuts at all (`--no-hotkeys`).
 - macOS's own screenshot shortcuts (System Settings ▸ Keyboard ▸ Keyboard
   Shortcuts ▸ Screenshots) must be off for ⌘⇧3/4/5 to reach Shotz. On the
   owner's machine they already are (symbolic hot keys 28–31 and 184 are
