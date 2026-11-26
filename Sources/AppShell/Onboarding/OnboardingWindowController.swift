@@ -30,13 +30,13 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
     public var isVisible: Bool { window?.isVisible ?? false }
     /// For `--debug-snapshot-ui` only: one step in its own off-screen window
     /// (never ordered in), in the given appearance.
-    public func debugRender(step: OnboardingStep, appearance: NSAppearance.Name = .aqua) async -> Data? {
+    public func debugRender(step: OnboardingStep, appearance: NSAppearance.Name = .aqua, scale: CGFloat = 2) async -> Data? {
         let previous = model.step
         model.step = step
         defer { model.step = previous }
         let window = makeWindow()
         window.appearance = NSAppearance(named: appearance)
-        return await OffscreenRenderer.capture(window)
+        return await OffscreenRenderer.capture(window, scale: scale)
     }
 
     private func makeWindow() -> ShellWindow {

@@ -55,7 +55,7 @@ struct StatusMenuPreview: View {
         .padding(16)
     }
 
-    @MainActor static func render(rows: [Row], appearance: NSAppearance.Name) async -> Data? {
+    @MainActor static func render(rows: [Row], appearance: NSAppearance.Name, scale: CGFloat = 2) async -> Data? {
         let hosting = NSHostingView(rootView: StatusMenuPreview(rows: rows))
         let size = hosting.fittingSize
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
@@ -64,6 +64,6 @@ struct StatusMenuPreview: View {
         window.backgroundColor = appearance == .darkAqua ? NSColor(white: 0.12, alpha: 1) : NSColor(white: 0.86, alpha: 1)
         window.contentView = hosting
         hosting.frame = NSRect(origin: .zero, size: size)
-        return await OffscreenRenderer.capture(window)
+        return await OffscreenRenderer.capture(window, scale: scale)
     }
 }

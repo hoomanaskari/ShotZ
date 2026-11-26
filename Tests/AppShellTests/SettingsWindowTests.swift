@@ -33,7 +33,7 @@ struct SettingsWindowTests {
             tabs.select(tab)
             tabs.fitWindowToSelection(animate: false)
             #expect(window.title == tab.title)
-            #expect(window.contentLayoutRect.width == PrefMetrics.paneWidth)
+            #expect(window.contentLayoutRect.width == SettingsTabViewController.paneWidth)
             heights[tab] = window.contentLayoutRect.height
         }
         #expect(heights.values.allSatisfy { $0 > 200 })
