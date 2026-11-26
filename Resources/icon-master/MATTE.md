@@ -34,3 +34,24 @@ with no stray islands. There is no usable soft-shadow data: the haze is all that
 
 No opaque pixel's colour changed. Nothing was redrawn, recoloured or reshaped. 453,971 haze pixels
 were cleared and 820,900 pixels had their alpha remapped (mostly 253 → 255).
+
+# owner-artwork-2-clean.png
+
+`owner-artwork-2.webp` is the owner's second artwork, byte for byte (1293×1216, RGBA): two tilted
+photo cards, a magnifying glass and a yellow marker. Its matte has the same pattern, milder:
+
+| Alpha | What it was |
+|---|---|
+| 1–12 | haze: about 19,000 pixels of faint white and grey speckle beside the cards, plus a slight fringe |
+| 13–247 | antialiased edges, every one within 1 px of the solid shape (a single piece) |
+| 248–254 | the solid artwork, slightly short of opaque (mean 254) |
+
+The same tool and thresholds were used:
+
+```bash
+swift Resources/clean-matte.swift Resources/icon-master/owner-artwork-2.webp Resources/icon-master/owner-artwork-2-clean.png
+```
+
+19,226 haze pixels were cleared, 957,620 pixels had their alpha remapped and 5,872 edge pixels were
+decontaminated. No opaque pixel's colour changed, and nothing was redrawn. On a blue tile, the
+uncleaned white haze would show as light speckle.
