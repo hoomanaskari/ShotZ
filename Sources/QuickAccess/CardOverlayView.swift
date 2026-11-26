@@ -8,7 +8,7 @@ import ShotzUI
 /// circles), the size caption bottom-left, Copy and Save centred.
 ///
 /// Per size: Large and Medium use the labelled glass pair and the caption;
-/// Small uses icon-only glass circles for Copy and Save and no caption.
+/// Small uses the icon-only glass pair and no caption.
 @MainActor final class CardOverlayView: NSView {
     var onAction: ((CardAction) -> Void)?
 
@@ -18,9 +18,8 @@ import ShotzUI
     /// The five action controls, in a fixed order.
     let buttons: [(action: CardAction, button: ShotzControlView)]
     private let caption: ShotzCaptionPill?
-    private var toast: ShotzToast?
+    private weak var toast: ShotzToast?
     private(set) var isRevealed = false
-    private var flashGeneration = 0
     var pairIsLabelled: Bool { style.labelledPair }
 
     init(style: CardStyle, captionText: String, cardSize: CGSize) {
@@ -30,9 +29,7 @@ import ShotzUI
             (action, ShotzGlassIconButton(icon: CardIcon.action(action).shotzIcon, cardSize: ui))
         }
         func pair(_ action: CardAction) -> (CardAction, ShotzControlView) {
-            style.labelledPair
-                ? (action, ShotzButton.glass(action.title, icon: CardIcon.action(action).shotzIcon, cardSize: ui))
-                : circle(action)
+            (action, ShotzButton.glass(action.title, icon: CardIcon.action(action).shotzIcon, cardSize: ui, iconOnly: !style.labelledPair))
         }
         buttons = [circle(.close), circle(.annotate), circle(.quickLook), pair(.copy), pair(.save)]
         caption = style.showsCaption ? ShotzCaptionPill(captionText, cardSize: ui) : nil
@@ -44,7 +41,7 @@ import ShotzUI
         addSubview(controls)
         if let caption { controls.addSubview(caption) }
 
-        let labelled = buttons.compactMap { $0.button as? ShotzButton }
+        let labelled = style.labelledPair ? buttons.compactMap { $0.button as? ShotzButton } : []
         let pairWidth = labelled.map(\.intrinsicContentSize.width).max() ?? 0
         labelled.forEach { $0.minimumWidth = pairWidth }
         for (action, button) in buttons {
@@ -59,7 +56,7 @@ import ShotzUI
     required init?(coder: NSCoder) { fatalError("not used") }
 
     func apply(_ palette: CardStyle.Palette) {
-        scrim.backgroundColor = CGColor(gray: 0, alpha: CardStyle.scrimOpacity)
+        scrim.backgroundColor = palette.scrim
     }
 
     /// Fades the controls with `Motion.fast` (0.12 s; 0 under Reduce Motion).
@@ -87,33 +84,18 @@ import ShotzUI
         }
     }
 
-    /// Shows a `ShotzToast` in the centre of the card. TEMP placement and
-    /// timing until ShotzUI's toast gains a position/duration API.
+    /// Shows a `ShotzToast` centred on the card; it fades out and removes itself.
     func showFlash(_ text: String, success: Bool) {
         toast?.removeFromSuperview()
-        let t = ShotzToast(text, tone: success ? .success : .failure, compact: style.compactToast)
-        toast = t
-        addSubview(t)
-        flashGeneration += 1
-        let generation = flashGeneration
         controls.alphaValue = 0
         isRevealed = false
-        needsLayout = true
-        layoutSubtreeIfNeeded()
-        t.alphaValue = 0
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = ShotzUI.Motion.fast
-            ctx.timingFunction = ShotzUI.Motion.arrive
-            t.animator().alphaValue = 1
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) { [weak self, weak t] in
-            guard let self, self.flashGeneration == generation, let t else { return }
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = ShotzUI.Motion.standard
-                t.animator().alphaValue = 0
-            }, completionHandler: { [weak t] in MainActor.assumeIsolated { t?.removeFromSuperview() } })
-        }
+        let t = ShotzToast(text, tone: success ? .success : .failure, compact: style.compactToast)
+        toast = t
+        t.show(in: self, position: .center, duration: Self.flashDuration)
     }
+
+    /// How long a confirmation stays before fading (`closeAfterFlashDelay` closes the card meanwhile).
+    static let flashDuration: TimeInterval = 0.95
 
     override func layout() {
         super.layout()
@@ -145,10 +127,6 @@ import ShotzUI
         if let caption, let ql = button(for: .quickLook) {
             let c = caption.intrinsicContentSize
             caption.frame = CGRect(x: ui.cornerInset, y: (ql.frame.midY - c.height / 2).rounded(), width: c.width, height: c.height)
-        }
-        if let toast {
-            let f = toast.intrinsicContentSize
-            toast.frame = CGRect(x: (b.midX - f.width / 2).rounded(), y: (b.midY - f.height / 2).rounded(), width: f.width, height: f.height)
         }
     }
 
