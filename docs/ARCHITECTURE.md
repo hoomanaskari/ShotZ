@@ -394,6 +394,11 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   Downloader.xpc, Autoupdate, Updater.app, the framework, then the app.
   Release builds are universal (`--arch arm64 --arch x86_64`, every binary
   checked with `lipo`); dev builds are host-only (`SHOTZ_UNIVERSAL` overrides).
+  Release executables are stripped before signing (`strip -S -x`): no debug
+  symbols, local symbols or absolute build paths ship (Swift 6's `#file` is
+  already module-relative, so no prefix map is needed). The dSYM is written to
+  `build/dSYMs/` (git-ignored) for symbolication; `release.sh` fails if any
+  shipped Mach-O contains `/Users/` or the build user's name.
   A fully signed release for distribution:
   `SHOTZ_SIGN_IDENTITY="Developer ID Application: … (TEAMID)" scripts/bundle.sh release`.
   Notarisation and upload belong to `scripts/release.sh` (engineer C).

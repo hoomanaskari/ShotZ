@@ -26,6 +26,9 @@
 # @executable_path/../Frameworks rpath and signed inside-out with the same identity:
 # the XPC services, Autoupdate, Updater.app, the framework, then the app.
 #
+# Release executables are stripped (strip -S -x, before signing): no debug symbols or absolute
+# build paths ship; the dSYM goes to build/dSYMs/ (git-ignored). Dev builds keep their symbols.
+#
 # Hardened runtime on release builds (verified after signing). Secure timestamp
 # (--timestamp, needed for notarization) when the identity is a Developer ID;
 # otherwise --timestamp=none so Apple Development and ad-hoc builds sign offline.
@@ -98,6 +101,25 @@ edit_rpath -add_rpath "@executable_path/../Frameworks" "$EXE"
 while IFS= read -r rpath; do
   if [[ "$rpath" == "$ROOT"/* ]]; then edit_rpath -delete_rpath "$rpath" "$EXE"; fi
 done < <(otool -l "$EXE" | awk '/LC_RPATH/ { getline; getline; print $2 }' | sort -u)   # fat binaries list each rpath once per slice
+
+if [[ "$CONFIG" == "release" ]]; then
+  # Release binaries carry no debug symbols: the unstripped executable holds ~930 absolute
+  # source and build paths (/Users/<name>/…) in its symbol table, plus every local symbol.
+  # The dSYM is kept for crash symbolication in build/dSYMs/ (git-ignored, never shipped).
+  DSYM_DIR="$ROOT/build/dSYMs"
+  mkdir -p "$DSYM_DIR"
+  rm -rf "$DSYM_DIR/$APP_NAME-$VERSION-$BUILD.dSYM"
+  dsymutil "$EXE" -o "$DSYM_DIR/$APP_NAME-$VERSION-$BUILD.dSYM" 2>/dev/null \
+    || echo "Note: no dSYM written (dsymutil failed); the build continues"
+  strip_err="$(strip -S -x "$EXE" 2>&1)" || { echo "$strip_err" >&2; exit 71; }
+  strip_err="$(grep -v "will invalidate the code signature" <<<"$strip_err" || true)"
+  [[ -z "$strip_err" ]] || echo "$strip_err" >&2
+  if LC_ALL=C grep -a -q "/Users/" "$EXE"; then
+    echo "The stripped executable still contains /Users/ paths" >&2
+    exit 72
+  fi
+  echo "Stripped: no debug symbols or build paths in the executable (dSYM in build/dSYMs/)"
+fi
 ditto "$SPARKLE_SRC" "$APP/Contents/Frameworks/Sparkle.framework"
 
 INFO="$APP/Contents/Info.plist"

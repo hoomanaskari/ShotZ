@@ -361,6 +361,32 @@ else
   fi
 fi
 
+# No build-machine paths in anything shipped: every Mach-O in the app (main executable, Sparkle,
+# Autoupdate, Updater.app, the XPC services), each architecture on its own, checked as raw bytes
+# (the symbol string table, which `strings` skips) and with `strings -a`. bundle.sh strips the
+# executable; Sparkle's prebuilt binaries are used as they are.
+BUILD_USER="$(id -un)"
+path_leaks=()
+while IFS= read -r f; do
+  file -b "$f" | grep -q 'Mach-O' || continue
+  for arch in $(xcrun lipo -archs "$f" 2>/dev/null || echo single); do
+    thin="$STAGE/thin-check"
+    xcrun lipo "$f" -thin "$arch" -output "$thin" 2>/dev/null || cp "$f" "$thin"
+    hits="$( { LC_ALL=C grep -a -o '/Users/[[:print:]]*' "$thin" || true; strings -a "$thin" | grep -e '/Users/' || true; } | head -3)"
+    if [[ ${#BUILD_USER} -ge 3 ]]; then
+      hits+="$( { LC_ALL=C grep -a -o "[[:print:]]\{0,30\}$BUILD_USER[[:print:]]\{0,30\}" "$thin" || true; } | head -3)"
+    fi
+    [[ -z "$hits" ]] || path_leaks+=("${f#$APP/} ($arch): $(head -1 <<<"$hits")")
+  done
+done < <(find "$APP" -type f)
+rm -f "$STAGE/thin-check"
+if [[ ${#path_leaks[@]} -eq 0 ]]; then
+  ok "no /Users/ paths or the build user's name in any Mach-O (every architecture)"
+else
+  for l in "${path_leaks[@]}"; do printf '    build path in: %s\n' "$l"; done
+  stop "shipped binaries contain build-machine paths (see above). Release builds must be stripped (bundle.sh)."
+fi
+
 # ---------------------------------------------------------------------------------------------
 notarize() { # notarize <file>: prints the submission id; on failure saves Apple's log in dist/
   local file="$1" name result id status

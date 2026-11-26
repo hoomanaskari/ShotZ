@@ -116,7 +116,10 @@ overrides it only if it matches.)
       with the Developer ID, the hardened runtime and a secure timestamp), re-signs the same way as a
       safety net, and verifies the signatures (including Sparkle's XPC services, Autoupdate and
       Updater.app), the entitlements, the bundle id, version and build, `SUFeedURL`,
-      `SUPublicEDKey` against `Resources/SparklePublicKey.txt`, and that every binary is universal;
+      `SUPublicEDKey` against `Resources/SparklePublicKey.txt`, that every binary is universal, and
+      that no Mach-O in the app (each architecture, raw bytes and `strings -a`) contains `/Users/`
+      or the build user's name (the executable is stripped by `bundle.sh`; its dSYM stays in
+      `build/dSYMs/`);
    2. notarizes the app (`notarytool submit --wait`, a few minutes), staples it and checks Gatekeeper;
    3. makes the Sparkle zip and the DMG (signed), notarizes and staples the DMG, and validates it;
    4. mounts the DMG and verifies the app inside and the Applications link;
