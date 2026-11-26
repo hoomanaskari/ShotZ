@@ -5,7 +5,9 @@ import Foundation
 /// Patterns support a small strftime subset: `%Y %y %m %d %H %M %S %%`.
 /// Unknown sequences are kept literally.
 public enum FileNaming {
-    public static let defaultPattern = "Shotz %Y-%m-%d at %H.%M.%S"
+    public static let defaultPattern = "ShotZ %Y-%m-%d at %H.%M.%S"
+    /// The default before the product was renamed (migrated by `SettingsStore`).
+    public static let legacyDefaultPattern = "Shotz %Y-%m-%d at %H.%M.%S"
 
     /// Formats `pattern` for `date` in `calendar`'s time zone and strips
     /// characters that are not allowed in file names (`/`, `:`).
@@ -42,7 +44,7 @@ public enum FileNaming {
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: ".")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? "Shotz" : cleaned
+        return cleaned.isEmpty ? "ShotZ" : cleaned
     }
 
     /// The candidate name for attempt `n` (1 = base name, 2 = "base 2", …).

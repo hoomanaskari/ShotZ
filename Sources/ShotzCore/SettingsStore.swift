@@ -12,9 +12,14 @@ import Foundation
     public let defaults: UserDefaults
     public let variant: AppVariant
 
-    public init(defaults: UserDefaults = .standard, variant: AppVariant = .current) {
+    public init(defaults: UserDefaults = AppVariant.preferences, variant: AppVariant = .current) {
         self.defaults = defaults
         self.variant = variant
+        // The product was renamed to ShotZ: a stored pattern that is exactly the
+        // old default follows the new default; custom patterns are kept.
+        if defaults.string(forKey: SettingsKey.fileNamePattern) == FileNaming.legacyDefaultPattern {
+            defaults.removeObject(forKey: SettingsKey.fileNamePattern)
+        }
     }
 
     /// The allowed auto-close values in seconds; 0 = off.

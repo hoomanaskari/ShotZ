@@ -37,7 +37,7 @@ struct SettingsStoreTests {
         #expect(s.exportFormat == .png)
         #expect(s.retinaScale == .native)
         #expect(s.windowShadow)
-        #expect(s.fileNamePattern == "Shotz %Y-%m-%d at %H.%M.%S")
+        #expect(s.fileNamePattern == "ShotZ %Y-%m-%d at %H.%M.%S")
         #expect(!s.editorReturnToSelect)
         #expect(s.editorSnapping)
         #expect(!s.editorCloseAfterCopy)

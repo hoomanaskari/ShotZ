@@ -180,7 +180,7 @@ struct ScreenRecordingPage: View {
                 title: model.reason == .permissionMissing
                     ? String(localized: "\(AppVariant.current.displayName) needs Screen Recording")
                     : String(localized: "Allow Screen Recording"),
-                message: String(localized: "macOS only lets apps see what's on screen with your permission. Shotz uses it for screenshots and nothing else: no recording, no network.")
+                message: String(localized: "macOS only lets apps see what's on screen with your permission. ShotZ uses it for screenshots and nothing else: no recording, no network.")
             )
             HStack(spacing: 12) {
                 StatusPill(text: status.isGranted ? String(localized: "Screen Recording is allowed") : String(localized: "Not allowed yet"),
@@ -218,8 +218,8 @@ struct SystemShortcutsPage: View {
             PageText(
                 title: String(localized: "Screenshot shortcuts"),
                 message: shortcuts.anyEnabled
-                    ? String(localized: "macOS's own screenshot shortcuts are on, so ⇧⌘3, ⇧⌘4 and ⇧⌘5 won't reach Shotz yet.")
-                    : String(localized: "macOS's own screenshot shortcuts are off, so ⇧⌘3, ⇧⌘4 and ⇧⌘5 can reach Shotz.")
+                    ? String(localized: "macOS's own screenshot shortcuts are on, so ⇧⌘3, ⇧⌘4 and ⇧⌘5 won't reach ShotZ yet.")
+                    : String(localized: "macOS's own screenshot shortcuts are off, so ⇧⌘3, ⇧⌘4 and ⇧⌘5 can reach ShotZ.")
             )
             if shortcuts.anyEnabled {
                 VStack(alignment: .leading, spacing: 4) {
@@ -246,7 +246,7 @@ struct SystemShortcutsPage: View {
             if model.canOfferAlternates {
                 Button(HotkeyBindings.alternatesTitle(for: model.settings.variant)) { model.useAlternateShortcuts() }
             }
-            note(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell Shotz."))
+            note(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell ShotZ."))
         }
     }
 

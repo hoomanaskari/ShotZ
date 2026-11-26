@@ -56,11 +56,7 @@ import ShotzCore
         arguments: [String] = ProcessInfo.processInfo.arguments,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        let args = arguments.dropFirst()
-        return args.contains("--no-hotkeys")
-            || args.contains(where: { $0.hasPrefix("--debug-") })
-            || args.contains("-QuickAccessSelfTest")
-            || environment["SHOTZ_EDITOR_SCRIPT"] != nil
+        AppVariant.isTestRun(arguments: arguments, environment: environment)
     }
 
     /// The shortcut this run registers for `action` (nil with `--no-hotkeys`).

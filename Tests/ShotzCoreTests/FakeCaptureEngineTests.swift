@@ -13,7 +13,7 @@ struct FakeCaptureEngineTests {
         #expect(result.kind == .fullscreen)
         #expect(result.pixelSize == CGSize(width: 10, height: 5))
         #expect(FileManager.default.fileExists(atPath: result.fileURL.path(percentEncoded: false)))
-        #expect(result.displayName.hasPrefix("Shotz "))
+        #expect(result.displayName.hasPrefix("ShotZ "))
 
         #expect(try await engine.capture(.area, options: options) == nil)
         await #expect(throws: CaptureError.permissionDenied) {

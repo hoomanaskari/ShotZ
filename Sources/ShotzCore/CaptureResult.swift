@@ -6,7 +6,7 @@ public struct CaptureResult: Identifiable, Hashable, Codable, Sendable {
     public let id: UUID
     /// Lossless PNG in the private captures folder.
     public let fileURL: URL
-    /// e.g. "Shotz 2026-11-26 at 10.42.07".
+    /// e.g. "ShotZ 2026-11-26 at 10.42.07".
     public let displayName: String
     public let kind: CaptureKind
     /// Native pixels.

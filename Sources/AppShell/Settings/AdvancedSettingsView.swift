@@ -53,7 +53,7 @@ struct AdvancedSettingsView: View {
                 }
             }
         } message: {
-            Text(String(localized: "All captures kept by Shotz and their edits are deleted. Files you saved or exported stay where they are."))
+            Text(String(localized: "All captures kept by ShotZ and their edits are deleted. Files you saved or exported stay where they are."))
         }
         .confirmationDialog(String(localized: "Restore all default settings?"), isPresented: $confirmReset) {
             Button(String(localized: "Restore Defaults"), role: .destructive) {

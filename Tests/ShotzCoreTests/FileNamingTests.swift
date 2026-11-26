@@ -14,7 +14,7 @@ struct FileNamingTests {
     }
 
     @Test func defaultPattern() {
-        #expect(FileNaming.format(FileNaming.defaultPattern, date: date, calendar: calendar) == "Shotz 2026-11-26 at 10.42.07")
+        #expect(FileNaming.format(FileNaming.defaultPattern, date: date, calendar: calendar) == "ShotZ 2026-11-26 at 10.42.07")
     }
 
     @Test func otherSpecifiers() {
@@ -24,7 +24,7 @@ struct FileNamingTests {
 
     @Test func sanitizesSeparators() {
         #expect(FileNaming.sanitize("a/b:c") == "a-b.c")
-        #expect(FileNaming.sanitize("   ") == "Shotz")
+        #expect(FileNaming.sanitize("   ") == "ShotZ")
     }
 
     @Test func candidates() {
