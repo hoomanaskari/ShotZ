@@ -67,10 +67,20 @@ import ShotzCore
     public func present(_ capture: CaptureResult, imageURL: URL?) { present(capture) }
 
     public func present(_ capture: CaptureResult) {
-        let start = CACurrentMediaTime()
-        if let existing = cards[capture.id] { discard(existing, animation: .none) }
+        present(capture, imageURL: nil)
+    }
 
-        let card = CardView(capture: capture, size: applied.size)
+    /// Shows `capture` as the newest card. `imageURL` is the flattened
+    /// annotated image a card returning from the editor shows and delivers
+    /// (SPEC §4.6). A capture already in the stack is replaced, never duplicated.
+    public func present(_ capture: CaptureResult, imageURL: URL?) {
+        let start = CACurrentMediaTime()
+        if let existing = cards[capture.id] {
+            if hoveredCard === existing { card(existing, hoverChanged: false) }
+            discard(existing, animation: .none)
+        }
+
+        let card = CardView(source: CardSource(capture: capture, imageURL: imageURL), size: applied.size)
         card.delegate = self
         cards[capture.id] = card
         let evicted = model.insert(capture.id, limit: StackLayout.maxVisible) { self.group(of: $0) }
@@ -211,7 +221,7 @@ import ShotzCore
         model.remove(id)
         cards[id] = nil
         timers.removeValue(forKey: id)?.cancel()
-        quickLook.closeIfShowing(card.capture.fileURL)
+        quickLook.closeIfShowing(card.source.fileURL)
         let display = panels.first { $0.value === card.window }?.key
         switch animation {
         case .none:
@@ -242,8 +252,8 @@ import ShotzCore
 
     private func loadThumbnail(for card: CardView, start: CFTimeInterval?) {
         let scale = card.window?.backingScaleFactor ?? 2
-        let maxPixels = ThumbnailLoader.maxPixelSize(pixelSize: card.capture.pixelSize, cardSize: card.bounds.size, scale: scale)
-        let url = card.capture.fileURL
+        let maxPixels = ThumbnailLoader.maxPixelSize(pixelSize: card.source.pixelSize, cardSize: card.bounds.size, scale: scale)
+        let url = card.source.fileURL
         Task { [weak card, log] in
             guard let image = await ThumbnailLoader.load(url: url, maxPixelSize: maxPixels) else {
                 log.error("No thumbnail for \(url.lastPathComponent, privacy: .public)")
@@ -257,7 +267,7 @@ import ShotzCore
                 }
             }
             let cardSize = card.bounds.size
-            if ThumbnailLoader.coverage(pixelSize: card.capture.pixelSize, cardSize: cardSize) < ThumbnailLoader.backdropThreshold,
+            if ThumbnailLoader.coverage(pixelSize: card.source.pixelSize, cardSize: cardSize) < ThumbnailLoader.backdropThreshold,
                let backdrop = await ThumbnailLoader.backdrop(from: image, cardSize: cardSize) {
                 card.setBackdrop(backdrop)
             }
@@ -336,7 +346,7 @@ import ShotzCore
     private func rebuildCards() {
         for (id, old) in cards {
             if hoveredCard === old { card(old, hoverChanged: false) }
-            let card = CardView(capture: old.capture, size: applied.size)
+            let card = CardView(source: old.source, size: applied.size)
             card.delegate = self
             old.superview?.addSubview(card)
             old.removeFromSuperview()

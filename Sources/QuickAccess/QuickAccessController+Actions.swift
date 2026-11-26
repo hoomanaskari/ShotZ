@@ -17,20 +17,23 @@ extension QuickAccessController: CardViewDelegate {
         case .save:
             Task { await save(card) }
         case .annotate:
+            // Hidden while the editor is open (SPEC §4.4): not a close, so no
+            // restore-last-closed entry and no delete. The editor's close
+            // presents the capture again (§4.6).
             remove(card, animation: .fade)
             delegate?.quickAccess(requestAnnotate: capture)
         case .quickLook:
-            quickLook.toggle(capture.fileURL)
+            quickLook.toggle(card.source.fileURL)
         case .close:
             close(card, deleteFile: false)
         case .closeAndDelete:
             close(card, deleteFile: true)
         case .showInFinder:
-            NSWorkspace.shared.activateFileViewerSelecting([capture.fileURL])
+            NSWorkspace.shared.activateFileViewerSelecting([card.source.fileURL])
         case .copyFilePath:
             let pb = NSPasteboard.general
             pb.clearContents()
-            pb.setString(capture.fileURL.path(percentEncoded: false), forType: .string)
+            pb.setString(card.source.fileURL.path(percentEncoded: false), forType: .string)
             card.flash(String(localized: "Path Copied"), symbol: "checkmark.circle.fill", success: true)
         case .closeAll:
             for other in model.order.compactMap({ cards[$0] }) { close(other, deleteFile: false) }
@@ -45,7 +48,7 @@ extension QuickAccessController: CardViewDelegate {
 
     private func copy(_ card: CardView) async {
         do {
-            try await exporter.copyToPasteboard(imageAt: card.capture.fileURL)
+            try await exporter.copyToPasteboard(imageAt: card.source.fileURL)
             card.flash(String(localized: "Copied"), symbol: "checkmark.circle.fill", success: true)
             if settings.quickAccessCloseAfterCopy { await closeAfterFlash(card) }
         } catch {
@@ -63,7 +66,7 @@ extension QuickAccessController: CardViewDelegate {
         }
         do {
             guard let url = try await exporter.saveToExportFolder(
-                imageAt: card.capture.fileURL, suggestedName: card.capture.displayName, askDestination: ask
+                imageAt: card.source.fileURL, suggestedName: card.source.exportName, askDestination: ask
             ) else { return }
             card.flash(String(localized: "Saved"), symbol: "checkmark.circle.fill", success: true)
             delegate?.quickAccess(didExport: card.capture, to: url)
@@ -139,7 +142,7 @@ extension QuickAccessController: CardViewDelegate {
 
     func cardDragWriter(_ card: CardView) -> NSPasteboardWriting? {
         do {
-            let url = try exporter.exportFileURLForDrag(imageAt: card.capture.fileURL, suggestedName: card.capture.displayName)
+            let url = try exporter.exportFileURLForDrag(imageAt: card.source.fileURL, suggestedName: card.source.exportName)
             timers[card.capture.id]?.pause()
             focus.handle(.dragStarted)
             dragFiles[card.capture.id] = url

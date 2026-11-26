@@ -32,7 +32,7 @@ import ShotzCore
 
     // MARK: Helpers
 
-    private func check(_ name: String, _ ok: Bool, _ detail: String = "") {
+    func check(_ name: String, _ ok: Bool, _ detail: String = "") {
         if !ok { failures += 1 }
         let line = "\(ok ? "PASS" : "FAIL") \(name)\(detail.isEmpty ? "" : " — \(detail)")"
         lines.append(line)
@@ -50,10 +50,10 @@ import ShotzCore
         }
     }
 
-    private func wait(_ ms: Int) async { try? await Task.sleep(for: .milliseconds(ms)) } // never cancelled
+    func wait(_ ms: Int) async { try? await Task.sleep(for: .milliseconds(ms)) } // never cancelled
 
     /// Visible cards, newest first, by vertical position.
-    private var visibleNewestFirst: [CardView] {
+    var visibleNewestFirst: [CardView] {
         qa.cards.values.filter { !$0.isHidden && !$0.isExiting }.sorted { $0.frame.minY < $1.frame.minY }
     }
 
@@ -71,7 +71,7 @@ import ShotzCore
         checkOrder("initial order")
         let size = CGSize(width: qa.applied.size.width, height: qa.applied.size.height)
         let backdrops = qa.cards.values.map { card in
-            (ThumbnailLoader.coverage(pixelSize: card.capture.pixelSize, cardSize: size) < ThumbnailLoader.backdropThreshold) == card.hasBackdrop
+            (ThumbnailLoader.coverage(pixelSize: card.source.pixelSize, cardSize: size) < ThumbnailLoader.backdropThreshold) == card.hasBackdrop
         }
         let withBackdrop = qa.cards.values.filter(\.hasBackdrop).count
         check("blurred backdrop on letterboxed cards only", !backdrops.isEmpty && backdrops.allSatisfy { $0 }, "\(withBackdrop) of \(backdrops.count) cards")
@@ -79,6 +79,7 @@ import ShotzCore
         await captureExclusion()
         await hoverAndStyle()
         await focusRules()
+        if let template { await returnFromEditor(template: template, qa: qa, dir: dir) }
         await drag()
         await saveAndClose()
         await rapid()
@@ -98,7 +99,7 @@ import ShotzCore
         CardView.ignoresRealPointer = false
     }
 
-    private func checkOrder(_ name: String) {
+    func checkOrder(_ name: String) {
         let byPosition = visibleNewestFirst.map(\.capture.id)
         let byModel = Array(qa.model.order.reversed().prefix(byPosition.count))
         check(name, byPosition == byModel && !byPosition.isEmpty, "\(byPosition.count) visible, newest at bottom")
