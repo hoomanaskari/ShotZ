@@ -94,7 +94,7 @@ struct UpdatesSection: View {
                 }
                 ShotzSettingsRow(updates.pendingVersion.map { String(localized: "Version \($0) is available") }
                                  ?? String(localized: "Software update"),
-                                 help: updates.lastCheckedText) {
+                                 help: updates.lastCheckedText, icon: .checkForUpdates) {
                     Button(updates.pendingVersion == nil ? String(localized: "Check for Updates…") : String(localized: "Update…")) {
                         updates.checkForUpdates()
                     }

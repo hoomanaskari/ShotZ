@@ -140,7 +140,7 @@ import ShotzCore
         if let updates, updates.isAvailable {
             let title = updates.pendingVersion.map { String(localized: "Update Available (\($0))…") }
                 ?? String(localized: "Check for Updates…")
-            menu.addItem(item(title, #selector(checkForUpdates)))
+            menu.addItem(item(title, #selector(checkForUpdates), icon: .checkForUpdates))
         }
         menu.addItem(item(String(localized: "Quit \(AppVariant.current.displayName)"), #selector(quit), key: "q", icon: .quit))
     }

@@ -10,7 +10,7 @@ public enum ShellIcon: String, CaseIterable, Sendable {
     case general, shortcuts, quickAccess, capture, editor, advanced
     // Status menu
     case captureArea, captureWindow, captureFullscreen, captureAllInOne
-    case history, openInEditor, restore, settings, quit
+    case history, openInEditor, restore, settings, checkForUpdates, quit
     // Onboarding, rows and status
     case welcome, screenRecording, keyboard, launchAtLogin, warning, checkmark, folder, clear, info
 
@@ -30,6 +30,7 @@ public enum ShellIcon: String, CaseIterable, Sendable {
         case .openInEditor: .annotate
         case .restore: .restoreLastClosed
         case .settings: .settings
+        case .checkForUpdates: .checkForUpdates
         case .quit: .quit
         case .welcome: .welcome
         case .screenRecording: .permission
