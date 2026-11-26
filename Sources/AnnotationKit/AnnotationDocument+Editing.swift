@@ -5,8 +5,14 @@ import Foundation
 /// one undo step, e.g. `store.perform("Delete") { $0.removeObjects(selection) }`.
 extension AnnotationDocument {
     // MARK: Counters
+    //
+    // Counters form ONE sequence per document regardless of numbering style: `numbering` only
+    // changes the label (value 3 shows as "3" or "C"). So 1, 2 then switching to letters gives C,
+    // and deleting a counter closes the gap across both styles. This keeps a step list
+    // consistent when the user changes the style of some badges after placing them.
 
-    /// The value the next counter should get: one past the highest existing counter, or `start`.
+    /// The value the next counter should get: one past the highest existing counter of any
+    /// numbering style, or `start` when there are none.
     public func nextCounterValue(start: Int = 1) -> Int {
         let values = objects.compactMap { o -> Int? in
             if case .counter(let c) = o.shape { return c.value }

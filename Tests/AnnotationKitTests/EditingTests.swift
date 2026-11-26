@@ -91,3 +91,20 @@ struct EditingTests {
         #expect(AnnotationObject(shape: .pen([])).kind == .pen)
     }
 }
+
+extension EditingTests {
+    @Test func numbersAndLettersShareOneSequence() {
+        let one = AnnotationObject(shape: .counter(CounterGeometry(center: .zero, value: 1, numbering: .numeric)))
+        let two = AnnotationObject(shape: .counter(CounterGeometry(center: .zero, value: 2, numbering: .alphabetic)))
+        let three = AnnotationObject(shape: .counter(CounterGeometry(center: .zero, value: 3, numbering: .numeric)))
+        var d = doc([one, two, three])
+        // The next counter continues the shared sequence whichever style it will use.
+        #expect(d.nextCounterValue() == 4)
+        #expect(CounterGeometry(center: .zero, value: d.nextCounterValue(), numbering: .alphabetic).label == "D")
+        // Deleting the letter closes the gap for the numbers too.
+        d.removeObjects([two.id])
+        #expect(values(d) == [1, 2])
+        d.renumberCounters()
+        #expect(values(d) == [1, 2])
+    }
+}
