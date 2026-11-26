@@ -37,9 +37,9 @@ The script picks its source in this order:
 }
 ```
 
-This is the owner's second artwork on option B of the blue-tile sheet (mid blue → deep navy). It is
-proposed and awaiting the owner's pick; `main` still ships the first artwork on the white tile, whose
-settings are kept in `icon-artwork-1.json`. To go back to it, copy that file over `icon.json` and run
+This is the owner's second artwork on option B of the blue-tile sheet (mid blue → deep navy). The
+owner chose it for 0.1.1; versions up to 0.1.0 shipped the first artwork on the white tile, whose
+settings are kept in `icon-artwork-1.json`. To go back to that icon, copy that file over `icon.json` and run
 `scripts/make-icons.sh`. Every key except `artwork` is optional.
 
 | Key | Meaning |
@@ -109,7 +109,7 @@ than 1024 px, or fully transparent art.
 ## The menu-bar glyph
 
 By default ShotZ draws its menu-bar glyph in code: **corners + lens**, four rounded capture corners
-around a lens ring, echoing the capture corners and lens of the app icon (the owner's pick from the
+around a lens ring, echoing the capture corners and lens of the first app icon (the owner's pick from the
 options in `scripts/menubar-glyph-options.swift`). The geometry is in
 `Sources/AppShell/StatusItem/MenuBarGlyphGeometry.swift`, on ShotzIcon's 256-unit grid with round
 caps and joins, at menu-bar weight (2 px strokes at 1x, 3 px at 2x). Each backing scale gets its own
