@@ -23,9 +23,13 @@ extension StackSelfTest {
                 let wide = card { $0.width > $0.height * 3 }
                 let square = card { $0.width == $0.height }
                 tall?.setHovered(true)
+                tall?.overlay.button(for: .copy)?.stateOverride = .hover
+                tall?.overlay.button(for: .save)?.stateOverride = .pressed
                 wide?.flash(String(localized: "Copied"), success: true)
                 await wait(300)
                 snapshot("g-\(size.rawValue)-\(name)-2-hover-tall-flash-wide")
+                tall?.overlay.button(for: .copy)?.stateOverride = nil
+                tall?.overlay.button(for: .save)?.stateOverride = nil
                 tall?.setHovered(false)
                 square?.setHovered(true)
                 await wait(1300) // flash gone

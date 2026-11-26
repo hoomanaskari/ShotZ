@@ -157,6 +157,13 @@ import ShotzCore
 
         let labels = card.overlay.accessibilityChildren()?.compactMap { ($0 as? NSView)?.accessibilityLabel() } ?? []
         check("VoiceOver button labels", labels.count == 5 && !labels.contains(""), labels.joined(separator: ", "))
+        let buttons = card.overlay.buttons.map(\.button)
+        check("ShotzUI glass controls usable in the non-activating panel",
+              buttons.allSatisfy { $0.role == .glass && $0.acceptsFirstMouse(for: nil) && !$0.needsPanelToBecomeKey && $0.frame.height >= 28 },
+              "\(buttons.count) buttons, first mouse, no key needed, ≥28 pt")
+        let tips = card.overlay.buttons.map { "\($0.button.toolTip ?? "–")" }
+        check("tooltips carry shortcuts", card.overlay.buttons.allSatisfy { ($0.button.toolTip ?? "").contains($0.action.title) }
+              && card.overlay.button(for: .copy)?.toolTip?.contains("⌘C") == true, tips.joined(separator: " | "))
         check("VoiceOver card label", card.accessibilityLabel()?.contains("×") == true, card.accessibilityLabel() ?? "")
     }
 
@@ -246,7 +253,10 @@ import ShotzCore
             note("Save skipped: export folder is the real Desktop; pass -general.exportFolder <dir>")
         } else {
             let before = (try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false)).count) ?? 0
-            qa.perform(.save, on: card)
+            card.setHovered(true)
+            await wait(200)
+            card.overlay.button(for: .save)?.activate(at: .zero) // the ShotzButton path a click takes
+            card.setHovered(false)
             await wait(300)
             snapshot("07-saved-flash")
             await wait(1000)
@@ -260,10 +270,17 @@ import ShotzCore
         qa.perform(.closeAndDelete, on: victim)
         await wait(800)
         check("close and delete removes card and file", qa.cards[victim.capture.id] == nil && !FileManager.default.fileExists(atPath: file.path(percentEncoded: false)))
+        if newest == nil, let template {
+            qa.present(CaptureResult(fileURL: template.fileURL, displayName: "Close test", kind: template.kind,
+                                     pixelSize: template.pixelSize, scale: template.scale, displayID: template.displayID))
+            await wait(450)
+        }
         if let other = newest {
-            qa.perform(.close, on: other)
+            other.setHovered(true)
+            await wait(150)
+            other.overlay.button(for: .close)?.activate(at: .zero)
             await wait(400)
-            check("close keeps file", qa.cards[other.capture.id] == nil && FileManager.default.fileExists(atPath: other.capture.fileURL.path(percentEncoded: false)))
+            check("Close button closes the card and keeps the file", qa.cards[other.capture.id] == nil && FileManager.default.fileExists(atPath: other.capture.fileURL.path(percentEncoded: false)))
         }
     }
 

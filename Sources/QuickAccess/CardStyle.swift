@@ -1,86 +1,62 @@
 import AppKit
 import ShotzCore
+import ShotzUI
 
-/// Shotz's own card look: metrics per size, colours per appearance.
+/// How each card size maps onto ShotzUI (DESIGN.md, `StackCardHover`): control
+/// sizes and the corner inset. Every colour, radius, font and timing comes
+/// from ShotzUI tokens.
 struct CardStyle {
-    let cornerRadius: CGFloat
-    /// Round icon button diameter and its inset from the card edge.
-    let chip: CGFloat
-    let chipInset: CGFloat
-    let chipIconSize: CGFloat
-    let pillHeight: CGFloat
-    let pillIconSize: CGFloat
-    let pillGap: CGFloat
-    let pillFont: NSFont
-    let captionFont: NSFont
-    let captionHeight: CGFloat
+    /// Card corner radius (`StackCardHover.cornerRadius`, `Radius.card`).
+    let cornerRadius: CGFloat = ShotzUI.Radius.card
+    /// Round corner buttons (Close, Annotate, Quick Look).
+    let cornerSize: ShotzUI.ControlSize
+    /// Copy / Save pair and the caption pill.
+    let pillSize: ShotzUI.ControlSize
+    /// Inset of a corner button's hit frame from the card edge. Chosen so the
+    /// glass chrome lands `Space.s` (8 pt) in, except on Small cards where the
+    /// card is too short for three 28-pt rows and the chrome sits 6 pt in.
+    let hitInset: CGFloat
 
     init(size: CardSize) {
         switch size {
         case .small:
-            // Visible controls are smaller here; hit frames still reach 28 pt.
-            cornerRadius = 10; chip = 22; chipInset = 6; chipIconSize = 15
-            pillHeight = 22; pillIconSize = 15; pillGap = 5
-            pillFont = .systemFont(ofSize: 10.5, weight: .semibold)
-            captionFont = .monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
-            captionHeight = 17
+            cornerSize = .compact; pillSize = .compact
+            hitInset = 4
         case .medium:
-            cornerRadius = 10; chip = 28; chipInset = 7; chipIconSize = 18
-            pillHeight = 28; pillIconSize = 18; pillGap = 8
-            pillFont = .systemFont(ofSize: 12, weight: .semibold)
-            captionFont = .monospacedDigitSystemFont(ofSize: 10, weight: .semibold)
-            captionHeight = 20
+            cornerSize = .regular; pillSize = .regular
+            hitInset = ShotzUI.Space.s
         case .large:
-            cornerRadius = 11; chip = 30; chipInset = 8; chipIconSize = 20
-            pillHeight = 30; pillIconSize = 20; pillGap = 8
-            pillFont = .systemFont(ofSize: 12.5, weight: .semibold)
-            captionFont = .monospacedDigitSystemFont(ofSize: 10.5, weight: .semibold)
-            captionHeight = 22
+            cornerSize = .regular; pillSize = .regular
+            hitInset = ShotzUI.Space.s
         }
     }
 
-    // MARK: Colours (resolved against an appearance)
+    /// The image dims by 25 % under the controls (`StackCardHover`).
+    static let scrimOpacity: CGFloat = 0.25
+
+    // MARK: Colours (resolved against an appearance, all from ShotzUI.Palette)
 
     struct Palette {
         let backdrop: CGColor
-        /// Over the blurred backdrop, so it reads as background, not content.
+        /// Over the blurred letterbox backdrop, so it reads as background.
         let backdropTint: CGColor
         let border: CGColor
-        /// Large soft shadow and tight contact shadow.
-        let ambientShadowOpacity: Float
-        let contactShadowOpacity: Float
-        /// Hover scrim: edges darker than the middle so corner controls read.
-        let scrimEdge: CGColor
-        let scrimMiddle: CGColor
-        let accentInk: NSColor
-        let failureInk: NSColor
+        let shadow: ShotzUI.Elevation
     }
 
-    static func palette(for appearance: NSAppearance) -> Palette {
-        let dark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        if dark {
-            return Palette(
-                backdrop: CGColor(srgbRed: 0.15, green: 0.15, blue: 0.17, alpha: 1),
-                backdropTint: CGColor(srgbRed: 0.07, green: 0.07, blue: 0.09, alpha: 0.5),
-                border: CGColor(gray: 1, alpha: 0.14),
-                ambientShadowOpacity: 0.5,
-                contactShadowOpacity: 0.5,
-                scrimEdge: CGColor(gray: 0, alpha: 0.42),
-                scrimMiddle: CGColor(gray: 0, alpha: 0.14),
-                accentInk: NSColor(srgbRed: 0.40, green: 0.84, blue: 0.52, alpha: 1),
-                failureInk: NSColor(srgbRed: 1, green: 0.52, blue: 0.44, alpha: 1)
-            )
-        }
+    @MainActor static func palette(for appearance: NSAppearance) -> Palette {
+        let P = ShotzUI.Palette.self
+        let dark = appearance.bestMatch(from: [.darkAqua, .aqua, .accessibilityHighContrastDarkAqua, .accessibilityHighContrastAqua]).map { $0 == .darkAqua || $0 == .accessibilityHighContrastDarkAqua } ?? false
+        let surface = P.surface.resolved(in: appearance)
+        // Cards float over arbitrary wallpaper, so they keep the overlay shadow
+        // in dark too (ShotzUI's dark rule assumes a known surface beneath).
+        var shadow = ShotzUI.Elevation.overlay
+        if dark { shadow.opacity = min(1, shadow.opacity * 2.5) }
         return Palette(
-            backdrop: CGColor(srgbRed: 0.92, green: 0.92, blue: 0.94, alpha: 1),
-            backdropTint: CGColor(gray: 0.97, alpha: 0.42),
-            border: CGColor(gray: 0, alpha: 0.12),
-            ambientShadowOpacity: 0.22,
-            contactShadowOpacity: 0.18,
-            scrimEdge: CGColor(gray: 0, alpha: 0.30),
-            scrimMiddle: CGColor(gray: 0, alpha: 0.08),
-            accentInk: NSColor(srgbRed: 0.12, green: 0.6, blue: 0.3, alpha: 1),
-            failureInk: NSColor(srgbRed: 0.85, green: 0.25, blue: 0.18, alpha: 1)
+            backdrop: P.surfaceSunken.composited(over: surface).cgColor,
+            backdropTint: surface.withAlphaComponent(dark ? 0.5 : 0.42).cgColor,
+            border: P.border.resolved(in: appearance).cgColor,
+            shadow: shadow
         )
     }
 }

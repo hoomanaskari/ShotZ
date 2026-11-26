@@ -1,112 +1,126 @@
 import AppKit
+import ShotzCore
+import ShotzUI
 
-/// Hover controls (SPEC §4.3) and the Copied/Saved confirmation, laid over a card.
-///
-/// Layout: Close top-left, Annotate top-right, Quick Look bottom-right, the
-/// pixel-size caption bottom-left, Copy and Save as a centred pair of pills.
+/// Hover controls (SPEC §4.3) and the Copied/Saved confirmation, laid over a
+/// card, built from ShotzUI glass controls as in `StackCardHover`: Close
+/// top-left, Annotate top-right, Quick Look bottom-right, the pixel-size
+/// caption bottom-left, Copy and Save as a centred, equal-width pair.
 @MainActor final class CardOverlayView: NSView {
     var onAction: ((CardAction) -> Void)?
 
     private let style: CardStyle
     private let controls = NSView()
-    private let scrim = CAGradientLayer()
-    private let buttons: [CardButton]
-    private let captionChip = GlassView()
-    private let caption = NSTextField(labelWithString: "")
-    private let flash = FlashBadgeView()
+    private let scrim = CALayer()
+    /// The five action buttons, in a fixed order.
+    let buttons: [(action: CardAction, button: ShotzButton)]
+    /// TEMP until ShotzUI has a caption-pill variant: a frozen, non-interactive
+    /// compact glass button (never a hit target, reports itself as text).
+    private let caption: ShotzButton
+    private var toast: ShotzToast?
     private(set) var isRevealed = false
     private var flashGeneration = 0
 
     init(style: CardStyle, captionText: String) {
         self.style = style
+        func corner(_ action: CardAction, _ icon: ShotzIcon) -> (CardAction, ShotzButton) {
+            (action, ShotzButton(icon: icon, role: .glass, size: style.cornerSize))
+        }
+        func pill(_ action: CardAction, _ icon: ShotzIcon) -> (CardAction, ShotzButton) {
+            (action, ShotzButton(title: action.title, icon: icon, role: .glass, size: style.pillSize))
+        }
         buttons = [
-            CardButton(action: .close, showsTitle: false, style: style),
-            CardButton(action: .annotate, showsTitle: false, style: style),
-            CardButton(action: .quickLook, showsTitle: false, style: style),
-            CardButton(action: .copy, showsTitle: true, style: style),
-            CardButton(action: .save, showsTitle: true, style: style),
+            corner(.close, CardIcon.action(.close).shotzIcon),
+            corner(.annotate, CardIcon.action(.annotate).shotzIcon),
+            corner(.quickLook, CardIcon.action(.quickLook).shotzIcon),
+            pill(.copy, CardIcon.action(.copy).shotzIcon),
+            pill(.save, CardIcon.action(.save).shotzIcon),
         ]
+        caption = ShotzButton(title: captionText, role: .glass, size: .compact)
         super.init(frame: .zero)
         wantsLayer = true
         controls.wantsLayer = true
         controls.alphaValue = 0
         controls.layer?.addSublayer(scrim)
-        scrim.locations = [0, 0.38, 0.62, 1]
         addSubview(controls)
-        caption.stringValue = captionText
-        caption.font = style.captionFont
-        caption.textColor = .labelColor
-        captionChip.addSubview(caption)
-        controls.addSubview(captionChip)
-        for button in buttons {
-            button.onPress = { [weak self] in self?.onAction?($0) }
+
+        caption.titleFont = ShotzUI.Typography.value.font
+        caption.stateOverride = .rest
+        caption.setAccessibilityRole(.staticText)
+        controls.addSubview(caption)
+
+        let pair = buttons.filter { $0.action == .copy || $0.action == .save }.map(\.button)
+        let pairWidth = pair.map(\.intrinsicContentSize.width).max() ?? 0
+        for (action, button) in buttons {
+            button.setShotzToolTip(action.title, shortcut: action.shortcutHint)
+            button.setAccessibilityLabel(action.title)
+            if pair.contains(where: { $0 === button }) { button.minimumWidth = pairWidth }
+            button.onAction = { [weak self] _ in self?.onAction?(action) }
             controls.addSubview(button)
         }
-        addSubview(flash)
-        flash.alphaValue = 0
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }
 
     func apply(_ palette: CardStyle.Palette) {
-        scrim.colors = [palette.scrimEdge, palette.scrimMiddle, palette.scrimMiddle, palette.scrimEdge]
-        flash.apply(palette, font: style.pillFont)
+        scrim.backgroundColor = CGColor(gray: 0, alpha: CardStyle.scrimOpacity)
     }
 
-    /// ≤120 ms (SPEC §4.3 asks for ≤100 ms to appear).
+    /// Fades the controls with `Motion.fast` (0.12 s; 0 under Reduce Motion).
     func setRevealed(_ revealed: Bool, animated: Bool = true) {
         guard revealed != isRevealed else { return }
         isRevealed = revealed
         NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = animated ? (revealed ? 0.09 : 0.12) : 0
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            ctx.duration = animated ? ShotzUI.Motion.fast : 0
+            ctx.timingFunction = ShotzUI.Motion.arrive
             ctx.allowsImplicitAnimation = true
             controls.animator().alphaValue = revealed ? 1 : 0
         }
     }
 
-    /// The pressed look on the button for `action` (keyboard shortcuts).
-    func showPressed(_ action: CardAction) {
-        guard isRevealed else { return }
-        buttons.first { $0.action == action }?.flashPressed()
+    func button(for action: CardAction) -> ShotzButton? {
+        buttons.first { $0.action == action }?.button
     }
 
-    /// Shows a short confirmation in the centre of the card.
+    /// The pressed look on the button for `action` (keyboard shortcuts).
+    func showPressed(_ action: CardAction) {
+        guard isRevealed, let button = button(for: action) else { return }
+        button.stateOverride = .pressed
+        DispatchQueue.main.asyncAfter(deadline: .now() + ShotzUI.Motion.fast) { [weak button] in
+            button?.stateOverride = nil
+        }
+    }
+
+    /// Shows a `ShotzToast` in the centre of the card.
     func showFlash(_ text: String, success: Bool) {
-        flash.configure(text: text, success: success)
-        needsLayout = true
-        layoutSubtreeIfNeeded()
+        toast?.removeFromSuperview()
+        let t = ShotzToast(text, tone: success ? .success : .failure)
+        toast = t
+        addSubview(t)
         flashGeneration += 1
         let generation = flashGeneration
         controls.alphaValue = 0
         isRevealed = false
-        flash.alphaValue = 1
-        if let layer = flash.layer {
-            let pop = CASpringAnimation(perceptualDuration: 0.3, bounce: 0.25)
-            pop.keyPath = "transform.scale"
-            pop.fromValue = 0.86
-            pop.toValue = 1
-            pop.duration = pop.settlingDuration
-            let fade = CABasicAnimation(keyPath: "opacity")
-            fade.fromValue = 0
-            fade.toValue = 1
-            fade.duration = 0.1
-            layer.add(pop, forKey: "pop")
-            layer.add(fade, forKey: "fadeIn")
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+        t.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = ShotzUI.Motion.fast
+            ctx.timingFunction = ShotzUI.Motion.arrive
+            t.animator().alphaValue = 1
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) { [weak self] in
-            guard let self, self.flashGeneration == generation else { return }
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.2
-                self.flash.animator().alphaValue = 0
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) { [weak self, weak t] in
+            guard let self, self.flashGeneration == generation, let t else { return }
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = ShotzUI.Motion.standard
+                t.animator().alphaValue = 0
+            }, completionHandler: { [weak t] in MainActor.assumeIsolated { t?.removeFromSuperview() } })
         }
     }
 
     override func layout() {
         super.layout()
-        let s = style
         let b = bounds
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -114,102 +128,43 @@ import AppKit
         scrim.frame = b
         CATransaction.commit()
 
-        let chip = CGSize(width: s.chip, height: s.chip)
-        func place(_ action: CardAction, _ origin: CGPoint) {
-            buttons.first { $0.action == action }?.frame = CGRect(origin: origin, size: chip)
+        let inset = style.hitInset
+        for (action, button) in buttons where [.close, .annotate, .quickLook].contains(action) {
+            let s = button.intrinsicContentSize
+            let x = action == .close ? inset : b.maxX - inset - s.width
+            let y = action == .quickLook ? inset : b.maxY - inset - s.height
+            button.frame = CGRect(x: x, y: y, width: s.width, height: s.height)
         }
-        let top = b.maxY - s.chipInset - s.chip
-        place(.close, CGPoint(x: s.chipInset, y: top))
-        place(.annotate, CGPoint(x: b.maxX - s.chipInset - s.chip, y: top))
-        place(.quickLook, CGPoint(x: b.maxX - s.chipInset - s.chip, y: s.chipInset))
+        // Caption on the Quick Look row.
+        let c = caption.intrinsicContentSize
+        caption.frame = CGRect(x: inset, y: inset, width: c.width, height: c.height)
 
-        // Caption centred on the Quick Look button's row.
-        let t = caption.intrinsicContentSize
-        let capH = s.captionHeight
-        let padX = (capH * 0.45).rounded()
-        captionChip.frame = CGRect(x: s.chipInset, y: (s.chipInset + (s.chip - capH) / 2).rounded(), width: (t.width + padX * 2).rounded(.up), height: capH)
-        caption.frame = CGRect(x: padX, y: ((capH - t.height) / 2).rounded(), width: t.width + 1, height: t.height)
-
-        // Copy and Save: equal widths, centred, never wider than the card allows.
-        let pills = buttons.filter { $0.action == .copy || $0.action == .save }
-        let natural = pills.map(\.pillWidth).max() ?? 0
-        let pillW = min(natural, ((b.width - 2 * s.chipInset - s.pillGap) / 2).rounded(.down))
-        var x = (b.midX - (pillW * 2 + s.pillGap) / 2).rounded()
-        let y = (b.midY - s.pillHeight / 2).rounded()
-        for pill in pills {
-            pill.frame = CGRect(x: x, y: y, width: pillW, height: s.pillHeight)
-            x += pillW + s.pillGap
+        let pair = buttons.filter { $0.action == .copy || $0.action == .save }.map(\.button)
+        let p = pair.first?.intrinsicContentSize ?? .zero
+        let gap = ShotzUI.Space.s
+        var x = (b.midX - (2 * p.width + gap) / 2).rounded()
+        let y = (b.midY - p.height / 2).rounded()
+        for button in pair {
+            button.frame = CGRect(x: x, y: y, width: p.width, height: p.height)
+            x += p.width + gap
         }
-        let f = flash.fittingSize
-        flash.frame = CGRect(x: (b.midX - f.width / 2).rounded(), y: (b.midY - f.height / 2).rounded(), width: f.width, height: f.height)
+        if let toast {
+            let f = toast.intrinsicContentSize
+            toast.frame = CGRect(x: (b.midX - f.width / 2).rounded(), y: (b.midY - f.height / 2).rounded(), width: f.width, height: f.height)
+        }
     }
 
-    /// Only the buttons are hit targets (with their ≥28 pt hit frames), and
-    /// only while revealed; everything else falls through to the card.
+    /// Only the five action buttons are hit targets (ShotzUI frames are ≥ 28 pt),
+    /// and only while revealed; everything else falls through to the card.
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard isRevealed else { return nil }
         let local = convert(point, from: superview)
-        // Pills first: their hit frames never overlap the corners, but be explicit.
-        for button in buttons.reversed() where button.hitFrame.contains(local) {
+        for (_, button) in buttons.reversed() where button.frame.contains(local) {
             return button
         }
         return nil
     }
 
     /// Accessibility: buttons stay reachable even when not revealed.
-    override func accessibilityChildren() -> [Any]? { buttons }
-}
-
-/// The centred "Copied" / "Saved" confirmation.
-@MainActor final class FlashBadgeView: NSView {
-    private let glass = GlassView()
-    private let icon = NSImageView()
-    private let label = NSTextField(labelWithString: "")
-    private var palette: CardStyle.Palette?
-    private var success = true
-
-    override init(frame: NSRect) {
-        super.init(frame: frame)
-        wantsLayer = true
-        addSubview(glass)
-        glass.addSubview(icon)
-        glass.addSubview(label)
-        label.textColor = .labelColor
-        layer?.shadowColor = .black
-        layer?.shadowOpacity = 0.25
-        layer?.shadowRadius = 8
-        layer?.shadowOffset = CGSize(width: 0, height: -2)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("not used") }
-
-    func apply(_ palette: CardStyle.Palette, font: NSFont) {
-        self.palette = palette
-        label.font = font
-        icon.contentTintColor = success ? palette.accentInk : palette.failureInk
-    }
-
-    func configure(text: String, success: Bool) {
-        self.success = success
-        label.stringValue = text
-        icon.image = (success ? CardIcon.success : .failure).image(pointSize: 18)
-        if let palette { icon.contentTintColor = success ? palette.accentInk : palette.failureInk }
-        setAccessibilityLabel(text)
-        NSAccessibility.post(element: self, notification: .announcementRequested, userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
-    }
-
-    override var fittingSize: NSSize {
-        let t = label.intrinsicContentSize
-        return NSSize(width: (12 + 18 + 7 + t.width + 15).rounded(.up), height: 32)
-    }
-
-    override func layout() {
-        super.layout()
-        glass.frame = bounds
-        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: bounds.height / 2, cornerHeight: bounds.height / 2, transform: nil)
-        icon.frame = CGRect(x: 12, y: 0, width: 18, height: bounds.height)
-        let t = label.intrinsicContentSize
-        label.frame = CGRect(x: 37, y: ((bounds.height - t.height) / 2).rounded(), width: t.width + 2, height: t.height)
-    }
+    override func accessibilityChildren() -> [Any]? { buttons.map(\.button) }
 }
