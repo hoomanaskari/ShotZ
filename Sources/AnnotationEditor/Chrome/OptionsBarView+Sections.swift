@@ -20,9 +20,9 @@ extension OptionsBarView {
         ) { [weak self] i in
             self?.change(String(localized: "Text Style")) { $0.textStyle.decoration = decorations[i] }
         }, String(localized: "Style"))
-        add(controls.toggleChip(title: String(localized: "Bold"), glyph: .bold, tooltip: String(localized: "Bold"), on: s.textStyle.isBold) { [weak self] on in
+        add(controls.toggleChip(glyph: .bold, label: String(localized: "Bold"), on: s.textStyle.isBold) { [weak self] on in
             self?.change(String(localized: "Bold")) { $0.textStyle.isBold = on }
-        }, String(localized: "Weight"), priority: .medium)
+        }, String(localized: "Bold"), priority: .medium)
         let alignments = TextStyle.Alignment.allCases
         add(controls.segmented(
             glyphs: alignments.map { .textAlign($0) },
@@ -72,7 +72,7 @@ extension OptionsBarView {
         }
         widthField = w
         heightField = h
-        add(Self.row([w, EditorControls.caption("×"), h]), String(localized: "Size"))
+        add(Self.row([w, ShotzUI.label("×", .caption), h]), String(localized: "Size"))
         let cancel = controls.secondaryButton(String(localized: "Cancel"), tooltip: String(localized: "Cancel"), shortcut: "Esc") { [weak self] in
             self?.onCropCancel?()
         }

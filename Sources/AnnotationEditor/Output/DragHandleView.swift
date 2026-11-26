@@ -6,26 +6,42 @@ import ShotzUI
 /// image instead of a click; the file is rendered when the drag starts.
 ///
 /// Two looks (the action bar uses `DragHandleView.defaultStyle`):
-/// - `.thumbnail`: a small preview of the result next to a grip, in a quiet chip. It reads as
-///   "this is the image: take it" without needing the tooltip.
-/// - `.icon`: the drag-hand icon alone; on hover a grip appears beside it.
+/// - `.thumbnail`: a preview of the result in a ShotzTileButton. It reads as "this is the
+///   image: take it" without needing the tooltip; hover shows the tile's ring.
+/// - `.icon`: the drag-hand icon in a quiet ShotzButton.
 /// Both say "Drag to another app" in the tooltip and show the open-hand cursor.
 @MainActor final class DragHandleView: NSView, NSDraggingSource {
     enum Style: String { case thumbnail, icon }
     nonisolated static let defaultStyle: Style = .thumbnail
+    static let thumbSize = CGSize(width: 40, height: 22)
 
     /// Produces the file to drag (rendered at full resolution).
     var makeFile: (() -> URL?)?
-    let chip = DragChip(size: EditorControls.actionSize)
-    var style: Style {
-        get { chip.style }
-        set { chip.style = newValue; invalidateIntrinsicContentSize() }
+    let tile = ShotzTileButton(image: NSImage(size: DragHandleView.thumbSize), size: DragHandleView.thumbSize, label: String(localized: "Drag image"))
+    let button = ShotzButton(icon: .dragHandle, role: .quiet, size: EditorControls.actionSize)
+    var style: Style = DragHandleView.defaultStyle {
+        didSet {
+            tile.isHidden = style != .thumbnail
+            button.isHidden = style != .icon
+            invalidateIntrinsicContentSize()
+            superview?.needsLayout = true
+        }
     }
     /// The preview of the result shown in the thumbnail style.
     var thumbnail: NSImage? {
-        get { chip.thumbnail }
-        set { chip.thumbnail = newValue }
+        didSet {
+            tile.image = thumbnail ?? NSImage(size: Self.thumbSize)
+            // The tile takes the image's proportions (22 pt tall, 28–48 pt wide) so nothing is stretched.
+            if let size = thumbnail?.size, size.height > 0 {
+                let w = min(max((Self.thumbSize.height * size.width / size.height).rounded(), 28), 48)
+                tile.tileSize = CGSize(width: w, height: Self.thumbSize.height)
+                invalidateIntrinsicContentSize()
+                superview?.needsLayout = true
+                superview?.superview?.needsLayout = true
+            }
+        }
     }
+    private var shown: ShotzControlView { style == .thumbnail ? tile : button }
     private var mouseDownEvent: NSEvent?
     private var tracking: NSTrackingArea?
     private var hovering = false { didSet { updateState() } }
@@ -33,30 +49,36 @@ import ShotzUI
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        chip.frame = bounds
-        chip.autoresizingMask = [.width, .height]
-        addSubview(chip)
+        for v in [tile, button] as [ShotzControlView] {
+            v.frame = bounds
+            v.autoresizingMask = [.width, .height]
+            v.setAccessibilityElement(false)
+            addSubview(v)
+        }
+        tile.isHidden = style != .thumbnail
+        button.isHidden = style != .icon
         setShotzToolTip(String(localized: "Drag to another app"))
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(String(localized: "Drag image"))
         setAccessibilityHelp(String(localized: "Drag the finished image into another app"))
-        chip.setAccessibilityElement(false)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    override var intrinsicContentSize: NSSize { chip.intrinsicContentSize }
+    override var intrinsicContentSize: NSSize { shown.intrinsicContentSize }
     override var isFlipped: Bool { true }
 
-    /// The whole area is the drag source (the chip only draws).
+    /// The whole area is the drag source (the control only draws).
     override func hitTest(_ point: NSPoint) -> NSView? {
         frame.contains(point) ? self : nil
     }
 
     private func updateState() {
-        chip.stateOverride = hovering || pressing ? ShotzUI.ControlState(isHovered: hovering, isPressed: pressing) : nil
+        let state = hovering || pressing ? ShotzUI.ControlState(isHovered: hovering, isPressed: pressing) : nil
+        tile.stateOverride = state
+        button.stateOverride = state
     }
 
     /// Shows the hover look without a mouse (renders and tests).
@@ -110,83 +132,3 @@ import ShotzUI
     }
 }
 
-/// The drag-out control's look, drawn with ShotzUI's quiet chrome, icon and palette.
-@MainActor final class DragChip: ShotzControlView {
-    var style: DragHandleView.Style = DragHandleView.defaultStyle { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
-    var thumbnail: NSImage? { didSet { needsDisplay = true } }
-    let role: ShotzUI.ControlRole = .quiet
-
-    static let thumbSize = CGSize(width: 36, height: 20)
-    private static let gripWidth: CGFloat = 6
-
-    init(size: ShotzUI.ControlSize) {
-        super.init(frame: .zero)
-        shotzSize = size
-    }
-
-    override var intrinsicContentSize: NSSize {
-        let s = shotzSize
-        switch style {
-        case .thumbnail:
-            return NSSize(width: ShotzUI.Space.xs + Self.thumbSize.width + ShotzUI.Space.xs + Self.gripWidth + ShotzUI.Space.s, height: s.hitHeight)
-        case .icon:
-            return NSSize(width: ShotzUI.Space.xs + Self.gripWidth + ShotzUI.Space.xxs + s.iconSize + ShotzUI.Space.s, height: s.hitHeight)
-        }
-    }
-
-    override func drawControl(in ctx: CGContext, state: ShotzUI.ControlState) {
-        let s = shotzSize
-        let chrome = chromeRect()
-        let path = CGPath(roundedRect: chrome, cornerWidth: s.radius, cornerHeight: s.radius, transform: nil)
-        let fills = ShotzUI.fills(for: role, state: state)
-        drawChrome(path, fills: fills, state: state, in: ctx)
-        let active = state.isHovered || state.isPressed
-        switch style {
-        case .thumbnail:
-            let t = CGRect(x: chrome.minX + ShotzUI.Space.xs, y: (chrome.midY - Self.thumbSize.height / 2).rounded(),
-                           width: Self.thumbSize.width, height: Self.thumbSize.height)
-            drawThumbnail(in: t, ctx: ctx)
-            drawGrip(x: t.maxX + ShotzUI.Space.xs, midY: chrome.midY,
-                     color: active ? ShotzUI.Palette.textSecondary : ShotzUI.Palette.textTertiary, ctx: ctx)
-        case .icon:
-            // The grip appears on hover: "this can be picked up".
-            if active { drawGrip(x: chrome.minX + ShotzUI.Space.xs, midY: chrome.midY, color: ShotzUI.Palette.textTertiary, ctx: ctx) }
-            let x = chrome.minX + ShotzUI.Space.xs + Self.gripWidth + ShotzUI.Space.xxs
-            drawIcon(.dragHandle, in: CGRect(x: x, y: (chrome.midY - s.iconSize / 2).rounded(), width: s.iconSize, height: s.iconSize),
-                     color: fills.content, ctx: ctx)
-        }
-    }
-
-    /// The result, aspect-fitted in a rounded frame with a hairline edge.
-    private func drawThumbnail(in frame: CGRect, ctx: CGContext) {
-        let radius = ShotzUI.Radius.small - 1
-        let clip = CGPath(roundedRect: frame, cornerWidth: radius, cornerHeight: radius, transform: nil)
-        ctx.saveGState()
-        ctx.addPath(clip)
-        ctx.clip()
-        ctx.setFillColor(ShotzUI.Palette.surfaceSunken.resolved(in: effectiveAppearance).cgColor)
-        ctx.fill(frame)
-        if let image = thumbnail, image.size.width > 0, image.size.height > 0 {
-            let scale = max(frame.width / image.size.width, frame.height / image.size.height)
-            let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-            let r = CGRect(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2, width: size.width, height: size.height)
-            image.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: [.interpolation: NSImageInterpolation.high.rawValue])
-        }
-        ctx.restoreGState()
-        ctx.addPath(CGPath(roundedRect: frame.insetBy(dx: 0.5, dy: 0.5), cornerWidth: radius, cornerHeight: radius, transform: nil))
-        ctx.setStrokeColor(ShotzUI.Palette.border.resolved(in: effectiveAppearance).cgColor)
-        ctx.setLineWidth(1)
-        ctx.strokePath()
-    }
-
-    /// Two columns of three dots.
-    private func drawGrip(x: CGFloat, midY: CGFloat, color: NSColor, ctx: CGContext) {
-        ctx.setFillColor(color.resolved(in: effectiveAppearance).cgColor)
-        let d: CGFloat = 2
-        for col in 0..<2 {
-            for row in -1...1 {
-                ctx.fillEllipse(in: CGRect(x: x + CGFloat(col) * 4, y: (midY + CGFloat(row) * 4 - d / 2).rounded(), width: d, height: d))
-            }
-        }
-    }
-}

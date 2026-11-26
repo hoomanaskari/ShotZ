@@ -87,7 +87,7 @@ import ShotzUI
         controls.reset()
 
         let title = EditorControls.panelTitle(String(localized: "Background"))
-        let toggle = controls.panelSwitch(on: style != nil, label: String(localized: "Background on")) { [weak self] on in
+        let toggle = controls.panelSwitch(on: style != nil, label: String(localized: "Background on"), shortcut: "G") { [weak self] on in
             guard let self else { return }
             self.set(on ? self.presets.last : nil)
         }
@@ -106,16 +106,16 @@ import ShotzUI
         let aspects = AnnotationKit.BackgroundStyle.Aspect.allCases
         form([
             .init(String(localized: "Padding"), controls.slider(
-                value: s.padding * 100, min: 0, max: 25, width: Self.sliderWidth, label: String(localized: "Padding"), glyph: nil,
+                value: s.padding * 100, min: 0, max: 25, width: Self.sliderWidth, label: String(localized: "Padding"), glyph: .padding,
                 format: { "\(Int($0.rounded()))%" }) { [weak self] v, final in
                 self?.update(final: final) { $0.padding = v / 100 }
             }),
-            .init(nil, controls.toggleChip(title: String(localized: "Auto-balance"), tooltip: String(localized: "Balance the margins around window shadows"),
-                                           on: s.autoBalance) { [weak self] on in
+            .init(nil, controls.checkbox(String(localized: "Auto-balance"), tooltip: String(localized: "Balance the margins around window shadows"),
+                                         on: s.autoBalance) { [weak self] on in
                 self?.update { $0.autoBalance = on }
             }),
             .init(String(localized: "Corners"), controls.slider(
-                value: s.cornerRadius, min: 0, max: maxRadius, width: Self.sliderWidth, label: String(localized: "Corner radius"), glyph: nil,
+                value: s.cornerRadius, min: 0, max: maxRadius, width: Self.sliderWidth, label: String(localized: "Corner radius"), glyph: .cornerRadius,
                 format: { "\(Int($0.rounded()))" }) { [weak self] v, final in
                 self?.update(final: final) { $0.cornerRadius = v }
             }),
@@ -138,7 +138,8 @@ import ShotzUI
     /// Panel layout: a right-aligned label column and a control column (ShotzFormStack).
     static let labelWidth: CGFloat = 56
     static var contentWidth: CGFloat { width - 2 * ShotzUI.Space.l }
-    static var sliderWidth: CGFloat { contentWidth - labelWidth - ShotzUI.Space.m - 56 }
+    /// Track width leaving room for the slider's icon and value readout.
+    static var sliderWidth: CGFloat { contentWidth - labelWidth - ShotzUI.Space.m - 84 }
 
     private func form(_ rows: [ShotzFormStack.Row]) {
         let f = ShotzFormStack(rows: rows, labelWidth: Self.labelWidth)
@@ -169,7 +170,7 @@ import ShotzUI
         })
         switch s.fill {
         case .none:
-            form([fill, .init(nil, EditorControls.caption(String(localized: "Transparent around the image")))])
+            form([fill, .init(nil, ShotzUI.label(String(localized: "Transparent around the image"), .caption))])
         case .solid(let c):
             form([fill, .init(String(localized: "Colour"), controls.colorWell(NSColor(cgColor: c.cgColor) ?? .white, label: String(localized: "Fill colour")) { [weak self] color, final in
                 self?.update(final: final) { $0.fill = .solid(Self.rgba(color)) }
@@ -189,7 +190,7 @@ import ShotzUI
             form([
                 .init(String(localized: "Colours"), wells),
                 .init(String(localized: "Angle"), controls.slider(
-                    value: g.angle, min: 0, max: 360, width: Self.sliderWidth, label: String(localized: "Gradient angle"), glyph: nil,
+                    value: g.angle, min: 0, max: 360, width: Self.sliderWidth, label: String(localized: "Gradient angle"), glyph: .angle,
                     format: { "\(Int($0.rounded()))°" }) { [weak self] v, final in
                     self?.update(final: final) { if case .gradient(var gg) = $0.fill { gg.angle = v; $0.fill = .gradient(gg) } }
                 }),
@@ -198,47 +199,43 @@ import ShotzUI
     }
 
     private func gradientGrid(selected: AnnotationKit.BackgroundStyle.GradientFill) -> NSView {
-        let tile = NSSize(width: (Self.contentWidth - 3 * 8) / 4, height: 30)
-        let buttons: [NSButton] = GradientPreset.all.map { preset in
+        let gap = ShotzUI.Space.xs
+        let tile = CGSize(width: ((Self.contentWidth - 3 * gap) / 4 - 8).rounded(.down), height: 24)
+        let tiles: [NSView] = GradientPreset.all.map { preset in
             let g = preset.fill
-            let b = controls.imageButton(Self.gradientSwatch(g, selected: g == selected, size: tile), label: preset.name) { [weak self] in
+            return controls.tile(Self.gradientImage(g, size: tile), size: tile, label: preset.name, selected: g == selected) { [weak self] in
                 self?.update { $0.fill = .gradient(g) }
             }
-            b.setAccessibilityRole(.radioButton)
-            b.setAccessibilityValue(g == selected ? 1 : 0)
-            return b
         }
-        let rows = stride(from: 0, to: buttons.count, by: 4).map { Array(buttons[$0..<min($0 + 4, buttons.count)]) }
+        let rows = stride(from: 0, to: tiles.count, by: 4).map { Array(tiles[$0..<min($0 + 4, tiles.count)]) }
         let grid = NSGridView(views: rows)
-        grid.rowSpacing = 8
-        grid.columnSpacing = 8
+        grid.rowSpacing = gap
+        grid.columnSpacing = gap
         grid.setAccessibilityLabel(String(localized: "Gradient presets"))
         return grid
     }
 
     private func alignmentGrid(_ s: AnnotationKit.BackgroundStyle) -> NSView {
         let all = AnnotationKit.BackgroundStyle.Alignment.allCases
-        let buttons: [NSButton] = all.map { a in
-            let on = a == s.alignment
-            let b = controls.imageButton(Self.alignmentChip(on: on), label: Self.alignmentName(a)) { [weak self] in self?.update { $0.alignment = a } }
-            b.setAccessibilityRole(.radioButton)
-            b.setAccessibilityValue(on ? 1 : 0)
-            return b
+        let cell = CGSize(width: 18, height: 12)
+        let tiles: [NSView] = all.map { a in
+            controls.tile(Self.solidImage(size: cell), size: cell, label: Self.alignmentName(a), selected: a == s.alignment) { [weak self] in
+                self?.update { $0.alignment = a }
+            }
         }
-        let grid = NSGridView(views: [Array(buttons[0..<3]), Array(buttons[3..<6]), Array(buttons[6..<9])])
-        grid.rowSpacing = 3
-        grid.columnSpacing = 3
+        let grid = NSGridView(views: [Array(tiles[0..<3]), Array(tiles[3..<6]), Array(tiles[6..<9])])
+        grid.rowSpacing = 0
+        grid.columnSpacing = 0
         grid.setContentHuggingPriority(.required, for: .horizontal)
         grid.setAccessibilityLabel(String(localized: "Image position"))
         return grid
     }
 
-    /// A small rounded cell of the 3 × 3 position picker.
-    static func alignmentChip(on: Bool) -> NSImage {
-        NSImage(size: NSSize(width: 22, height: 15), flipped: true) { r in
-            let p = NSBezierPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), xRadius: ShotzUI.Radius.small, yRadius: ShotzUI.Radius.small)
-            (on ? ShotzUI.Palette.accentFill : ShotzUI.Palette.surfaceSunken).setFill()
-            p.fill()
+    /// The content of a position tile: the sunken surface colour (the tile draws edge and ring).
+    static func solidImage(size: CGSize) -> NSImage {
+        NSImage(size: size, flipped: true) { r in
+            ShotzUI.Palette.surfaceSunken.setFill()
+            r.fill()
             return true
         }
     }
@@ -286,18 +283,18 @@ import ShotzUI
         let alert = NSAlert()
         alert.messageText = String(localized: "Save Background Preset")
         alert.informativeText = String(localized: "Give the current background a name.")
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 22))
-        field.placeholderString = String(localized: "Preset name")
+        let field = ShotzTextField(placeholder: String(localized: "Preset name"), label: String(localized: "Preset name"))
+        field.frame = NSRect(origin: .zero, size: field.intrinsicContentSize)
         alert.accessoryView = field
         alert.addButton(withTitle: String(localized: "Save"))
         alert.addButton(withTitle: String(localized: "Cancel"))
         guard let window else { return }
         alert.beginSheetModal(for: window) { [weak self] response in
             guard response == .alertFirstButtonReturn else { return }
-            self?.presets.save(s, name: field.stringValue)
+            self?.presets.save(s, name: field.text)
             self?.scheduleRebuild()
         }
-        alert.window.initialFirstResponder = field
+        alert.window.initialFirstResponder = field.subviews.first { $0 is NSTextField }
     }
 
     // MARK: Helpers
@@ -334,25 +331,11 @@ import ShotzUI
         return RGBAColor(red: c.redComponent, green: c.greenComponent, blue: c.blueComponent)
     }
 
-    static func gradientSwatch(_ g: AnnotationKit.BackgroundStyle.GradientFill, selected: Bool,
-                               size: NSSize = NSSize(width: 48, height: 30)) -> NSImage {
-        NSImage(size: size, flipped: true) { r in
-            let inner = r.insetBy(dx: 2, dy: 2)
-            if let ctx = NSGraphicsContext.current?.cgContext {
-                // The image is flipped (top-left), as AnnotationKit's fill expects.
-                ctx.saveGState()
-                ctx.addPath(CGPath(roundedRect: inner, cornerWidth: ShotzUI.Radius.small, cornerHeight: ShotzUI.Radius.small, transform: nil))
-                ctx.clip()
-                AnnotationRenderer.drawBackgroundFill(.gradient(g), in: inner, ctx: ctx)
-                ctx.restoreGState()
-            }
-            if selected {
-                ShotzUI.Palette.selectedBorder.setStroke()
-                let ring = NSBezierPath(roundedRect: r.insetBy(dx: 0.75, dy: 0.75), xRadius: ShotzUI.Radius.small + 1.5, yRadius: ShotzUI.Radius.small + 1.5)
-                ring.lineWidth = 1.5
-                ring.stroke()
-            }
-            return true
+    /// A gradient preset's content for its tile (AnnotationKit draws the fill).
+    static func gradientImage(_ g: AnnotationKit.BackgroundStyle.GradientFill, size: CGSize) -> NSImage {
+        // AnnotationKit draws in top-left coordinates, as tile content expects.
+        EditorControls.tileImage(size: size) { ctx, r in
+            AnnotationRenderer.drawBackgroundFill(.gradient(g), in: r, ctx: ctx)
         }
     }
 }

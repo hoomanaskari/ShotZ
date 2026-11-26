@@ -148,7 +148,7 @@ extension EditorUITests {
         #expect(bar.done.role == .primary)
         #expect(bar.copy.role == .secondary && bar.save.role == .secondary)
         #expect(bar.copy.intrinsicContentSize.width == bar.save.intrinsicContentSize.width)
-        #expect(bar.more.role == .quiet && bar.drag.chip.role == .quiet)
+        #expect(bar.more.role == .quiet && bar.drag.button.role == .quiet)
         c.model.setTool(.arrow)
         c.optionsBar.rebuild()
         func all(_ v: NSView) -> [NSView] { [v] + v.subviews.flatMap(all) }
