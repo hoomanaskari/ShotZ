@@ -1,5 +1,6 @@
 angle
 app-window
+arrow-circle-up
 arrow-counter-clockwise
 arrow-line-down
 arrow-line-up

@@ -32,7 +32,7 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
     case opacity, lineThickness, cornerRadius, shadow, padding, aspectRatio, gradient, palette
     case pinOff, quit, loginItem, permission
     // Settings, menus and onboarding
-    case general, advanced, welcome, allInOne, restoreLastClosed, editor
+    case general, advanced, welcome, allInOne, restoreLastClosed, editor, checkForUpdates
     // Control glyphs (pop-up and menu buttons)
     case chevronDown, chevronUpDown
     // Editor panel labels
@@ -104,6 +104,7 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .allInOne: "squares-four"
         case .restoreLastClosed: "arrow-counter-clockwise"
         case .editor: "pen-nib"
+        case .checkForUpdates: "arrow-circle-up"
         case .chevronDown: "caret-down"
         case .chevronUpDown: "caret-up-down"
         case .eyedropper: "eyedropper"
@@ -211,6 +212,7 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .allInOne: String(localized: "All-in-one")
         case .restoreLastClosed: String(localized: "Restore last closed")
         case .editor: String(localized: "Editor")
+        case .checkForUpdates: String(localized: "Check for updates")
         case .chevronDown: String(localized: "Show menu")
         case .chevronUpDown: String(localized: "Choose")
         case .eyedropper: String(localized: "Pick colour from screen")
