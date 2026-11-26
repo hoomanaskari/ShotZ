@@ -30,7 +30,7 @@ let package = Package(
         .testTarget(name: "ShotzCoreTests", dependencies: ["ShotzCore"]),
         .testTarget(name: "CaptureKitTests", dependencies: ["CaptureKit", "ShotzCore"]),
         .testTarget(name: "QuickAccessTests", dependencies: ["QuickAccess", "ShotzCore"]),
-        .testTarget(name: "AnnotationKitTests", dependencies: ["AnnotationKit", "ShotzCore"]),
+        .testTarget(name: "AnnotationKitTests", dependencies: ["AnnotationKit", "ShotzCore"], exclude: ["Goldens"]),
         .testTarget(name: "AnnotationEditorTests", dependencies: ["AnnotationEditor", "AnnotationKit", "ShotzCore"]),
         .testTarget(name: "AppShellTests", dependencies: ["AppShell", "ShotzCore"]),
     ],
