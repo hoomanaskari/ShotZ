@@ -39,6 +39,13 @@ import ShotzCore
         write(ShellIcon.debugToolbarStrip(tabIcons, scale: 1), to: dir.appending(path: "toolbar-icons-1x.png"))
         write(ShellIcon.debugToolbarStrip(tabIcons, scale: 2), to: dir.appending(path: "toolbar-icons-2x.png"))
         if let button = coordinator.statusItem.debugButton { write(view: button, to: dir.appending(path: "status-item.png")) }
+        // Test runs have no status item: render the glyph itself for both apps and scales.
+        for variant in AppVariant.allCases {
+            for scale in [1.0, 2.0] {
+                write(StatusItemIconPreview.png(variant: variant, scale: scale),
+                      to: dir.appending(path: "status-item-\(variant.rawValue)@\(Int(scale))x.png"))
+            }
+        }
         do {
             try coordinator.statusItem.debugMenuDescription.write(to: dir.appending(path: "status-menu.txt"), atomically: true, encoding: .utf8)
         } catch {
