@@ -52,21 +52,26 @@ Sparkle signs every update with an EdDSA private key kept in your keychain; inst
 it against the public key in ShotZ's `Info.plist` (`SUPublicEDKey`). Keep the private key backed up:
 losing it means installed copies can never update again.
 
-Decide once whether ShotZ shares your other app's key or has its own (recommended: its own, so one
-key's exposure can't sign the other app's updates):
+ShotZ either reuses the key you already have (Sparkle's default keychain account, used by your
+other app) or gets its own account. One variable covers both:
+
+- `SPARKLE_KEY_ACCOUNT` unset or empty: Sparkle's default account (the existing key).
+- `SPARKLE_KEY_ACCOUNT=shotz` (or any name): that account. `release.sh` passes it to
+  `generate_appcast` as `--account`.
+
+To give ShotZ its own key (Sparkle's tools are in the Sparkle package artefacts after
+`swift package resolve`):
 
 ```bash
-# Sparkle's tools are in the Sparkle package artefacts after `swift package resolve`
 SPARKLE_BIN="$(dirname "$(find .build/artifacts -path '*/bin/generate_keys' | head -1)")"
 "$SPARKLE_BIN/generate_keys" --account shotz      # creates the key, prints the public key
-"$SPARKLE_BIN/generate_keys" --account shotz -p   # prints the public key again later
 "$SPARKLE_BIN/generate_keys" --account shotz -x shotz-sparkle-private.key   # backup; store it safely, never in git
 ```
 
-Put the printed public key in `Resources/Info.plist` as `SUPublicEDKey`, and set
-`SPARKLE_KEY_ACCOUNT=shotz` in your shell profile so `release.sh` signs with it. (Leaving it unset
-uses Sparkle's default account `ed25519`, the key your other app uses.) On a new Mac, import the
-backup with `generate_keys --account shotz -f shotz-sparkle-private.key`.
+With either choice, put the matching public key in `Resources/Info.plist` as `SUPublicEDKey`
+(`generate_keys [--account <name>] -p` prints it), and set `SPARKLE_KEY_ACCOUNT` in your shell
+profile if you use a named account. On a new Mac, import the backup with
+`generate_keys [--account <name>] -f <backup file>`.
 
 ### 4. Tools and repository
 
@@ -104,8 +109,10 @@ The appcast links point to `https://github.com/$SHOTZ_GITHUB_REPO/releases/downl
    - a tool is missing
    - there's no Developer ID identity
    - the notary profile doesn't work
-   - Sparkle's tools or EdDSA key are missing
+   - Sparkle's tools or EdDSA key are missing (only the key's presence is checked)
    - `SHOTZ_GITHUB_REPO` isn't set
+   - the bundle id in the single source (`CFBundleIdentifier` in `Resources/Info.plist`) isn't a
+     production id; after the build, the app's own `Info.plist` must carry exactly that id
 
    Then it:
    1. builds through `scripts/bundle.sh release`, signs inside-out (Sparkle's XPC services,
@@ -125,9 +132,10 @@ The appcast links point to `https://github.com/$SHOTZ_GITHUB_REPO/releases/downl
 scripts/release.sh --skip-notarize --dry-run-dir /tmp/shotz-rehearsal
 ```
 
-Everything except the two notarization submissions and stapling, with all outputs (dist, Sparkle
-archives, appcast) under the given folder. The git checks only warn, so it runs from a worktree or
-with uncommitted changes. The summary says **NOT RELEASABLE** and lists why. Never upload a
+Everything except notarization and the appcast, with all outputs under the given folder. A
+rehearsal never touches the notary profile or the Sparkle key (no check, no submission, no signing).
+The git checks only warn, so it runs from a worktree or with uncommitted changes. The summary says
+**NOT RELEASABLE** and lists why. `--skip-appcast` also skips the appcast step in a normal run. Never upload a
 rehearsal's files: Gatekeeper rejects them on other Macs. Rehearsals skip `create-dmg`'s Finder
 window layout (it needs Automation permission); the Applications link is still there.
 

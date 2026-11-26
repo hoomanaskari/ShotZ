@@ -5,9 +5,12 @@
 #   scripts/release.sh                               the real release (clean main, new version, untagged)
 #   scripts/release.sh --skip-notarize               everything except the two notarization
 #                                                    submissions and stapling: NOT RELEASABLE
+#   scripts/release.sh --skip-appcast                no appcast (no Sparkle signing): NOT RELEASABLE
 #   scripts/release.sh --dry-run-dir <dir> [...]     a rehearsal: outputs go to <dir> (dist, sparkle
 #                                                    releases, appcast); git checks only warn; allowed
 #                                                    from a worktree
+# Rehearsals (--skip-notarize or --dry-run-dir) never touch the notary profile or the Sparkle
+# key: they skip the notarization and appcast steps and say NOT RELEASABLE.
 #
 # Outputs (in dist/, or <dir>/dist for a rehearsal):
 #   ShotZ.app                 the signed (and, when notarized, stapled) app
@@ -25,7 +28,8 @@
 #   NOTARY_PROFILE       notarytool keychain profile (default: notarytool-profile)
 #   SHOTZ_GITHUB_REPO    owner/name of the GitHub repository the downloads come from
 #   SPARKLE_BIN          folder with Sparkle's generate_appcast (default: found in .build/artifacts)
-#   SPARKLE_KEY_ACCOUNT  keychain account of the Sparkle EdDSA key (default: ed25519, Sparkle's own)
+#   SPARKLE_KEY_ACCOUNT  keychain account of the Sparkle EdDSA key; empty = Sparkle's default account
+#                        (passed to generate_appcast as --account only when set)
 set -euo pipefail
 set +x
 
@@ -33,22 +37,23 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 SKIP_NOTARIZE=0
+SKIP_APPCAST=0
 DRY_RUN_DIR=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-notarize) SKIP_NOTARIZE=1; shift ;;
+    --skip-appcast) SKIP_APPCAST=1; shift ;;
     --dry-run-dir)
       [[ $# -ge 2 && -n "$2" ]] || { echo "release.sh: --dry-run-dir needs a directory" >&2; exit 64; }
       DRY_RUN_DIR="$2"; shift 2 ;;
-    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,33p' "$0"; exit 0 ;;
     *) echo "release.sh: unknown option $1 (see --help)" >&2; exit 64 ;;
   esac
 done
 
 APP_NAME="ShotZ"
-BUNDLE_ID="app.shotz.Shotz"
 NOTARY_PROFILE="${NOTARY_PROFILE:-notarytool-profile}"
-SPARKLE_KEY_ACCOUNT="${SPARKLE_KEY_ACCOUNT:-ed25519}"
+SPARKLE_KEY_ACCOUNT="${SPARKLE_KEY_ACCOUNT:-}"
 PLIST="$ROOT/Resources/Info.plist"
 NOTES_DIR="$ROOT/release-notes"
 BUILT_APP="$ROOT/build/$APP_NAME.app"
@@ -114,11 +119,16 @@ VERSION="$(plist_value CFBundleShortVersionString)"
 BUILD="$(plist_value CFBundleVersion)"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]] || stop "Resources/Info.plist: CFBundleShortVersionString '$VERSION' is not a release version (x.y or x.y.z)."
 [[ "$BUILD" =~ ^[0-9]+$ ]] || stop "Resources/Info.plist: CFBundleVersion '$BUILD' must be a whole number (Sparkle compares it)."
-[[ "$(plist_value CFBundleIdentifier)" == "$BUNDLE_ID" ]] || stop "Resources/Info.plist is not ShotZ ($BUNDLE_ID)."
+# The production bundle id comes from the single source, never from this script. The built app is
+# checked against it after the build (signing identifier, notarization and appcast follow from it).
+expected_bundle_id() { plist_value CFBundleIdentifier; }
+BUNDLE_ID="$(expected_bundle_id)"
+[[ "$BUNDLE_ID" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]] || stop "Resources/Info.plist: CFBundleIdentifier '$BUNDLE_ID' is not a reverse-DNS id."
+[[ "$BUNDLE_ID" != *.dev ]] || stop "Resources/Info.plist: '$BUNDLE_ID' is the development id, not the production one."
 TAG="v$VERSION"
 ZIP="$DIST/$APP_NAME-$VERSION.zip"
 DMG="$DIST/$APP_NAME-$VERSION.dmg"
-ok "version $VERSION (build $BUILD) from Resources/Info.plist"
+ok "version $VERSION (build $BUILD), bundle id $BUNDLE_ID, from Resources/Info.plist"
 
 check "working tree is clean" 0 test -z "$(git status --porcelain)"
 check "on branch main" 0 test "$(git branch --show-current)" = main
@@ -127,7 +137,7 @@ NOTES="$NOTES_DIR/$VERSION.md"
 check "release notes at release-notes/$VERSION.md" 0 test -s "$NOTES"
 if [[ -z "${SHOTZ_GITHUB_REPO:-}" ]]; then
   if [[ -n "$DRY_RUN_DIR" ]]; then
-    warn "SHOTZ_GITHUB_REPO is not set: the rehearsal appcast uses OWNER/REPO download links"
+    warn "SHOTZ_GITHUB_REPO is not set (needed for a real release's download links)"
     SHOTZ_GITHUB_REPO="OWNER/REPO"
   else
     stop "set SHOTZ_GITHUB_REPO=owner/name (the GitHub repository that hosts the release downloads)."
@@ -160,8 +170,12 @@ else
   ok "Developer ID Application identity from SHOTZ_DEVELOPER_ID"
 fi
 
-if [[ "$SKIP_NOTARIZE" == 1 ]]; then
-  warn "--skip-notarize: notary profile not checked, nothing is submitted or stapled"
+REHEARSAL=0
+[[ "$SKIP_NOTARIZE" == 1 || -n "$DRY_RUN_DIR" ]] && REHEARSAL=1
+[[ "$REHEARSAL" == 1 ]] && SKIP_APPCAST=1
+if [[ "$SKIP_NOTARIZE" == 1 || -n "$DRY_RUN_DIR" ]]; then
+  SKIP_NOTARIZE=1
+  warn "rehearsal: notary profile not checked, nothing is submitted or stapled"
   blocker "notarization skipped (--skip-notarize): Gatekeeper rejects this app and DMG on other Macs"
 else
   xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
@@ -176,23 +190,24 @@ if [[ -z "$SPARKLE_BIN" ]]; then
 fi
 HAVE_SPARKLE=0
 if [[ -n "$SPARKLE_BIN" && -x "$SPARKLE_BIN/generate_appcast" ]]; then
-  HAVE_SPARKLE=1
   ok "Sparkle tools found (generate_appcast)"
-elif [[ -n "$DRY_RUN_DIR" || "$SKIP_NOTARIZE" == 1 ]]; then
-  warn "Sparkle's generate_appcast not found (resolve the Sparkle package first): the appcast step is skipped"
-  blocker "no appcast generated (Sparkle tools missing)"
-else
+  HAVE_SPARKLE=1
+elif [[ "$SKIP_APPCAST" == 0 ]]; then
   stop "Sparkle's generate_appcast not found in .build/artifacts. Run 'swift package resolve' (Sparkle must be a dependency) or set SPARKLE_BIN."
-fi
-# generate_appcast signs with the EdDSA key it keeps in the keychain; only its presence is checked.
-if security find-generic-password -s "https://sparkle-project.org" -a "$SPARKLE_KEY_ACCOUNT" >/dev/null 2>&1; then
-  ok "Sparkle EdDSA signing key present in the keychain (account $SPARKLE_KEY_ACCOUNT)"
-elif [[ -n "$DRY_RUN_DIR" || "$SKIP_NOTARIZE" == 1 ]]; then
-  warn "no Sparkle EdDSA key in the keychain: the appcast step is skipped"
-  HAVE_SPARKLE=0
-  blocker "no appcast generated (no EdDSA key)"
 else
-  stop "no Sparkle EdDSA key in the keychain. See docs/RELEASE.md (one-time setup, Sparkle key)."
+  warn "Sparkle's generate_appcast not found (resolve the Sparkle package first)"
+fi
+KEY_ACCOUNT_LABEL="${SPARKLE_KEY_ACCOUNT:-Sparkle default}"
+if [[ "$SKIP_APPCAST" == 1 ]]; then
+  # Rehearsals and --skip-appcast never touch the Sparkle key (no presence check, no signing).
+  warn "appcast skipped$([[ "$REHEARSAL" == 1 ]] && echo ' (rehearsal)'): the Sparkle key is not used"
+  blocker "no appcast generated"
+  HAVE_SPARKLE=0
+elif security find-generic-password -s "https://sparkle-project.org" -a "${SPARKLE_KEY_ACCOUNT:-ed25519}" >/dev/null 2>&1; then
+  # Only the item's presence is checked (exit status); the key itself is never read.
+  ok "Sparkle EdDSA signing key present in the keychain (account: $KEY_ACCOUNT_LABEL)"
+else
+  stop "no Sparkle EdDSA key in the keychain (account: $KEY_ACCOUNT_LABEL). See docs/RELEASE.md (one-time setup, Sparkle key)."
 fi
 
 # ---------------------------------------------------------------------------------------------
@@ -349,8 +364,11 @@ if [[ "$HAVE_SPARKLE" == 1 ]]; then
   # Sparkle pairs release notes with the archive of the same name.
   [[ -s "$NOTES" ]] && cp "$NOTES" "$RELEASES_DIR/$APP_NAME-$VERSION.md"
   [[ -f "$APPCAST" ]] || cp "$ROOT/appcast.xml" "$APPCAST" 2>/dev/null || true
+  # (Only reached in a production run: rehearsals skip the appcast and never use the key.)
+  account_args=()
+  [[ -n "$SPARKLE_KEY_ACCOUNT" ]] && account_args=(--account "$SPARKLE_KEY_ACCOUNT")
   "$SPARKLE_BIN/generate_appcast" \
-    --account "$SPARKLE_KEY_ACCOUNT" \
+    ${account_args[@]+"${account_args[@]}"} \
     --download-url-prefix "https://github.com/$SHOTZ_GITHUB_REPO/releases/download/$TAG/" \
     --embed-release-notes \
     --link "https://github.com/$SHOTZ_GITHUB_REPO" \
