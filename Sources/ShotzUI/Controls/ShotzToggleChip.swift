@@ -13,6 +13,13 @@ public final class ShotzToggleChip: ShotzControlView {
     }
     public var onToggle: ((Bool) -> Void)?
 
+    /// An icon-only chip; `label` is spoken by VoiceOver and should also be the tooltip.
+    public convenience init(icon: ShotzIcon, label: String, isOn: Bool = false, size: ShotzUI.ControlSize = .compact) {
+        self.init(title: "", icon: icon, isOn: isOn, size: size)
+        setAccessibilityLabel(label)
+        setShotzToolTip(label)
+    }
+
     public init(title: String, icon: ShotzIcon? = nil, isOn: Bool = false, size: ShotzUI.ControlSize = .compact) {
         self.title = title
         self.icon = icon
@@ -24,8 +31,13 @@ public final class ShotzToggleChip: ShotzControlView {
         setAccessibilityValue(isOn ? 1 : 0)
     }
 
+    /// Icon-only chips (empty title) are square-ish capsules: the icon carries the meaning and the
+    /// title goes to VoiceOver via `accessibilityLabel`.
+    private var isIconOnly: Bool { title.isEmpty && icon != nil }
+
     public override var intrinsicContentSize: NSSize {
         let s = shotzSize
+        if isIconOnly { return NSSize(width: s.height + 8, height: s.hitHeight) }
         // Reserve the glyph slot whether on or off so toggling never changes the width.
         let w = 2 * s.horizontalPadding + 2 + s.iconSize + s.iconLabelGap + ceil((title as NSString).size(withAttributes: [.font: s.font]).width)
         return NSSize(width: ceil(w), height: s.hitHeight)
@@ -45,6 +57,11 @@ public final class ShotzToggleChip: ShotzControlView {
         let path = CGPath(roundedRect: chrome, cornerWidth: chrome.height / 2, cornerHeight: chrome.height / 2, transform: nil)
         let fills = ShotzUI.fills(for: .chip, state: state)
         drawChrome(path, fills: fills, state: state, in: ctx)
+        if isIconOnly, let icon {
+            drawIcon(icon, in: CGRect(x: (chrome.midX - s.iconSize / 2).rounded(), y: (chrome.midY - s.iconSize / 2).rounded(), width: s.iconSize, height: s.iconSize),
+                     color: fills.content, ctx: ctx)
+            return
+        }
         var x = chrome.minX + s.horizontalPadding + 1
         if let glyph = icon ?? (state.isSelected ? ShotzIcon.check : nil) {
             drawIcon(glyph, in: CGRect(x: x, y: (chrome.midY - s.iconSize / 2).rounded(), width: s.iconSize, height: s.iconSize), color: fills.content, ctx: ctx)

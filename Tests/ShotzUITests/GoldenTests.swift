@@ -1,5 +1,6 @@
 import AppKit
 import ImageIO
+import ShotzCore
 import Testing
 @testable import ShotzUI
 
@@ -28,10 +29,14 @@ struct GoldenTests {
     }
 
     static func keyControls2() -> GallerySheet {
-        let sheet = GallerySheet(width: 760, columnWidth: 180)
+        let sheet = GallerySheet(width: 780, columnWidth: 180)
         let n = ShotzNumberField(value: 1920, in: 1...9999, label: "Width", size: .compact); n.suffix = "px"
         sheet.row("Fields", [ShotzSegmentedControl.thicknessPicker(selected: 2), n, ShotzPopUpButton(items: ["16:9"], size: .compact)])
         sheet.row("Feedback", [ShotzToast("Copied"), ShotzKeyCaps(["⌘", "⇧", "4"])])
+        let segs: [ShotzIcon] = [.textPlain, .textOutlined, .textSolidPill, .textTranslucentPill]
+        sheet.row("Compact icons", (0..<4).map { ShotzSegmentedControl(segments: segs.map { .init(icon: $0) }, selectedIndex: $0, size: .compact) as NSView }, columnWidth: 150)
+        let odd = ShotzSegmentedControl(segments: [ShotzIcon.fillOutline, .fillSolid, .fillOutlineTranslucent].map { .init(icon: $0) }, selectedIndex: 2, size: .compact)
+        sheet.row("Odd count", [odd, ShotzSegmentedControl.thicknessPicker(selected: 4)], columnWidth: 150)
         sheet.finish()
         return sheet
     }

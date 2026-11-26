@@ -35,6 +35,8 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
     case general, advanced, welcome, allInOne, restoreLastClosed, editor
     // Control glyphs (pop-up and menu buttons)
     case chevronDown, chevronUpDown
+    // Editor panel labels
+    case eyedropper, strength, angle
 
     /// The five thickness glyphs in order (index = thickness step).
     public static let thicknessSteps: [ShotzIcon] = [.thickness1, .thickness2, .thickness3, .thickness4, .thickness5]
@@ -45,18 +47,14 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .select: "cursor"
         case .rectangle: "rectangle"
         case .ellipse: "circle"
-        case .line: "line-segment"
         case .text: "text-t"
-        case .highlighter: "highlighter"
         case .redact: "checkerboard"
         case .counter: "number-circle-one"
-        case .pen: "scribble"
         case .crop: "crop"
         case .copy: "copy"
         case .save: "download-simple"
         case .saveAs: "floppy-disk"
         case .dragHandle: "hand-grabbing"
-        case .more: "dots-three"
         case .close: "x"
         case .annotate: "pencil-simple"
         case .quickLook: "eye"
@@ -108,6 +106,9 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .editor: "pen-nib"
         case .chevronDown: "caret-down"
         case .chevronUpDown: "caret-up-down"
+        case .eyedropper: "eyedropper"
+        case .strength: "gauge"
+        case .angle: "angle"
         case .loginItem: "rocket-launch"
         case .permission: "shield-check"
         default: nil
@@ -212,6 +213,9 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .editor: String(localized: "Editor")
         case .chevronDown: String(localized: "Show menu")
         case .chevronUpDown: String(localized: "Choose")
+        case .eyedropper: String(localized: "Pick colour from screen")
+        case .strength: String(localized: "Strength")
+        case .angle: String(localized: "Angle")
         case .loginItem: String(localized: "Launch at login")
         case .permission: String(localized: "Permission")
         }

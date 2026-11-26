@@ -65,13 +65,19 @@ public final class ShotzSegmentedControl: ShotzControlView {
     }
 
     public override var intrinsicContentSize: NSSize {
-        NSSize(width: ceil(segmentWidth * CGFloat(segments.count)) + 4, height: shotzSize.hitHeight)
+        NSSize(width: ceil(segmentWidth) * CGFloat(segments.count) + 4, height: shotzSize.hitHeight)
     }
 
+    /// Segment `i` (fractional while the thumb slides). Edges are whole points so the thumb and
+    /// labels line up exactly for any width or segment count.
     private func segmentRect(_ i: CGFloat, in track: CGRect) -> CGRect {
         let inner = track.insetBy(dx: 2, dy: 2)
-        let w = inner.width / CGFloat(max(segments.count, 1))
-        return CGRect(x: inner.minX + w * i, y: inner.minY, width: w, height: inner.height)
+        let n = CGFloat(max(segments.count, 1))
+        func edge(_ k: CGFloat) -> CGFloat { (inner.minX + inner.width * k / n).rounded() }
+        let lo = floor(i), hi = min(lo + 1, n), f = i - lo
+        let x0 = edge(lo) + (edge(hi) - edge(lo)) * f
+        let x1 = edge(min(lo + 1, n)) + (edge(min(hi + 1, n)) - edge(min(lo + 1, n))) * f
+        return CGRect(x: x0, y: inner.minY, width: max(x1 - x0, 0), height: inner.height)
     }
 
     public override func drawControl(in ctx: CGContext, state: ShotzUI.ControlState) {

@@ -9,9 +9,13 @@ public final class ShotzToast: NSView {
     public var text: String { didSet { invalidateIntrinsicContentSize(); needsDisplay = true; setAccessibilityLabel(text) } }
     public var tone: Tone { didSet { needsDisplay = true } }
 
-    public init(_ text: String, tone: Tone = .success) {
+    /// Compact toasts (24 pt) fit on quick-access cards; regular (32 pt) suits windows.
+    public var compact = false { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
+
+    public init(_ text: String, tone: Tone = .success, compact: Bool = false) {
         self.text = text
         self.tone = tone
+        self.compact = compact
         super.init(frame: .zero)
         wantsLayer = true
         setAccessibilityElement(true)
@@ -23,11 +27,14 @@ public final class ShotzToast: NSView {
     public required init?(coder: NSCoder) { fatalError("ShotzUI views are built in code") }
 
     public override var isFlipped: Bool { true }
-    private let height: CGFloat = 32
+    private var height: CGFloat { compact ? 24 : 32 }
+    private var glyph: CGFloat { compact ? 13 : 16 }
+    private var textFont: NSFont { compact ? ShotzUI.Typography.label.font : ShotzUI.Typography.control.font }
+    private var lead: CGFloat { compact ? ShotzUI.Space.s + 2 : ShotzUI.Space.m }
     private var icon: ShotzIcon { tone == .success ? .success : tone == .failure ? .failure : .info }
 
     public override var intrinsicContentSize: NSSize {
-        let w = ShotzUI.Space.m + 16 + ShotzUI.Space.s - 2 + ceil((text as NSString).size(withAttributes: [.font: ShotzUI.Typography.control.font]).width) + ShotzUI.Space.l
+        let w = lead + glyph + ShotzUI.Space.xs + 2 + ceil((text as NSString).size(withAttributes: [.font: textFont]).width) + lead + 2
         return NSSize(width: ceil(w), height: height)
     }
 
@@ -43,10 +50,10 @@ public final class ShotzToast: NSView {
             path.stroke()
             let glyphColor: NSColor = tone == .success ? NSColor(srgbRed: 0.45, green: 0.88, blue: 0.62, alpha: 1)
                 : tone == .failure ? NSColor(srgbRed: 1, green: 0.62, blue: 0.58, alpha: 1) : .white
-            icon.draw(in: ctx, rect: CGRect(x: ShotzUI.Space.m, y: r.midY - 8, width: 16, height: 16), color: glyphColor.cgColor, flipped: true)
-            let attrs: [NSAttributedString.Key: Any] = [.font: ShotzUI.Typography.control.font, .foregroundColor: NSColor.white]
+            icon.draw(in: ctx, rect: CGRect(x: lead, y: (r.midY - glyph / 2).rounded(), width: glyph, height: glyph), color: glyphColor.cgColor, flipped: true)
+            let attrs: [NSAttributedString.Key: Any] = [.font: textFont, .foregroundColor: NSColor.white]
             let size = (text as NSString).size(withAttributes: attrs)
-            (text as NSString).draw(at: CGPoint(x: ShotzUI.Space.m + 16 + ShotzUI.Space.s - 2, y: (r.midY - size.height / 2).rounded()), withAttributes: attrs)
+            (text as NSString).draw(at: CGPoint(x: lead + glyph + ShotzUI.Space.xs + 2, y: (r.midY - size.height / 2).rounded()), withAttributes: attrs)
         }
     }
 

@@ -86,10 +86,10 @@ struct GalleryTests {
         sheet.row("Icons", arrows, columnWidth: 330)
         let hovered = ShotzSegmentedControl(segments: [.fillOutline, .fillSolid, .fillOutlineTranslucent].map { .init(icon: $0) }, selectedIndex: 0, size: .compact)
         hovered.hoveredIndexOverride = 2
-        let sliding = ShotzSegmentedControl(segments: [.textPlain, .textOutlined, .textSolidPill, .textTranslucentPill].map { .init(icon: $0) }, selectedIndex: 1, size: .compact)
-        sliding.thumbPosition = 1.5
-        sheet.row("Compact", [hovered, sliding], columnWidth: 330)
-
+        let first = ShotzSegmentedControl(segments: [.textPlain, .textOutlined, .textSolidPill, .textTranslucentPill].map { .init(icon: $0) }, selectedIndex: 1, size: .compact)
+        let last = ShotzSegmentedControl(segments: [.textPlain, .textOutlined, .textSolidPill, .textTranslucentPill].map { .init(icon: $0) }, selectedIndex: 3, size: .compact)
+        sheet.row("Compact (hover 3rd)", [hovered], columnWidth: 330)
+        sheet.row("Compact (2nd / 4th)", [first, last], columnWidth: 330)
         sheet.title("Colour swatches")
         let swatchStates: [(String, NSView)] = {
             let a = ShotzSwatchRow(swatches: presetSwatches, selectedIndex: 0)
@@ -126,7 +126,7 @@ struct GalleryTests {
         sheet.title("Editor toolbar · action area")
         let bar = TitleBarMock(frame: CGRect(x: 0, y: 0, width: 1132, height: 52))
         sheet.block(bar, height: 52)
-        sheet.label("Tools left; trailing: zoom │ drag, more │ Copy (secondary) · Save (primary). All 28 pt, 4/8 pt gaps, 12 pt + separator between groups.",
+        sheet.label("Tools left; trailing: zoom │ drag, more │ Copy · Save (secondary) · Done (primary). All 28 pt, 4/8 pt gaps, 12 pt + separator between groups.",
                     at: CGPoint(x: 24, y: bar.frame.maxY + 6))
         sheet.finish()
         return sheet

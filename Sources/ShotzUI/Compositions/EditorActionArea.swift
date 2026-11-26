@@ -3,12 +3,13 @@ import ShotzCore
 
 /// Reference composition for the editor's trailing title-bar area, built only from ShotZ controls.
 ///
-///     [−][100 %][+]  │  [drag][…]  │  [⧉ Copy] [⤓ Save]
+///     [−][100 %][+]  │  [drag][…]  │  [⧉ Copy] [⤓ Save] [Done]
 ///
-/// Hierarchy: Save is the single primary action, trailing (Mac convention). Copy is secondary
-/// with a label and the same width as Save. Drag-out and More are quiet icon buttons with
-/// tooltips. Zoom is its own leading group. Everything is 28 pt; gaps are 4 pt inside a group of
-/// icon buttons, 8 pt between labelled buttons and 12 pt + separator between groups.
+/// Hierarchy: closing the editor means "done, back to the stack", so Done is the single primary
+/// action, trailing (Mac convention). Copy and Save are secondary with labels and equal widths.
+/// Drag-out and More are quiet icon buttons with tooltips. Zoom is its own leading group.
+/// Everything is 28 pt; gaps are 4 pt inside a group of icon buttons, 8 pt between labelled
+/// buttons and 12 pt + separator between groups.
 @MainActor
 public final class EditorActionArea: NSView {
     public let zoomOutButton = ShotzButton(icon: .zoomOut, role: .quiet)
@@ -17,11 +18,12 @@ public final class EditorActionArea: NSView {
     public let dragButton = ShotzButton(icon: .dragHandle, role: .quiet)
     public let moreButton = ShotzButton(icon: .more, role: .quiet)
     public let copyButton = ShotzButton(title: String(localized: "Copy"), icon: .copy, role: .secondary)
-    public let saveButton = ShotzButton(title: String(localized: "Save"), icon: .save, role: .primary)
+    public let saveButton = ShotzButton(title: String(localized: "Save"), icon: .save, role: .secondary)
+    public let doneButton = ShotzButton(title: String(localized: "Done"), role: .primary)
     private let separators = [ShotzSeparator(), ShotzSeparator()]
 
     private var groups: [[NSView]] {
-        [[zoomOutButton, zoomValueButton, zoomInButton], [dragButton, moreButton], [copyButton, saveButton]]
+        [[zoomOutButton, zoomValueButton, zoomInButton], [dragButton, moreButton], [copyButton, saveButton, doneButton]]
     }
 
     public override init(frame: NSRect) {
@@ -36,6 +38,8 @@ public final class EditorActionArea: NSView {
         moreButton.setShotzToolTip(String(localized: "More"))
         copyButton.setShotzToolTip(String(localized: "Copy image"), shortcut: "⇧⌘C")
         saveButton.setShotzToolTip(String(localized: "Save to export folder"), shortcut: "⌘S")
+        doneButton.setShotzToolTip(String(localized: "Done: return to the stack"), shortcut: "⌘W")
+        doneButton.minimumWidth = 64
         let pair = max(copyButton.intrinsicContentSize.width, saveButton.intrinsicContentSize.width)
         copyButton.minimumWidth = pair
         saveButton.minimumWidth = pair

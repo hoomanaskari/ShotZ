@@ -67,8 +67,8 @@ extension ShotzUI {
             f = ControlFills(background: P.accentFill, border: P.accentEdge, content: P.onAccent, raised: true)
             if state.isPressed { f.background = P.accentFill.shotzDarkened(0.14) } else if state.isHovered { f.background = P.accentFill.shotzDarkened(0.07) }
         case .secondary, .destructive:
-            f = ControlFills(background: P.raised, border: P.border, content: role == .destructive ? P.danger : P.textPrimary, raised: true)
-            if state.isPressed { f.background = P.raised.shotzOverlay(P.fillPressed) } else if state.isHovered { f.background = P.raised.shotzOverlay(P.fillHover) }
+            f = ControlFills(background: P.secondaryFill, border: P.secondaryBorder, content: role == .destructive ? P.danger : P.textPrimary, raised: true)
+            if state.isPressed { f.background = P.secondaryFill.shotzOverlay(P.fillPressed) } else if state.isHovered { f.background = P.secondaryFill.shotzOverlay(P.fillHover) }
         case .quiet:
             f = ControlFills(background: nil, border: nil, content: P.textPrimary, raised: false)
             if state.isPressed { f.background = P.fillPressed } else if state.isHovered { f.background = P.fillHover }
@@ -122,14 +122,17 @@ extension NSColor {
         return NSColor(name: nil) { a in base.resolved(in: a).mixed(with: .black, t) }
     }
 
-    /// `overlay` composited on top of this (dynamic) colour, keeping this colour's alpha.
+    /// `overlay` composited over this (dynamic, possibly translucent) colour (Porter-Duff "over").
     func shotzOverlay(_ overlay: NSColor) -> NSColor {
         let base = self
         return NSColor(name: nil) { a in
             let b = base.resolved(in: a), o = overlay.resolved(in: a)
-            let alpha = o.alphaComponent
-            return NSColor(srgbRed: b.redComponent * (1 - alpha) + o.redComponent * alpha, green: b.greenComponent * (1 - alpha) + o.greenComponent * alpha,
-                           blue: b.blueComponent * (1 - alpha) + o.blueComponent * alpha, alpha: max(b.alphaComponent, alpha))
+            let oa = o.alphaComponent, ba = b.alphaComponent
+            let outA = oa + ba * (1 - oa)
+            guard outA > 0 else { return .clear }
+            func mix(_ oc: CGFloat, _ bc: CGFloat) -> CGFloat { (oc * oa + bc * ba * (1 - oa)) / outA }
+            return NSColor(srgbRed: mix(o.redComponent, b.redComponent), green: mix(o.greenComponent, b.greenComponent),
+                           blue: mix(o.blueComponent, b.blueComponent), alpha: outA)
         }
     }
 }

@@ -10,6 +10,23 @@ enum CustomGlyphs {
     static func layers(for icon: ShotzIcon) -> [IconLayer] {
         switch icon {
         case .arrowTool, .arrowStraight: return [IconLayer(path: straightArrow())]
+        case .line:
+            // A plain diagonal (no end dots), the same length and weight as the arrow tool's shaft.
+            return [IconLayer(path: G.stroked(G.line(CGPoint(x: 52, y: 204), CGPoint(x: 204, y: 52))))]
+        case .pen:
+            // One smooth freehand stroke: lighter than a scribble, same 16-unit weight as its neighbours.
+            let p = CGMutablePath()
+            p.move(to: CGPoint(x: 40, y: 172))
+            p.addCurve(to: CGPoint(x: 128, y: 128), control1: CGPoint(x: 64, y: 92), control2: CGPoint(x: 104, y: 92))
+            p.addCurve(to: CGPoint(x: 216, y: 84), control1: CGPoint(x: 152, y: 164), control2: CGPoint(x: 192, y: 164))
+            return [IconLayer(path: G.stroked(p))]
+        case .highlighter:
+            return [IconLayer(path: highlighterTool())]
+        case .more:
+            // Three dots large enough to read at 16 pt (Phosphor's are 24 units; these are 36).
+            return [IconLayer(path: G.union([CGFloat(56), 128, 200].map {
+                CGPath(ellipseIn: CGRect(x: $0 - 18, y: 110, width: 36, height: 36), transform: nil)
+            }))]
         case .arrowCurved: return [IconLayer(path: curvedArrow())]
         case .arrowTapered: return [IconLayer(path: taperedArrow())]
         case .arrowDoubleHeaded: return [IconLayer(path: doubleArrow())]
@@ -151,6 +168,21 @@ enum CustomGlyphs {
         let r: CGFloat = 24
         return G.union([G.stroked(G.line(dot, head.shaftEnd)), head.head,
                         CGPath(ellipseIn: CGRect(x: dot.x - r, y: dot.y - r, width: 2 * r, height: 2 * r), transform: nil)])
+    }
+
+    /// A chisel marker drawn as a light outline (body, collar and tip) over a short stroke of ink,
+    /// tilted 45°: reads as a highlighter without the heavy fill of the pack glyph.
+    private static func highlighterTool() -> CGPath {
+        let body = CGMutablePath()
+        // Body: an outlined rounded bar from upper-right towards lower-left.
+        body.addPath(G.roundedRect(CGRect(x: 104, y: 28, width: 64, height: 112), 14))
+        body.move(to: CGPoint(x: 104, y: 112)); body.addLine(to: CGPoint(x: 168, y: 112))   // collar
+        body.move(to: CGPoint(x: 112, y: 140)); body.addLine(to: CGPoint(x: 120, y: 172))   // tip sides
+        body.addLine(to: CGPoint(x: 152, y: 172)); body.addLine(to: CGPoint(x: 160, y: 140))
+        var rotate = CGAffineTransform(translationX: 136, y: 100).rotated(by: .pi / 4).translatedBy(x: -136, y: -100)
+        let tilted = body.copy(using: &rotate) ?? body
+        let ink = G.line(CGPoint(x: 40, y: 220), CGPoint(x: 112, y: 220))
+        return G.union([G.stroked(tilted), G.stroked(ink, width: 20)])
     }
 
     private static func pixelGrid() -> [IconLayer] {

@@ -12,7 +12,12 @@ extension ShotzUI {
         public static var surface: NSColor { dynamic("surface", hex(0xFFFFFF), hex(0x26262A), hex(0xFFFFFF), hex(0x141416)) }
         /// Recessed areas: options bar, segmented track, slider track.
         public static var surfaceSunken: NSColor { dynamic("surfaceSunken", black(0.05), white(0.06), black(0.08), white(0.12)) }
-        /// The lifted element inside a sunken track (segment thumb, secondary button).
+        /// Secondary button fill: white and raised in light; a quiet translucent lift in dark so
+        /// secondary actions recede next to the primary.
+        public static var secondaryFill: NSColor { dynamic("secondaryFill", hex(0xFFFFFF), white(0.09), hex(0xFFFFFF), white(0.16)) }
+        /// Secondary button edge: a hairline that holds the shape without outlining it.
+        public static var secondaryBorder: NSColor { dynamic("secondaryBorder", black(0.14), white(0.07), black(0.55), white(0.55)) }
+        /// The lifted element inside a sunken track (segment thumb).
         public static var raised: NSColor { dynamic("raised", hex(0xFFFFFF), hex(0x4A4A50), hex(0xFFFFFF), hex(0x3A3A40)) }
 
         // MARK: Lines
@@ -30,7 +35,7 @@ extension ShotzUI {
 
         // MARK: Interaction fills (neutral)
         public static var fillHover: NSColor { dynamic("fillHover", black(0.06), white(0.08), black(0.10), white(0.16)) }
-        public static var fillPressed: NSColor { dynamic("fillPressed", black(0.11), white(0.13), black(0.18), white(0.24)) }
+        public static var fillPressed: NSColor { dynamic("fillPressed", black(0.15), white(0.17), black(0.22), white(0.28)) }
 
         // MARK: Accent family (follows the system accent)
         /// Primary button fill: the accent, deepened just enough (more in light mode) that its
@@ -40,7 +45,7 @@ extension ShotzUI {
         }
         /// Label/glyph colour on `accentFill`: white or near-black, whichever contrasts more.
         public static var onAccent: NSColor {
-            NSColor(name: "onAccent") { a in bestLabel(on: accentFillColor(accent: systemAccent(in: a), variant: variant(a))) }
+            NSColor(name: "onAccent") { a in accentPair(accent: systemAccent(in: a), variant: variant(a)).label }
         }
         /// Tint behind a selected tool or active chip.
         public static var selectedFill: NSColor {
@@ -138,27 +143,35 @@ extension ShotzUI {
         static func black(_ a: CGFloat) -> NSColor { NSColor(srgbRed: 0, green: 0, blue: 0, alpha: a) }
         static func white(_ a: CGFloat) -> NSColor { NSColor(srgbRed: 1, green: 1, blue: 1, alpha: a) }
 
-        static func accentFillColor(accent: NSColor, variant v: Variant) -> NSColor {
+        /// The primary fill and its label. White labels are preferred (they read as "Mac primary");
+        /// the accent deepens up to 40 % to get white to the contrast goal. Only light accents
+        /// (yellow, orange) that would turn muddy get a dark label on the accent instead.
+        static func accentPair(accent: NSColor, variant v: Variant) -> (fill: NSColor, label: NSColor) {
             let start: CGFloat = v == .light ? 0.12 : v == .lightHC ? 0.30 : v == .dark ? 0 : 0.15
             let goal: CGFloat = v.isHighContrast ? 7 : 4.6
             var t = start
+            while t <= 0.4 {
+                let c = accent.mixed(with: .black, t)
+                if contrast(.white, c) >= goal { return (c, .white) }
+                t += 0.02
+            }
+            t = start
             while t < 0.9 {
                 let c = accent.mixed(with: .black, t)
-                if max(contrast(.white, c), contrast(nearBlack, c)) >= goal { return c }
+                if contrast(nearBlack, c) >= goal { return (c, nearBlack) }
+                if contrast(.white, c) >= goal { return (c, .white) }
                 t += 0.03
             }
-            return accent.mixed(with: .black, 0.9)
+            return (accent.mixed(with: .black, 0.9), .white)
         }
+
+        static func accentFillColor(accent: NSColor, variant v: Variant) -> NSColor { accentPair(accent: accent, variant: v).fill }
 
         static func selectedFillColor(accent: NSColor, variant v: Variant) -> NSColor {
             accent.withAlphaComponent(v == .light ? 0.14 : v == .lightHC ? 0.22 : v == .dark ? 0.26 : 0.36)
         }
 
         static let nearBlack = NSColor(srgbRed: 0.067, green: 0.067, blue: 0.075, alpha: 1)
-
-        static func bestLabel(on fill: NSColor) -> NSColor {
-            contrast(.white, fill) >= contrast(nearBlack, fill) ? .white : nearBlack
-        }
 
         /// `color` moved toward `target` in small steps until it meets `minimum` against every background.
         static func ensuring(_ color: NSColor, contrast minimum: CGFloat, against backgrounds: [NSColor], toward target: NSColor) -> NSColor {
