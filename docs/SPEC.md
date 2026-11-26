@@ -174,8 +174,9 @@ captured while hovering):
   asking** (owner's setting). Setting "ask where to save" shows a save panel
   instead. Format per settings. Brief "Saved" confirmation, then the card
   closes (setting: keep after save, default off).
-- **Annotate**: opens the capture in the editor (section 5) and closes the
-  card. Saving or copying from the editor does not re-add a card.
+- **Annotate**: opens the capture in the editor (section 5). While the editor
+  is open the card is hidden from the stack (one capture, one place on
+  screen). When the editor window closes, the card comes back (section 4.6).
 - **Quick Look**: standard Quick Look preview panel for the file.
 - **Close**: removes the card. The capture stays in history.
 - **Double-click** the card: Annotate.
@@ -200,6 +201,31 @@ captured while hovering):
   all re-lay-out the stack without losing cards.
 - Quitting Shotz clears the stack; captures remain in history.
 
+### 4.6 Returning from the editor
+
+Closing the editor means "done editing", not "dismiss". The capture leaves
+the screen only when it is dismissed from the stack (or by a stack setting
+such as remove-after-drag or close-after-save).
+
+- When an editor window closes, its capture is presented in the stack again
+  as the newest card (bottom), on the display the editor window was on.
+- If the capture has edits (objects, crop or background), the card shows the
+  **annotated result**: the thumbnail is re-rendered from the document, and
+  Copy, Save, Quick Look and drag-out all deliver the flattened annotated
+  image at full resolution. The size caption shows the annotated pixel size.
+- Annotate on that card reopens the **same editable document**: objects are
+  still selectable and editable, with the original pixels underneath.
+- The same applies when the editor was opened from history or the status
+  menu rather than from a card: closing it puts the card in the stack.
+- An image opened from a file (not a capture) does not create a card.
+- If the same capture is already open in an editor, Annotate brings that
+  window forward; there is never a card and an editor for one capture at once.
+- Copy or Save inside the editor do not close the editor or add a card
+  (unless "close editor after copy/save" is on, in which case the close rule
+  above applies and the card returns).
+- Quitting Shotz with editors open saves their documents; cards are not
+  restored on next launch (history keeps everything).
+
 ## 5. Annotation editor
 
 ### 5.1 Window
@@ -217,9 +243,11 @@ captured while hovering):
   pans; holding Space and dragging pans.
 - Performance target: 60 fps object dragging, drawing and zooming on a
   5120 × 2880 capture; opening the editor ≤ 300 ms.
-- Closing with unsaved changes: by default changes are written back to the
-  history item silently (non-destructive; the document can be reopened and
-  edited). No "save changes?" dialog.
+- Closing the window (⌘W or the close button) means "done editing": edits are
+  written back to the history item silently (non-destructive; the document
+  can be reopened and edited), there is no "save changes?" dialog, and the
+  capture's card returns to the quick-access stack showing the annotated
+  result (section 4.6).
 - Esc: deselect → switch to Select tool → (nothing; Esc never closes).
   ⌘W closes.
 
@@ -410,6 +438,15 @@ Confirmed by the owner:
    capture stays re-editable.
 3. Hiding desktop icons during capture is deferred past Phase 1, to the later
    native capture engine.
+
+Requested by the owner after first use:
+
+- Closing the editor returns the capture to the stack as an annotated card;
+  it is dismissed only from the stack (section 4.6).
+- Development and production are separate apps that run side by side
+  (ARCHITECTURE section 8).
+- Tool and action icons come from one open-source icon set (Phosphor, MIT),
+  not stock system symbols; see THIRD-PARTY-NOTICES.
 
 Decided by engineering (sensible defaults, change if the owner objects):
 
