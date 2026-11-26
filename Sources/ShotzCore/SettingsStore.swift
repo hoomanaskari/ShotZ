@@ -80,7 +80,7 @@ import Foundation
         do {
             return try JSONDecoder().decode(KeyCombo?.self, from: data)
         } catch {
-            ShotzLog.logger("Settings").error("Bad hotkey data for \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            ShotzLog.logger("Settings").error("Bad hotkey data for \(key, privacy: .public): \(error.localizedDescription, privacy: .private)")
             return Self.defaultHotkey(for: action, variant: variant)
         }
     }
@@ -91,7 +91,7 @@ import Foundation
             let data = try JSONEncoder().encode(combo)
             set(data, SettingsKey.hotkey(action))
         } catch {
-            ShotzLog.logger("Settings").error("Encoding hotkey failed: \(error.localizedDescription, privacy: .public)")
+            ShotzLog.logger("Settings").error("Encoding hotkey failed: \(error.localizedDescription, privacy: .private)")
         }
     }
 

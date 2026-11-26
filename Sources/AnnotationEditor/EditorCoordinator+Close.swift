@@ -11,7 +11,7 @@ extension EditorCoordinator {
         let target = renderedURL(capture.id)
         Task { @MainActor [weak self] in
             let rendered = await Self.writeRendered(info.document, base: info.base, to: target)
-            self?.log.notice("Editor closed for \(capture.displayName, privacy: .public): rendered \(rendered?.lastPathComponent ?? "none", privacy: .public)")
+            self?.log.notice("Editor closed for \(capture.displayName, privacy: .private): rendered \(rendered?.lastPathComponent ?? "none", privacy: .private)")
             // Reopened while rendering: the editor owns the capture again, no card (SPEC §4.6).
             guard self?.isOpen(capture.id) == false else { return }
             self?.delegate?.editor(didClose: capture, renderedImageURL: rendered, onDisplay: info.displayID)
@@ -33,7 +33,7 @@ extension EditorCoordinator {
             guard hasEdits(document) else {
                 if fm.fileExists(atPath: url.path(percentEncoded: false)) {
                     do { try fm.removeItem(at: url) } catch {
-                        log.error("Cannot remove stale rendered image: \(error.localizedDescription, privacy: .public)")
+                        log.error("Cannot remove stale rendered image: \(error.localizedDescription, privacy: .private)")
                     }
                 }
                 return nil
@@ -50,7 +50,7 @@ extension EditorCoordinator {
                 }
                 return url
             } catch {
-                log.error("Cannot write rendered image: \(String(describing: error), privacy: .public)")
+                log.error("Cannot write rendered image: \(String(describing: error), privacy: .private)")
                 try? fm.removeItem(at: temp) // leftover temp file, if any
                 return nil
             }

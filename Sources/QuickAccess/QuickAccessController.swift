@@ -57,7 +57,7 @@ import ShotzCore
         let root = dragRoot
         Task.detached(priority: .utility) { DragExportJanitor.purge(root: root) }
         debugSnapshot = StackDebugSnapshot(panels: { [weak self] in self?.panels ?? [:] }) { [log] in
-            log.info("\($0, privacy: .public)")
+            log.info("\($0, privacy: .private)")
         }
     }
 
@@ -99,7 +99,7 @@ import ShotzCore
         FrameProbe.measure(in: card) { [log] in
             log.info("Card first frame \(Int((CACurrentMediaTime() - start) * 1000)) ms after present")
         }
-        log.info("Present \(capture.displayName, privacy: .public) on display \(display)")
+        log.info("Present \(capture.displayName, privacy: .private) on display \(display)")
         if selfTest == nil, let test = StackSelfTest.makeIfRequested(controller: self) {
             selfTest = test
             CardView.ignoresRealPointer = true
@@ -253,7 +253,7 @@ import ShotzCore
         let url = card.source.fileURL
         Task { [weak card, log] in
             guard let image = await ThumbnailLoader.load(url: url, maxPixelSize: maxPixels) else {
-                log.error("No thumbnail for \(url.lastPathComponent, privacy: .public)")
+                log.error("No thumbnail for \(url.lastPathComponent, privacy: .private)")
                 return
             }
             guard let card else { return }

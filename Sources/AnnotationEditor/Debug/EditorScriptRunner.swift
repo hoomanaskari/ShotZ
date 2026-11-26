@@ -78,7 +78,7 @@ import ShotzCore
             return
         }
         let line = lines.removeFirst()
-        log.notice("SCRIPT \(line, privacy: .public)")
+        log.notice("SCRIPT \(line, privacy: .private)")
         let parts = Self.tokens(line)
         let args = Array(parts.dropFirst())
         let flags = Self.flags(args)
@@ -134,7 +134,7 @@ import ShotzCore
         case "dump":
             if let path = args.first {
                 do { try controller.store.document.jsonData().write(to: URL(filePath: path)) } catch {
-                    log.error("SCRIPT dump failed: \(error.localizedDescription, privacy: .public)")
+                    log.error("SCRIPT dump failed: \(error.localizedDescription, privacy: .private)")
                 }
             }
         case "bench":
@@ -160,11 +160,11 @@ import ShotzCore
                     let tmp = try controller.exporterOut.renderTemporaryPNG(controller.store.document, name: "export")
                     try? FileManager.default.removeItem(atPath: path) // replacing a previous run's file
                     try FileManager.default.copyItem(at: tmp, to: URL(filePath: path))
-                } catch { log.error("SCRIPT export failed: \(String(describing: error), privacy: .public)") }
+                } catch { log.error("SCRIPT export failed: \(String(describing: error), privacy: .private)") }
             }
         case "dragfile":
             // The file the drag handle / proxy icon would drag.
-            log.notice("SCRIPT dragfile \(self.controller.makeDragFile()?.path(percentEncoded: false) ?? "nil", privacy: .public)")
+            log.notice("SCRIPT dragfile \(self.controller.makeDragFile()?.path(percentEncoded: false) ?? "nil", privacy: .private)")
         case "capture":
             // capture <png> <uuid> <document.json>: the quick-access hand-off, openEditor(for:)
             // with a real CaptureResult and an explicit document location. Later commands act on it.
@@ -240,7 +240,7 @@ import ShotzCore
         case "close":
             window?.performClose(nil)
         default:
-            log.error("SCRIPT unknown command \(line, privacy: .public)")
+            log.error("SCRIPT unknown command \(line, privacy: .private)")
         }
         next()
     }

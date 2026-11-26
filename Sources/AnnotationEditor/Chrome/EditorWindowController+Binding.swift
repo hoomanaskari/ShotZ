@@ -240,7 +240,7 @@ extension EditorWindowController {
             try store.document.save(to: url)
             lastSavedDocument = store.document
         } catch {
-            log.error("Cannot save editor document: \(error.localizedDescription, privacy: .public)")
+            log.error("Cannot save editor document: \(error.localizedDescription, privacy: .private)")
         }
     }
 }

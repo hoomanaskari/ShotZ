@@ -62,7 +62,7 @@ public enum Permissions {
             ShotzLog.logger("AppShell").notice("Relaunching")
             NSApp.terminate(nil)
         } catch {
-            ShotzLog.logger("AppShell").error("Relaunch failed: \(error.localizedDescription, privacy: .public)")
+            ShotzLog.logger("AppShell").error("Relaunch failed: \(error.localizedDescription, privacy: .private)")
         }
     }
 }

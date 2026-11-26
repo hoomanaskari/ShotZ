@@ -37,12 +37,12 @@ import ShotzUI
         if !ok { failures += 1 }
         let line = "\(ok ? "PASS" : "FAIL") \(name)\(detail.isEmpty ? "" : " — \(detail)")"
         lines.append(line)
-        qa.log.info("SELFTEST \(line, privacy: .public)")
+        qa.log.info("SELFTEST \(line, privacy: .private)")
     }
 
     func note(_ text: String) {
         lines.append("NOTE \(text)")
-        qa.log.info("SELFTEST NOTE \(text, privacy: .public)")
+        qa.log.info("SELFTEST NOTE \(text, privacy: .private)")
     }
 
     func snapshot(_ name: String) {
@@ -90,12 +90,12 @@ import ShotzUI
 
         let summary = "Self-test finished in \(Int(Date().timeIntervalSince(start)))s: \(failures) failure(s)"
         lines.append(summary)
-        qa.log.info("SELFTEST \(summary, privacy: .public)")
+        qa.log.info("SELFTEST \(summary, privacy: .private)")
         let text = lines.joined(separator: "\n") + "\n"
         do {
             try text.write(to: dir.appending(path: "selftest.txt"), atomically: true, encoding: .utf8)
         } catch {
-            qa.log.error("SELFTEST cannot write summary: \(error.localizedDescription, privacy: .public)")
+            qa.log.error("SELFTEST cannot write summary: \(error.localizedDescription, privacy: .private)")
         }
         qa.focus.host = qa
         CardView.ignoresRealPointer = false

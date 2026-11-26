@@ -53,14 +53,14 @@ import ShotzCore
     private func decode<T: Decodable>(_ type: T.Type, _ key: String) -> T? {
         guard let data = defaults.data(forKey: key) else { return nil }
         do { return try JSONDecoder().decode(type, from: data) } catch {
-            log.error("Ignoring unreadable \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            log.error("Ignoring unreadable \(key, privacy: .public): \(error.localizedDescription, privacy: .private)")
             return nil
         }
     }
 
     private func encode<T: Encodable>(_ value: T, _ key: String) {
         do { defaults.set(try JSONEncoder().encode(value), forKey: key) } catch {
-            log.error("Cannot store \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            log.error("Cannot store \(key, privacy: .public): \(error.localizedDescription, privacy: .private)")
         }
     }
 }

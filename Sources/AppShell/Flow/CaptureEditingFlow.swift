@@ -51,7 +51,7 @@ import ShotzCore
     /// display, showing the annotated result when there are edits.
     public func editor(didClose capture: CaptureResult, renderedImageURL: URL?, onDisplay displayID: UInt32?) {
         let placed = displayID.map(capture.onDisplay) ?? capture
-        log.info("Editor closed for \(capture.displayName, privacy: .public); returning card (\(renderedImageURL == nil ? "original" : "annotated", privacy: .public))")
+        log.info("Editor closed for \(capture.displayName, privacy: .private); returning card (\(renderedImageURL == nil ? "original" : "annotated", privacy: .public))")
         present(placed, imageURL: renderedImageURL)
     }
 

@@ -154,7 +154,7 @@ public struct LegacyDataMigration {
             return outcome
         } catch {
             try? fileManager.removeItem(at: stagingRoot)
-            log.error("Legacy data migration failed, old data left in place: \(error.localizedDescription, privacy: .public)")
+            log.error("Legacy data migration failed, old data left in place: \(error.localizedDescription, privacy: .private)")
             return .failed(error.localizedDescription)
         }
     }

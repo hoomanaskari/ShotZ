@@ -60,7 +60,7 @@ public struct DefaultExportService: ExportService {
             destination = FileNaming.uniqueURL(in: config.exportFolder, base: suggestedName, ext: config.format.fileExtension)
         }
         try ImageTranscoder.write(source: url, to: destination, config: config)
-        log.info("Saved export \(destination.lastPathComponent, privacy: .public)")
+        log.info("Saved export \(destination.lastPathComponent, privacy: .private)")
         return destination
     }
 

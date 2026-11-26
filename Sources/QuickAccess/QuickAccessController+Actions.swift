@@ -52,7 +52,7 @@ extension QuickAccessController: CardViewDelegate {
             card.flash(String(localized: "Copied"), success: true)
             if settings.quickAccessCloseAfterCopy { await closeAfterFlash(card) }
         } catch {
-            log.error("Copy failed: \(String(describing: error), privacy: .public)")
+            log.error("Copy failed: \(String(describing: error), privacy: .private)")
             card.flash(String(localized: "Couldn’t Copy"), success: false)
         }
     }
@@ -72,7 +72,7 @@ extension QuickAccessController: CardViewDelegate {
             delegate?.quickAccess(didExport: card.capture, to: url)
             if settings.quickAccessCloseAfterSave { await closeAfterFlash(card) }
         } catch {
-            log.error("Save failed: \(String(describing: error), privacy: .public)")
+            log.error("Save failed: \(String(describing: error), privacy: .private)")
             card.flash(String(localized: "Couldn’t Save"), success: false)
         }
     }
@@ -151,7 +151,7 @@ extension QuickAccessController: CardViewDelegate {
             dragFiles[card.capture.id] = url
             return DragFileWriter(fileURL: url)
         } catch {
-            log.error("Drag export failed: \(String(describing: error), privacy: .public)")
+            log.error("Drag export failed: \(String(describing: error), privacy: .private)")
             card.flash(String(localized: "Couldn’t Prepare File"), success: false)
             return nil
         }
@@ -168,7 +168,7 @@ extension QuickAccessController: CardViewDelegate {
             DragExportJanitor.removeLater(file: file, root: dragRoot)
         }
         if operation != [] {
-            log.info("Dropped \(card.capture.displayName, privacy: .public) (operation \(operation.rawValue))")
+            log.info("Dropped \(card.capture.displayName, privacy: .private) (operation \(operation.rawValue))")
             if settings.quickAccessRemoveAfterDrag { close(card, deleteFile: false) }
         } else if swiped {
             close(card, deleteFile: false, animation: .slideOff)

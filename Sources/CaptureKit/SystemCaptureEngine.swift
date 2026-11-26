@@ -54,7 +54,7 @@ public actor SystemCaptureEngine: CaptureEngine {
         let args = ScreencaptureArguments.make(
             mode: mode, options: options, displayNumber: startDisplay.number, outputPath: tempPath
         )
-        log.debug("screencapture \(args.joined(separator: " "), privacy: .public)")
+        log.debug("screencapture \(args.joined(separator: " "), privacy: .private)")
 
         let (status, stderr) = try await run(args)
         let capturedAt = env.now()
@@ -67,7 +67,7 @@ public actor SystemCaptureEngine: CaptureEngine {
             log.info("Capture cancelled")
             return nil
         case .failure(let error):
-            log.error("Capture failed (status \(status)): \(stderr, privacy: .public)")
+            log.error("Capture failed (status \(status)): \(stderr, privacy: .private)")
             throw error
         case .image:
             break
@@ -84,7 +84,7 @@ public actor SystemCaptureEngine: CaptureEngine {
         let corners = interactive && info.hasAlpha && ImageInfo.cornersAreTransparent(url: final)
         let kind = CaptureOutcome.kind(for: mode, transparentCorners: corners)
         let displayID = mode == .fullscreen ? startDisplay.displayID : env.displayUnderPointer().displayID
-        log.info("Captured \(final.lastPathComponent, privacy: .public) \(Int(info.pixelSize.width))×\(Int(info.pixelSize.height)) @\(info.scale)x")
+        log.info("Captured \(final.lastPathComponent, privacy: .private) \(Int(info.pixelSize.width))×\(Int(info.pixelSize.height)) @\(info.scale)x")
         return CaptureResult(
             fileURL: final,
             displayName: final.deletingPathExtension().lastPathComponent,

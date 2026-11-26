@@ -71,7 +71,7 @@ import ShotzCore
                 saved.baseImageURL = capture.fileURL
                 document = saved
             } catch {
-                log.error("Ignoring unreadable editor document for \(capture.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                log.error("Ignoring unreadable editor document for \(capture.displayName, privacy: .private): \(error.localizedDescription, privacy: .private)")
             }
         }
         let record = ExportRecord(captureID: capture.id, previous: previousExport, record: recordExport)
@@ -82,7 +82,7 @@ import ShotzCore
         let key = Key.file(url.standardizedFileURL)
         if bringToFront(key) { return }
         guard let info = Self.imageInfo(url) else {
-            log.error("Cannot open image \(url.lastPathComponent, privacy: .public)")
+            log.error("Cannot open image \(url.lastPathComponent, privacy: .private)")
             NSSound.beep()
             return
         }
@@ -112,7 +112,7 @@ import ShotzCore
             try png.write(to: url, options: .atomic)
             openEditor(imageAt: url)
         } catch {
-            log.error("Cannot keep clipboard image: \(error.localizedDescription, privacy: .public)")
+            log.error("Cannot keep clipboard image: \(error.localizedDescription, privacy: .private)")
             NSSound.beep()
         }
     }
@@ -136,7 +136,7 @@ import ShotzCore
         let base = BaseImageProvider(url: document.baseImageURL)
         let image: CGImage
         do { image = try base.image() } catch {
-            log.error("Cannot decode \(document.baseImageURL.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
+            log.error("Cannot decode \(document.baseImageURL.lastPathComponent, privacy: .private): \(String(describing: error), privacy: .private)")
             NSSound.beep()
             return nil
         }
@@ -169,7 +169,7 @@ import ShotzCore
         }
         controller.zoomFit()
         EditorScriptRunner.startIfRequested(for: controller, coordinator: self)
-        log.notice("Opened editor for \(title, privacy: .public) in \(ContinuousClock.now - start, privacy: .public)")
+        log.notice("Opened editor for \(title, privacy: .private) in \(ContinuousClock.now - start, privacy: .public)")
         return controller
     }
 

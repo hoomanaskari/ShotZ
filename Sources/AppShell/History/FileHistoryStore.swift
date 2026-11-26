@@ -100,7 +100,7 @@ public actor FileHistoryStore: HistoryStore {
             return true
         }
         if !known {
-            log.notice("markExported: unknown capture \(id.uuidString, privacy: .public); export \(url.lastPathComponent, privacy: .public) not recorded")
+            log.notice("markExported: unknown capture \(id.uuidString, privacy: .public); export \(url.lastPathComponent, privacy: .private) not recorded")
         }
     }
 
@@ -149,7 +149,7 @@ public actor FileHistoryStore: HistoryStore {
             do {
                 items = try fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
             } catch {
-                log.error("Listing \(dir.lastPathComponent, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+                log.error("Listing \(dir.lastPathComponent, privacy: .public) failed: \(error.localizedDescription, privacy: .private)")
                 continue
             }
             for item in items { remove(item) }
@@ -172,7 +172,7 @@ public actor FileHistoryStore: HistoryStore {
         do { try paths.createDirectories() } catch {
             // The lock file lives in `root`; without it the write below fails
             // too and is logged there.
-            log.error("Creating history folders failed: \(error.localizedDescription, privacy: .public)")
+            log.error("Creating history folders failed: \(error.localizedDescription, privacy: .private)")
         }
         return lock.withLock {
             var list = readFresh()
@@ -201,7 +201,7 @@ public actor FileHistoryStore: HistoryStore {
         do {
             data = try Data(contentsOf: url)
         } catch {
-            log.error("History index unreadable: \(error.localizedDescription, privacy: .public)")
+            log.error("History index unreadable: \(error.localizedDescription, privacy: .private)")
             return recoverFromCorruptIndex()
         }
         let decoder = HistoryDates.decoder()
@@ -225,7 +225,7 @@ public actor FileHistoryStore: HistoryStore {
         do {
             try fm.moveItem(at: paths.historyIndex, to: aside)
         } catch {
-            log.error("Could not move corrupt index aside: \(error.localizedDescription, privacy: .public)")
+            log.error("Could not move corrupt index aside: \(error.localizedDescription, privacy: .private)")
         }
         let rebuilt = Self.entriesFromCapturesFolder(paths.captures)
         log.error("History index corrupt; rebuilt \(rebuilt.count) entries from the captures folder")
@@ -273,7 +273,7 @@ public actor FileHistoryStore: HistoryStore {
             try data.write(to: paths.historyIndex, options: .atomic)
             stamp = HistoryIndexStamp(paths.historyIndex)
         } catch {
-            log.error("Saving history index failed: \(error.localizedDescription, privacy: .public)")
+            log.error("Saving history index failed: \(error.localizedDescription, privacy: .private)")
         }
     }
 
@@ -283,7 +283,7 @@ public actor FileHistoryStore: HistoryStore {
             .hasPrefix(paths.captures.standardizedFileURL.path(percentEncoded: false)) {
             remove(capture.fileURL)
         } else {
-            log.notice("Not deleting \(capture.fileURL.lastPathComponent, privacy: .public): outside the captures folder")
+            log.notice("Not deleting \(capture.fileURL.lastPathComponent, privacy: .private): outside the captures folder")
         }
         deleteDocument(of: capture.id)
     }
@@ -297,7 +297,7 @@ public actor FileHistoryStore: HistoryStore {
     private func remove(_ url: URL) {
         guard Self.exists(url) else { return }
         do { try FileManager.default.removeItem(at: url) } catch {
-            log.error("Deleting \(url.lastPathComponent, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+            log.error("Deleting \(url.lastPathComponent, privacy: .private) failed: \(error.localizedDescription, privacy: .private)")
         }
     }
 
