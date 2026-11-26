@@ -138,6 +138,13 @@ struct ShortcutValidationTests {
             == .unsupportedKey)
     }
 
+    /// Every key the recorder accepts has a real name in ShotzCore.
+    @Test func everySupportedKeyHasACoreName() {
+        for (code, key) in KeyNames.table {
+            #expect(KeyCombo.keyName(code) == key.display, "key \(code)")
+        }
+    }
+
     @Test func keyNamesAndMenuEquivalents() {
         #expect(KeyNames.display(.devArea) == "⌃⌥⌘4")
         #expect(KeyNames.display(.defaultFullscreen) == "⇧⌘3")
