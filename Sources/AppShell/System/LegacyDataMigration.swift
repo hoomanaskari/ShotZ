@@ -105,6 +105,12 @@ public struct LegacyDataMigration {
 
     // MARK: Data
 
+    /// True once this Mac's data has been moved from the earlier identity (the marker exists):
+    /// System Settings may then list two look-alike ShotZ entries for Screen Recording.
+    public var hasMigrated: Bool {
+        fileManager.fileExists(atPath: oldRoot.appending(path: Self.markerFileName).path(percentEncoded: false))
+    }
+
     var stagingRoot: URL {
         newRoot.deletingLastPathComponent().appending(path: newRoot.lastPathComponent + ".migrating", directoryHint: .isDirectory)
     }

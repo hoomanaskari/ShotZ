@@ -135,6 +135,12 @@ import ShotzCore
                 for: action, stored: settings.hotkey(for: action), enabled: hotkeysEnabled,
                 failure: registrationFailures[action]
             )
+            guard registrar.isSystemRegistrar else {
+                // A test's fake registrar: nothing reached the system, so keep it out of the
+                // persisted log (where it would read like a real registration).
+                log.debug("(fake registrar) \(line, privacy: .public)")
+                continue
+            }
             if registrationFailures[action] != nil {
                 log.error("\(line, privacy: .public)")
             } else {
@@ -145,6 +151,9 @@ import ShotzCore
 
     /// Actions currently registered with Carbon (tests and diagnostics).
     var registeredActions: Set<HotkeyAction> { Set(registered.keys) }
+
+    /// Whether the Carbon event handler is installed (tests: never in a test process).
+    var hasEventHandler: Bool { handler != nil }
 
     public func unregisterAll() {
         for action in registered.keys { registrar.unregister(id: Self.carbonID(for: action)) }
@@ -164,7 +173,8 @@ import ShotzCore
     // MARK: Carbon plumbing
 
     private func installHandlerIfNeeded() {
-        guard handler == nil else { return }
+        // Unit tests and test runs never install a Carbon event handler (nor register shortcuts).
+        guard handler == nil, registrar.isSystemRegistrar, !CarbonHotkeyRegistrar.refusesInThisProcess else { return }
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         // Unretained: the center outlives the handler (removed in `shutdown`).
         let context = Unmanaged.passUnretained(self).toOpaque()
