@@ -13,6 +13,13 @@ import AppKit
         return commandMenu?.performKeyEquivalent(with: event) ?? false
     }
 
+    /// Esc in an options-bar or panel control hands the keyboard back to the canvas.
+    var onCancel: (() -> Void)?
+
+    override func cancelOperation(_ sender: Any?) {
+        if let onCancel { onCancel() } else { super.cancelOperation(sender) }
+    }
+
     @objc func undo(_ sender: Any?) { undoTarget?.undoDocument() }
     @objc func redo(_ sender: Any?) { undoTarget?.redoDocument() }
 

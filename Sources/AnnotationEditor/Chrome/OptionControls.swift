@@ -23,7 +23,13 @@ import AppKit
     func segmented(
         images: [NSImage], labels: [String], selected: Int?, _ handler: @escaping (Int) -> Void
     ) -> NSSegmentedControl {
-        let c = NSSegmentedControl(images: images, trackingMode: .selectOne, target: nil, action: nil)
+        // VoiceOver reads each segment's image description.
+        let described = zip(images, labels).map { image, label -> NSImage in
+            let copy = (image.copy() as? NSImage) ?? image
+            copy.accessibilityDescription = label
+            return copy
+        }
+        let c = NSSegmentedControl(images: described, trackingMode: .selectOne, target: nil, action: nil)
         c.controlSize = .small
         c.segmentStyle = .rounded
         for (i, label) in labels.enumerated() where i < c.segmentCount {
@@ -36,9 +42,13 @@ import AppKit
         return c
     }
 
-    func segmented(titles: [String], selected: Int?, _ handler: @escaping (Int) -> Void) -> NSSegmentedControl {
+    func segmented(titles: [String], selected: Int?, label: String? = nil, _ handler: @escaping (Int) -> Void) -> NSSegmentedControl {
         let c = NSSegmentedControl(labels: titles, trackingMode: .selectOne, target: nil, action: nil)
         c.controlSize = .small
+        if let label {
+            c.setAccessibilityLabel(label)
+            c.toolTip = label
+        }
         if let selected { c.selectedSegment = selected }
         bind(c) { handler(($0 as? NSSegmentedControl)?.selectedSegment ?? 0) }
         return c
@@ -113,6 +123,9 @@ import AppKit
         return p
     }
 
+    /// Called after a number field commits, to hand the keyboard back to the canvas.
+    var onFieldCommitted: (() -> Void)?
+
     func numberField(_ value: Int, width: CGFloat = 54, label: String, _ handler: @escaping (Int) -> Void) -> NSTextField {
         let f = NSTextField(string: String(value))
         f.controlSize = .small
@@ -125,7 +138,11 @@ import AppKit
         f.formatter = formatter
         f.setAccessibilityLabel(label)
         f.toolTip = label
-        bind(f) { handler(Int(($0 as? NSTextField)?.stringValue ?? "") ?? value) }
+        bind(f) { [weak self] field in
+            handler(Int((field as? NSTextField)?.stringValue ?? "") ?? value)
+            // Return in the field: back to the canvas so tool keys work again.
+            if NSApp.currentEvent?.type == .keyDown { self?.onFieldCommitted?() }
+        }
         return f
     }
 

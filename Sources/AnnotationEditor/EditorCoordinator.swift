@@ -115,6 +115,9 @@ import ShotzCore
             NSSound.beep()
             return nil
         }
+        // Pre-warm what the first highlight or redaction drag would otherwise build on the
+        // main thread (the downsampled preview used for luminance and live redaction).
+        Task.detached(priority: .userInitiated) { _ = base.previewImage() }
         let env = EditorEnvironment(
             settings: settings, exporter: exporter, library: library, backgroundPresets: backgroundPresets,
             openImage: { [weak self] url in self?.openEditor(imageAt: url) },

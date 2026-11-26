@@ -26,6 +26,8 @@ import ShotzCore
 ///   dragfile                   log the drag-out file
 ///   capture <png> <uuid> <doc.json>   open through openEditor(for:) and switch to that window
 ///   hover x y                  move the pointer over the canvas
+///   textstyle <decoration>     the Text tool's decoration for the next text
+///   down|move|up x y [mods]    one mouse event (snapshot mid-drag)
 ///   wait <ms>
 @MainActor final class EditorScriptRunner {
     /// The window commands act on (switches when `capture` opens another).
@@ -170,6 +172,16 @@ import ShotzCore
                 controller = opened
                 log.notice("SCRIPT capture opened with \(opened.store.document.objects.count) objects")
             }
+        case "textstyle":
+            // textstyle plain|outlined|solidPill|translucentPill: the Text tool's decoration.
+            if let d = args.first.flatMap(TextStyle.Decoration.init(rawValue:)) {
+                controller.model.library.update(.text) { $0.textStyle.decoration = d }
+            }
+        case "down", "move", "up":
+            // A drag in separate steps, so a snapshot can be taken mid-drag.
+            guard nums.count >= 2 else { break }
+            let type: NSEvent.EventType = parts[0] == "down" ? .leftMouseDown : parts[0] == "move" ? .leftMouseDragged : .leftMouseUp
+            mouse(type, CGPoint(x: nums[0], y: nums[1]), flags)
         case "hover":
             // hover x y: the pointer moves over the canvas (tracking areas need the window server).
             if nums.count >= 2, let window, let e = NSEvent.mouseEvent(

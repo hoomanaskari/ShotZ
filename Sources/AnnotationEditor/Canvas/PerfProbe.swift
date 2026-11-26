@@ -29,6 +29,12 @@ import QuartzCore
         lastUpdate = Date()
     }
 
+    /// The sharp re-render after a drag (final redactions, uncapped bitmaps).
+    func recordFinish(_ duration: Duration) {
+        let ms = Double(duration.components.attoseconds) / 1e15 + Double(duration.components.seconds) * 1000
+        if ms > 0.5 { log.notice("PERF mouse-up finish \(ms, format: .fixed(precision: 2)) ms") }
+    }
+
     @objc private func tick(_ link: CADisplayLink) {
         let t = link.timestamp
         defer { lastFrame = t }

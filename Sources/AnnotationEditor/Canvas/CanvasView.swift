@@ -40,6 +40,10 @@ import AppKit
         super.init(frame: NSRect(origin: .zero, size: canvasLayout.extent))
         wantsLayer = true
         layerContentsRedrawPolicy = .never
+        setAccessibilityElement(true)
+        setAccessibilityRole(.layoutArea)
+        setAccessibilityLabel(String(localized: "Annotation canvas"))
+        setAccessibilityHelp(String(localized: "Press a tool key such as A for arrow or T for text, then drag to draw. V selects; arrow keys move the selection."))
         guard let layer else { return }
         for l in [root, backgroundLayer, clipLayer] {
             l.actions = ObjectLayerStore.noActions.merging(["cornerRadius": NSNull()]) { a, _ in a }

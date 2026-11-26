@@ -13,6 +13,8 @@ import AppKit
     var onCropCancel: (() -> Void)?
     var onCropAspect: (() -> Void)?
     var onCropSize: ((CGFloat?, CGFloat?) -> Void)?
+    /// Gives the keyboard back to the canvas (after Return in a number field).
+    var onFocusCanvas: (() -> Void)?
     /// Right-aligned accessory (zoom menu).
     var trailingView: NSView? { didSet { rebuild() } }
 
@@ -36,6 +38,7 @@ import AppKit
             stack.topAnchor.constraint(equalTo: topAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+        controls.onFieldCommitted = { [weak self] in self?.onFocusCanvas?() }
         setAccessibilityRole(.toolbar)
         setAccessibilityLabel(String(localized: "Options"))
         model.observe { [weak self] event in
@@ -155,10 +158,11 @@ import AppKit
             addRedactOptions(s)
         case .counter:
             addColors(s)
-            add(controls.segmented(titles: ["S", "M", "L", "XL"], selected: s.sizeStep) { [weak self] i in
+            add(controls.segmented(titles: ["S", "M", "L", "XL"], selected: s.sizeStep, label: String(localized: "Counter size")) { [weak self] i in
                 self?.change(String(localized: "Counter Size")) { $0.sizeStep = i }
             })
-            add(controls.segmented(titles: ["1 2 3", "A B C"], selected: s.counterNumbering == .numeric ? 0 : 1) { [weak self] i in
+            add(controls.segmented(titles: ["1 2 3", "A B C"], selected: s.counterNumbering == .numeric ? 0 : 1,
+                                  label: String(localized: "Numbering")) { [weak self] i in
                 self?.change(String(localized: "Numbering")) { $0.counterNumbering = i == 0 ? .numeric : .alphabetic }
             })
             add(OptionControls.caption(String(localized: "Start at")))
