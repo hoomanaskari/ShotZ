@@ -287,6 +287,7 @@ scripts/run.sh [app args…]       # build and run ShotZ Dev; quits only its own
 scripts/install.sh               # production release → /Applications/ShotZ.app (manager/owner only)
 scripts/make-icons.sh [<master>] [--glyph <file>]  # app icons (+ menu-bar glyph) from the owner's art; docs/ICON.md
 swift Resources/make-app-icon.swift [preview-dir]   # placeholder icon (used when Resources/icon-master/ is empty)
+swift Resources/clean-matte.swift <in> <out.png>    # matte clean-up for the artwork cut-out (icon-master/MATTE.md)
 swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradient, shapes, text; 144 dpi)
 ```
 

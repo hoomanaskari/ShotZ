@@ -1,76 +1,135 @@
 # App icon and menu-bar glyph
 
-ShotZ's icons are built from the owner's artwork with one command:
+ShotZ's icon is the owner's artwork on a generated macOS tile. One command rebuilds both apps' icons:
+
+```bash
+scripts/make-icons.sh
+```
+
+It reads `Resources/icon-master/` and writes `Resources/AppIcon.icns` (ShotZ) and
+`Resources/AppIcon-Dev.icns` (ShotZ Dev). Rebuild the app afterwards to see the result (see
+"Seeing it in the app" below).
+
+## Inputs: `Resources/icon-master/`
+
+| File | Role |
+|---|---|
+| `owner-artwork.webp` | The owner's artwork, untouched (the source of truth). |
+| `owner-artwork-clean.png` | The cleaned cut-out the icon is built from. [MATTE.md](../Resources/icon-master/MATTE.md) records exactly what was done. |
+| `icon.json` | Where and how the artwork sits on the tile. |
+| `AppIcon.{png,svg,pdf}` | Optional finished tile master. When present, it replaces the generated tile. |
+| `MenuBarGlyph.{png,svg,pdf}` | Optional menu-bar glyph master. |
+
+The script picks its source in this order:
+1. a full tile master, `AppIcon.*`;
+2. otherwise, the artwork on the generated tile, from `icon.json`;
+3. with neither, the placeholder icon drawn by `Resources/make-app-icon.swift`.
+
+### `icon.json`
+
+```json
+{
+  "artwork": "owner-artwork-clean.png",
+  "artworkScale": 0.74,
+  "artworkOffset": [0, -0.01],
+  "gradientStrength": 0.45,
+  "contactShadow": 0.16
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `artwork` | Transparent PNG cut-out, relative to `icon.json`. |
+| `artworkScale` | Width of the artwork's visible bounds as a fraction of the tile width (0.3–0.95). The script warns when the art comes within 6 % of the tile edge. |
+| `artworkOffset` | Extra shift as fractions of the tile, `[x right, y down]`, applied after centring. `-0.01` lifts the art 1 % above the optical centre. |
+| `gradientStrength` | 0 is a flat white tile; 1 runs from white to light grey (`#DADDE2`), top left to bottom right. |
+| `contactShadow` | Opacity of the soft neutral shadow under the artwork, drawn on the tile (0–1). |
+
+### The generated tile
+
+- 1024 canvas, macOS grid: an 824×824 tile with the system continuous-corner shape (radius 185.4,
+  from SwiftUI's `RoundedRectangle(style: .continuous)`) and the standard 100 px margins.
+- The usual soft drop shadow under the tile (10 px down, 20 px blur, 28 % black).
+- A white → light-grey linear gradient from the top-left to the bottom-right corner.
+- A hairline inner edge (10 % black, 2 px at 1024, at least half a pixel at small sizes), so the
+  light tile reads on a light Dock; the drop shadow carries it in dark mode.
+- The artwork is centred on its **visual weight**, not its bounding box: each pixel counts by its
+  opacity and its contrast with the light tile (darker and more saturated pixels weigh more).
+  For the current artwork that puts the visible bounds 3 % right and 2 % lower than plain box
+  centring, before the 1 % lift.
+- Each size is rendered fresh (the tile as vectors, the artwork downsampled by repeated halving
+  with high-quality interpolation). At 1024 the 1256 px source is downsampled about 2×, so it
+  stays sharp.
+
+## Replacing the artwork
+
+1. Put the new file in `Resources/icon-master/`, keeping the original untouched.
+2. If its matte needs cleaning, run
+   `swift Resources/clean-matte.swift <original> Resources/icon-master/owner-artwork-clean.png`
+   and check the result on black, grey and white. The tool only remaps alpha, cuts stray haze and
+   decontaminates edge colours; see [MATTE.md](../Resources/icon-master/MATTE.md).
+3. Point `artwork` in `icon.json` at the cut-out, then run `scripts/make-icons.sh --preview /tmp/icon`
+   to inspect the result at 1024, 128, 64, 32 and 16 px.
+
+## Alternative: a finished tile master
 
 ```bash
 scripts/make-icons.sh path/to/AppIcon.png
 ```
 
-The command writes `Resources/AppIcon.icns` (ShotZ) and `Resources/AppIcon-Dev.icns` (ShotZ Dev),
-and keeps a copy of the master as `Resources/icon-master/AppIcon.<ext>`. Run it again with no
-arguments to rebuild from that kept master.
-
-Until a master is supplied, the placeholder icon drawn by `Resources/make-app-icon.swift` stays.
-`scripts/make-icons.sh` with an empty `Resources/icon-master/` redraws it.
-
-## The app icon master
-
 | | |
 |---|---|
-| Formats | PNG, SVG or PDF (the first page). The format is checked from the file's contents, not only its name. |
-| Shape | Square. A PNG must be at least 1024×1024 px; an SVG or PDF can be any square size, since it is drawn as a vector at each size. |
-| Artwork | Supply the finished icon: macOS-style art is a rounded tile of about 824×824 on the 1024 canvas, with a transparent margin. The script **never reshapes** the artwork. If the master is fully opaque, has opaque corners or runs to the canvas edge, it says so and uses it as it is. |
-| Colour | sRGB. |
+| Formats | PNG, SVG or PDF (the first page). The format is checked from the file's contents. |
+| Shape | Square. A PNG must be at least 1024×1024; SVG and PDF are drawn as vectors at each size. |
+| Artwork | Used as it is and **never reshaped**. If it is fully opaque, has opaque corners or runs to the edge, the script says so. |
 
-Clear errors stop the run for: a missing file, an unsupported format, a file whose contents do not
-match its extension, a non-square master, a PNG smaller than 1024 px, or fully transparent artwork.
+The master is kept as `Resources/icon-master/AppIcon.<ext>` and from then on overrides `icon.json`;
+delete it to go back to the generated tile. Errors stop the run for: a missing file, an
+unsupported format, contents that don't match the extension, a non-square master, a PNG smaller
+than 1024 px, or fully transparent art.
 
-### What gets built
+## Both icons
 
-- `AppIcon.icns` holds every size macOS uses: 16, 32, 128, 256 and 512 pt, each at 1x and 2x
-  (16 to 1024 px). PNG masters are downsampled by repeated halving with high-quality
-  interpolation, so edges keep no halo. SVG and PDF masters are drawn fresh at each size.
-- `AppIcon-Dev.icns` is the same art with an amber band (`#FF9F0A`) across the lower part. The
-  band is clipped to the artwork's own transparency, so it follows the tile's shape. "DEV" is
-  written on it from 64 px up; smaller sizes get a slightly taller band with no text. ShotZ Dev
-  therefore never looks like ShotZ in Finder, the Dock or System Settings.
+- `AppIcon.icns` holds every size macOS uses: 16, 32, 128, 256 and 512 pt at 1x and 2x (16 to
+  1024 px).
+- `AppIcon-Dev.icns` is derived automatically: an amber band (`#FF9F0A`) across the lower part of
+  the tile, clipped to the tile (or to a full master's own alpha). "DEV" is written on it from
+  64 px up; smaller sizes get a slightly taller band with no text. ShotZ Dev therefore never looks
+  like ShotZ in Finder, the Dock or System Settings.
+- At 16 px the current artwork reads as a framed camera, but the marker is lost. A simplified
+  16 px treatment has been proposed to the owner and is not shipped.
 
 ## The menu-bar glyph (optional)
 
 ```bash
 scripts/make-icons.sh --glyph path/to/MenuBarGlyph.svg
-scripts/make-icons.sh path/to/AppIcon.png --glyph path/to/MenuBarGlyph.svg   # both at once
 ```
 
 - Input: PNG, SVG or PDF, square, **one colour on a transparent background**. Only the shape (the
-  alpha) is used, never the colour. A PNG should be at least 36 px; vectors are best.
-- The glyph is trimmed to its visible shape and fitted into a 16 pt square, centred on the 18 pt
-  canvas the menu bar uses. It is compiled as a template image (1x and 2x) into
-  `Sources/AppShell/StatusItem/MenuBarGlyph.generated.swift`, and the master is kept as
-  `Resources/icon-master/MenuBarGlyph.<ext>`.
-- ShotZ shows it in the menu bar's own colour (a template image). ShotZ Dev tints it amber in
-  code (`StatusItemIcon.devTint`).
-- Without a glyph master, the glyph drawn in `StatusItemIcon` stays.
+  alpha) is used; a PNG should be at least 36 px, and vectors are best.
+- The glyph is trimmed and fitted into a 16 pt square on the 18 pt menu-bar canvas, then compiled as a
+  template image into `Sources/AppShell/StatusItem/MenuBarGlyph.generated.swift`. The master is
+  kept as `Resources/icon-master/MenuBarGlyph.<ext>`.
+- ShotZ shows it in the menu bar's own colour. ShotZ Dev tints it amber in code
+  (`StatusItemIcon.devTint`). Without a glyph master, the glyph drawn in `StatusItemIcon` stays.
 
 ## Trying it without changing anything
 
 ```bash
-scripts/make-icons.sh path/to/AppIcon.png --glyph path/to/glyph.svg --out /tmp/icon-try
+scripts/make-icons.sh --out /tmp/icon-try --preview /tmp/icon-try
 ```
 
-`--out` writes `AppIcon.icns`, `AppIcon-Dev.icns` and `MenuBarGlyph.generated.swift` to that
-folder only. To inspect every size: `iconutil -c iconset /tmp/icon-try/AppIcon-Dev.icns`.
+`--out` writes the `.icns` files (and the glyph source) to that folder only, and `--preview` adds
+PNGs at 1024, 128, 64, 32 and 16 px. To list every size in an icon:
+`iconutil -c iconset /tmp/icon-try/AppIcon-Dev.icns`.
 
 ## Seeing it in the app
 
-The bundle script copies the icons in, so rebuild after running `make-icons.sh`:
-
 ```bash
 scripts/bundle.sh release   # build/ShotZ.app with AppIcon.icns
-scripts/run.sh              # build and run ShotZ Dev with AppIcon-Dev.icns
+scripts/bundle.sh dev       # build/ShotZ Dev.app with AppIcon-Dev.icns (scripts/run.sh also runs it)
 ```
 
-Finder and the Dock cache icons. If an old icon persists, open a fresh build from a new location
-or log out and back in.
-
-Commit `Resources/icon-master/*`, both `.icns` files and `MenuBarGlyph.generated.swift` together.
+Finder and the Dock cache icons. If an old one persists, open a fresh build from a new location or
+log out and back in. Commit `Resources/icon-master/*`, both `.icns` files and
+`MenuBarGlyph.generated.swift` together.
