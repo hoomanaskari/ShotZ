@@ -99,7 +99,9 @@ extension EditorWindowController {
     /// finalise preview-quality layers and schedule the save here.
     func interactionEnded() {
         guard !store.isInteractive else { return }
+        let start = ContinuousClock.now
         canvas.layers.finishInteraction(store.document)
+        perf?.recordFinish(ContinuousClock.now - start)
         schedulePersist()
     }
 
