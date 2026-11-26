@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
 
-/// Shotz's icon set: Phosphor Icons (MIT, regular weight; see THIRD-PARTY-NOTICES) plus custom
+/// ShotZ's icon set: Phosphor Icons (MIT, regular weight; see THIRD-PARTY-NOTICES) plus custom
 /// glyphs drawn on the same 256-unit grid with the same 16-unit stroke, round caps and joins.
 /// Every icon renders from vector paths: crisp at any size and backing scale, no resources.
 public enum ShotzIcon: String, CaseIterable, Sendable {
@@ -25,6 +25,8 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
     case copy, save, saveAs, dragHandle, more, close, annotate, quickLook, trash, undo, redo
     case zoomIn, zoomOut, share, folder, settings, keyboard, stack, capture, window, fullscreen, area, history
     case warning, check, info, plus, minus
+    // Quick-access stack
+    case success, failure, showInFinder, copyPath, closeAll
     case bringForward, sendBackward, bringToFront, sendToBack
     case bold, alignLeft, alignCenter, alignRight
     case opacity, lineThickness, cornerRadius, shadow, padding, aspectRatio, gradient, palette
@@ -70,6 +72,11 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .area: "selection"
         case .history: "clock-counter-clockwise"
         case .warning: "warning"
+        case .success: "check-circle"
+        case .failure: "warning-circle"
+        case .showInFinder: "folder-open"
+        case .copyPath: "link-simple"
+        case .closeAll: "x-square"
         case .check: "check"
         case .info: "info"
         case .plus: "plus"
@@ -158,6 +165,11 @@ public enum ShotzIcon: String, CaseIterable, Sendable {
         case .area: String(localized: "Area")
         case .history: String(localized: "History")
         case .warning: String(localized: "Warning")
+        case .success: String(localized: "Succeeded")
+        case .failure: String(localized: "Failed")
+        case .showInFinder: String(localized: "Show in Finder")
+        case .copyPath: String(localized: "Copy file path")
+        case .closeAll: String(localized: "Close all")
         case .check: String(localized: "Done")
         case .info: String(localized: "Information")
         case .plus: String(localized: "Add")

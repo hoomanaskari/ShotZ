@@ -1,4 +1,4 @@
-// Generates Shotz's icon path table from the vendored Phosphor SVGs (no resource bundles).
+// Generates ShotZ's icon path table from the vendored Phosphor SVGs (no resource bundles).
 //
 //   swift scripts/gen-icons.swift [--vendor <phosphor-core>/assets/regular]
 //
@@ -81,10 +81,10 @@ guard let license = try? String(contentsOf: phosphor.appending(path: "LICENSE"),
     fail("ThirdParty/phosphor/LICENSE or SOURCE missing")
 }
 let notices = """
-Third-party notices for Shotz
+Third-party notices for ShotZ
 =============================
 
-Shotz is MIT licensed. It includes the following third-party material.
+ShotZ is MIT licensed. It includes the following third-party material.
 
 Phosphor Icons
 --------------
@@ -95,9 +95,9 @@ icons used (\(names.count)): \(names.joined(separator: ", "))
 
 \(license.trimmingCharacters(in: .whitespacesAndNewlines))
 
-Shotz's own custom glyphs (arrow styles, fill modes, text decorations, highlight and redaction
+ShotZ's own custom glyphs (arrow styles, fill modes, text decorations, highlight and redaction
 modes, thickness steps and a few others in Sources/ShotzCore/Icons/CustomGlyphs.swift) are
-original work drawn for Shotz in the same visual language and are covered by Shotz's licence.
+original work drawn for ShotZ in the same visual language and are covered by ShotZ's licence.
 
 """
 do { try notices.write(to: root.appending(path: "THIRD-PARTY-NOTICES"), atomically: true, encoding: .utf8) } catch { fail("write notices: \(error)") }
