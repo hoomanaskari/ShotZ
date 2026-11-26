@@ -18,34 +18,32 @@ import ShotzCore
     /// Where each capture's editable document lives (`HistoryStore.documentURL(for:)`).
     private let documentURL: (CaptureResult.ID) -> URL
     private var windows: [Key: EditorWindowController] = [:]
-    // TEMP (engineer A, M4 step 1 compile stub): never called until engineer D implements it.
+    /// Told when a capture's editor closes, after the annotated result is written (SPEC §4.6).
     public weak var delegate: AnnotationEditingDelegate?
     private let library: ToolSettingsLibrary
     private let backgroundPresets: BackgroundPresets
     private let previousExport: @Sendable (CaptureResult.ID) async -> URL?
     private let recordExport: @Sendable (CaptureResult.ID, URL) async -> Void
     let log = ShotzLog.logger("AnnotationEditor")
-    /// Where a capture's flattened, annotated PNG goes when its editor closes.
-    // TEMP until ShotzCore's AnnotationEditing contract lands: becomes the
-    // `HistoryStore.renderedURL(for:)` closure passed to `init`.
+    /// Where a capture's flattened, annotated PNG goes when its editor closes
+    /// (`HistoryStore.renderedURL(for:)`); nil = no rendering.
     var renderedURL: ((CaptureResult.ID) -> URL)?
-    /// Called after a capture-backed editor closed (not on quit), once the rendered file exists.
-    // TEMP until ShotzCore's `AnnotationEditing.delegate` lands: forwards to
-    // `delegate?.editor(didClose:renderedImageURL:onDisplay:)`.
-    var captureClosed: ((CaptureResult, URL?, UInt32?) -> Void)?
     /// False in unit tests: windows are created but never shown.
     var presentsWindows = true
 
     /// - Parameters:
     ///   - previousExport: the export path stored with a capture's history item (Save overwrites it).
     ///   - recordExport: stores a capture's new export path after Save or Save As.
+    ///   - renderedURL: where the annotated PNG is written when a capture's editor closes.
     public init(
         settings: SettingsStore,
         exporter: ExportService,
         documentURL: @escaping (CaptureResult.ID) -> URL,
         previousExport: @escaping @Sendable (CaptureResult.ID) async -> URL? = { _ in nil },
-        recordExport: @escaping @Sendable (CaptureResult.ID, URL) async -> Void = { _, _ in }
+        recordExport: @escaping @Sendable (CaptureResult.ID, URL) async -> Void = { _, _ in },
+        renderedURL: ((CaptureResult.ID) -> URL)? = nil
     ) {
+        self.renderedURL = renderedURL
         self.settings = settings
         self.exporter = exporter
         self.documentURL = documentURL

@@ -9,14 +9,20 @@ import Testing
 /// Closing a capture's editor hands it back with the annotated result (SPEC §4.6).
 @MainActor
 struct EditorCloseTests {
-    private final class Box { var calls: [(CaptureResult, URL?, UInt32?)] = [] }
+    /// A stand-in for AppCoordinator.
+    private final class Box: AnnotationEditingDelegate {
+        var calls: [(CaptureResult, URL?, UInt32?)] = []
+        func editor(didClose capture: CaptureResult, renderedImageURL: URL?, onDisplay displayID: UInt32?) {
+            calls.append((capture, renderedImageURL, displayID))
+        }
+    }
 
     private struct Fixture {
         let dir: URL
         let coordinator: EditorCoordinator
         let capture: CaptureResult
         let rendered: URL
-        let box: Box
+        let box: Box // retained here: the coordinator's delegate is weak
     }
 
     private func fixture() throws -> Fixture {
@@ -32,13 +38,13 @@ struct EditorCloseTests {
         CGImageDestinationAddImage(dest, try #require(ctx.makeImage()), nil)
         #expect(CGImageDestinationFinalize(dest))
         let defaults = try #require(UserDefaults(suiteName: "ShotzEditorTests-\(UUID().uuidString)"))
-        let coordinator = EditorCoordinator(settings: SettingsStore(defaults: defaults), exporter: DefaultExportService(),
-                                            documentURL: { dir.appending(path: "\($0.uuidString).json") })
-        coordinator.presentsWindows = false
         let rendered = dir.appending(path: "rendered.png")
-        coordinator.renderedURL = { _ in rendered }
+        let coordinator = EditorCoordinator(settings: SettingsStore(defaults: defaults), exporter: DefaultExportService(),
+                                            documentURL: { dir.appending(path: "\($0.uuidString).json") },
+                                            renderedURL: { _ in rendered })
+        coordinator.presentsWindows = false
         let box = Box()
-        coordinator.captureClosed = { box.calls.append(($0, $1, $2)) }
+        coordinator.delegate = box
         let capture = CaptureResult(fileURL: png, displayName: "Test capture", kind: .area,
                                     pixelSize: CGSize(width: 160, height: 100), scale: 1, displayID: 1)
         return Fixture(dir: dir, coordinator: coordinator, capture: capture, rendered: rendered, box: box)

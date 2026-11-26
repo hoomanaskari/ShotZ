@@ -14,7 +14,7 @@ extension EditorCoordinator {
             self?.log.notice("Editor closed for \(capture.displayName, privacy: .public): rendered \(rendered?.lastPathComponent ?? "none", privacy: .public)")
             // Reopened while rendering: the editor owns the capture again, no card (SPEC §4.6).
             guard self?.isOpen(capture.id) == false else { return }
-            self?.captureClosed?(capture, rendered, info.displayID)
+            self?.delegate?.editor(didClose: capture, renderedImageURL: rendered, onDisplay: info.displayID)
         }
     }
 
