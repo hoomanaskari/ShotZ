@@ -70,6 +70,18 @@ if ! mv "$STAGE" "$DEST"; then
 fi
 rm -rf "$OLD"
 
+# The checkout's own build has the same bundle id. Keep it out of Launch
+# Services so macOS always opens the installed copy, and warn if a copy from
+# the checkout is still running (two instances would both answer hotkeys).
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREGISTER" -u "$NEW" >/dev/null 2>&1 || true
+for pid in $(pgrep -x Shotz || true); do
+  exe="$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+  if [[ "$exe" == "$NEW/Contents/MacOS/Shotz" ]]; then
+    echo "Note: a Shotz from this checkout is still running (pid $pid). Quit it: kill $pid" >&2
+  fi
+done
+
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DEST/Contents/Info.plist")"
 echo "Installed $DEST (version $VERSION)"
 
