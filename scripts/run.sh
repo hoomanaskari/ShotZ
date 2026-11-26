@@ -45,7 +45,19 @@ if [[ -n "$PIDS" ]]; then
   [[ -n "$PIDS" ]] && kill -9 $PIDS 2>/dev/null || true
 fi
 
-if [[ ${#ARGS[@]} -gt 0 ]]; then
+# A git worktree is an engineer/test checkout. Several copies with the same
+# bundle id confuse Launch Services (macOS may relaunch the wrong copy by
+# bundle id), and test runs must not touch the owner's real data. So from a
+# worktree: always use the dev profile, start the executable directly, and
+# keep the bundle out of the Launch Services database.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+if [[ "$(git -C "$ROOT" rev-parse --git-dir 2>/dev/null)" != "$(git -C "$ROOT" rev-parse --git-common-dir 2>/dev/null)" ]]; then
+  [[ " ${ARGS[*]:-} " == *" --dev-profile "* ]] || ARGS+=(--dev-profile)
+  nohup "$EXE" "${ARGS[@]}" >/dev/null 2>&1 &
+  disown
+  sleep 1
+  "$LSREGISTER" -u "$APP" >/dev/null 2>&1 || true
+elif [[ ${#ARGS[@]} -gt 0 ]]; then
   open -n "$APP" --args "${ARGS[@]}"
 else
   open -n "$APP"
