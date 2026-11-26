@@ -2,21 +2,21 @@ import Foundation
 
 /// Shared on-disk locations. Inject a custom root in tests.
 public struct ShotzPaths: Sendable, Equatable {
-    /// `~/Library/Application Support/Shotz` (`Shotz-Dev` in the dev profile)
+    /// `~/Library/Application Support/Shotz` (`Shotz Dev` for the development app)
     public let root: URL
     /// Folder name under the temporary directory for scratch files.
     public let scratchName: String
 
-    public init(root: URL, scratchName: String = DevProfile.standardDirectoryName) {
+    public init(root: URL, scratchName: String = AppVariant.production.dataDirectoryName) {
         self.root = root
         self.scratchName = scratchName
     }
 
-    /// The paths for this run: `Shotz-Dev` in the dev profile (see `DevProfile`).
-    public static let `default` = forProfile(dev: DevProfile.isActive)
+    /// The paths for this app (see `AppVariant`).
+    public static let `default` = forVariant(.current)
 
-    public static func forProfile(dev: Bool) -> ShotzPaths {
-        let name = dev ? DevProfile.directoryName : DevProfile.standardDirectoryName
+    public static func forVariant(_ variant: AppVariant) -> ShotzPaths {
+        let name = variant.dataDirectoryName
         return ShotzPaths(root: URL.applicationSupportDirectory.appending(path: name, directoryHint: .isDirectory),
                           scratchName: name)
     }

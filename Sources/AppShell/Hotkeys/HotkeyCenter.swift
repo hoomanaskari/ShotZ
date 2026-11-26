@@ -8,8 +8,9 @@ import ShotzCore
 ///
 /// Bindings come from `SettingsStore` and are re-registered live whenever a
 /// setting changes (only the actions whose combo changed are touched).
-/// What is registered follows `HotkeyMode` (profile × `--dev-hotkeys`): in the
-/// dev profile nothing unless `--dev-hotkeys`, and then only ⌃⌥⇧⌘3/4/5.
+/// Runs started with `--no-hotkeys` (implied by debug/self-test/script
+/// launches) register nothing. Each app variant has its own stored defaults
+/// (Shotz ⌘⇧3/4/5, Shotz Dev ⌃⌥⌘3/4/5).
 /// Session overrides never write preferences. Registration failures are
 /// published for the Settings warnings.
 ///
@@ -18,9 +19,9 @@ import ShotzCore
     public var onAction: ((HotkeyAction) -> Void)?
     /// Actions whose shortcut could not be registered, with the Carbon status.
     @Published public private(set) var registrationFailures: [HotkeyAction: OSStatus] = [:]
-    public let devHotkeys: Bool
-    /// Which shortcuts this run registers (profile × `--dev-hotkeys`).
-    public let mode: HotkeyMode
+    /// False for runs started with `--no-hotkeys` (engineer worktree runs,
+    /// debug/self-test/script runs): nothing is registered.
+    public let hotkeysEnabled: Bool
 
     /// While true nothing is registered (the shortcut recorder is listening,
     /// so the current combo reaches the recorder instead of firing).
@@ -38,38 +39,33 @@ import ShotzCore
     /// 'SHTZ'
     static let signature: OSType = 0x5348_545A
 
-    public convenience init(settings: SettingsStore, devHotkeys: Bool, devProfile: Bool = DevProfile.isActive) {
-        self.init(settings: settings, devHotkeys: devHotkeys, devProfile: devProfile, registrar: CarbonHotkeyRegistrar())
+    public convenience init(settings: SettingsStore, hotkeysEnabled: Bool) {
+        self.init(settings: settings, hotkeysEnabled: hotkeysEnabled, registrar: CarbonHotkeyRegistrar())
     }
 
-    init(settings: SettingsStore, devHotkeys: Bool, devProfile: Bool, registrar: HotkeyRegistrar) {
+    init(settings: SettingsStore, hotkeysEnabled: Bool, registrar: HotkeyRegistrar) {
         self.settings = settings
-        self.devHotkeys = devHotkeys
-        self.mode = HotkeyMode.resolve(devProfile: devProfile, devHotkeys: devHotkeys)
+        self.hotkeysEnabled = hotkeysEnabled
         self.registrar = registrar
     }
 
-    /// True when launched with `--dev-hotkeys` or `SHOTZ_DEV_HOTKEYS=1`.
-    public nonisolated static func devHotkeysRequested(
+    /// True when this run must not register global shortcuts: `--no-hotkeys`,
+    /// or any debug, self-test or script launch (they run next to a real
+    /// Shotz and must never take its key presses).
+    public nonisolated static func hotkeysDisabledRequested(
         arguments: [String] = ProcessInfo.processInfo.arguments,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
-        arguments.contains("--dev-hotkeys") || environment["SHOTZ_DEV_HOTKEYS"] == "1"
+        let args = arguments.dropFirst()
+        return args.contains("--no-hotkeys")
+            || args.contains(where: { $0.hasPrefix("--debug-") })
+            || args.contains("-QuickAccessSelfTest")
+            || environment["SHOTZ_EDITOR_SCRIPT"] != nil
     }
 
-    /// Effective binding for this run.
+    /// The shortcut this run registers for `action` (nil with `--no-hotkeys`).
     public func binding(for action: HotkeyAction) -> KeyCombo? {
-        HotkeyBindings.effective(for: action, stored: settings.hotkey(for: action), mode: mode)
-    }
-
-    /// True when this session's shortcut differs from the stored one.
-    public func isDevOverridden(_ action: HotkeyAction) -> Bool {
-        HotkeyBindings.isOverridden(action, mode: mode)
-    }
-
-    /// Whether the stored shortcut is the one in effect this session.
-    public func sessionStatus(for action: HotkeyAction) -> HotkeyBindings.SessionStatus {
-        HotkeyBindings.sessionStatus(for: action, stored: settings.hotkey(for: action), mode: mode)
+        HotkeyBindings.effective(for: action, stored: settings.hotkey(for: action), enabled: hotkeysEnabled)
     }
 
     /// Warning for the Settings row / onboarding when Carbon refused this
@@ -105,7 +101,7 @@ import ShotzCore
     public func apply() {
         let desired = isSuspended
             ? [:]
-            : HotkeyBindings.effectiveAll(stored: { settings.hotkey(for: $0) }, mode: mode)
+            : HotkeyBindings.effectiveAll(stored: { settings.hotkey(for: $0) }, enabled: hotkeysEnabled)
         let plan = HotkeyBindings.plan(registered: registered, desired: desired, failed: Set(registrationFailures.keys))
         // Failures for actions no longer bound are stale.
         var failures = registrationFailures.filter { desired[$0.key] != nil }
@@ -139,9 +135,8 @@ import ShotzCore
             return
         }
         for action in HotkeyAction.allCases {
-            let stored = settings.hotkey(for: action)
             let line = HotkeyBindings.logLine(
-                for: action, stored: stored, effective: binding(for: action), mode: mode,
+                for: action, stored: settings.hotkey(for: action), enabled: hotkeysEnabled,
                 failure: registrationFailures[action]
             )
             if registrationFailures[action] != nil {

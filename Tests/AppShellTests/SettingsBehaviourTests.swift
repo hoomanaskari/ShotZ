@@ -33,25 +33,22 @@ struct SettingsBehaviourTests {
         #expect(!a.showQuickAccess && a.copyToClipboard && a.saveToExportFolder && !a.isSilent)
     }
 
-    @Test func devHotkeysNeverWritePreferences() {
+    /// Each variant's defaults come from `AppVariant`; nothing is written until the user records.
+    @Test func variantDefaultsAreNotWritten() {
         let (settings, suite) = makeSettings()
         defer { UserDefaults().removePersistentDomain(forName: suite) }
-        // No apply(): registering ⌃⌥⌘3/4/5 here would compete with a real Shotz.
-        let center = HotkeyCenter(settings: settings, devHotkeys: true, devProfile: false)
-        #expect(center.mode == .standardDevHotkeys)
-        #expect(center.binding(for: .captureArea) == .devArea)
-        #expect(center.binding(for: .captureWindow) == nil)
-        let devCenter = HotkeyCenter(settings: settings, devHotkeys: true, devProfile: true)
-        #expect(devCenter.binding(for: .captureArea) == HotkeyBindings.devProfileArea)
+        let dev = SettingsStore(defaults: settings.defaults, variant: .development)
+        #expect(settings.hotkey(for: .captureArea) == .defaultArea)
+        #expect(dev.hotkey(for: .captureArea) == .devArea)
+        #expect(settings.launchAtLogin && !dev.launchAtLogin)
         let written = settings.defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("shortcuts.") }
         #expect(written.isEmpty)
-        #expect(settings.hotkey(for: .captureArea) == .defaultArea)
     }
 
     @Test func bindingFollowsStoredValueLive() {
         let (settings, suite) = makeSettings()
         defer { UserDefaults().removePersistentDomain(forName: suite) }
-        let center = HotkeyCenter(settings: settings, devHotkeys: false, devProfile: false)
+        let center = HotkeyCenter(settings: settings, hotkeysEnabled: true, registrar: FakeRegistrar())
         let combo = KeyCombo(keyCode: 0x00, modifiers: [.control, .option, .command, .shift])
         settings.setHotkey(combo, for: .captureWindow)
         #expect(center.binding(for: .captureWindow) == combo)
@@ -70,7 +67,7 @@ struct SettingsBehaviourTests {
         settings.setHotkey(nil, for: .captureArea)
         settings.setHotkey(nil, for: .captureAllInOne)
         settings.setHotkey(KeyCombo(keyCode: 0x6F, modifiers: [.control, .option, .shift, .command]), for: .captureWindow)
-        let center = HotkeyCenter(settings: settings, devHotkeys: false, devProfile: false, registrar: FakeRegistrar())
+        let center = HotkeyCenter(settings: settings, hotkeysEnabled: true, registrar: FakeRegistrar())
         center.isSuspended = true
         center.apply()
         #expect(center.registrationFailures.isEmpty)
@@ -79,18 +76,19 @@ struct SettingsBehaviourTests {
         center.shutdown()
     }
 
-    /// Dev profile without --dev-hotkeys registers nothing, whatever is stored.
-    @Test func devProfileRegistersNothing() {
+    /// `--no-hotkeys` registers nothing, whatever is stored, and logs why.
+    @Test func noHotkeysRunRegistersNothing() {
         let (settings, suite) = makeSettings()
         defer { UserDefaults().removePersistentDomain(forName: suite) }
         settings.setHotkey(KeyCombo(keyCode: 0x00, modifiers: [.command, .option]), for: .captureWindow)
-        let center = HotkeyCenter(settings: settings, devHotkeys: false, devProfile: true, registrar: FakeRegistrar())
-        #expect(center.mode == .devProfileOff)
+        let fake = FakeRegistrar()
+        let center = HotkeyCenter(settings: settings, hotkeysEnabled: false, registrar: fake)
         #expect(center.registersNothing)
-        center.apply()                       // safe: nothing to register
+        center.apply()
         #expect(center.registeredActions.isEmpty)
+        #expect(fake.active.isEmpty)
         #expect(center.registrationFailures.isEmpty)
-        #expect(HotkeyAction.allCases.allSatisfy(center.isDevOverridden))
+        #expect(settings.hotkey(for: .captureArea) == .defaultArea)   // stored values untouched
         center.shutdown()
     }
 

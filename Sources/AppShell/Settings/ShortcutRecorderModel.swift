@@ -10,20 +10,15 @@ import ShotzCore
     /// Modifiers currently held while recording, for a live preview.
     @Published private(set) var heldModifiers: KeyCombo.Modifiers = []
     @Published private(set) var problem: (action: HotkeyAction, message: String)?
-    /// Actions changed in this Settings session (recorded or cleared), so
-    /// their rows can say if the change is not active this session.
-    @Published private(set) var recorded: Set<HotkeyAction> = []
 
     private let settings: SettingsStore
     private let hotkeys: HotkeyCenter
     private var monitor: Any?
     private var focusObservers: [NSObjectProtocol] = []
 
-    /// `recorded` pre-marks rows as just changed (off-screen snapshots only).
-    init(settings: SettingsStore, hotkeys: HotkeyCenter, recorded: Set<HotkeyAction> = []) {
+    init(settings: SettingsStore, hotkeys: HotkeyCenter) {
         self.settings = settings
         self.hotkeys = hotkeys
-        self.recorded = recorded
     }
 
     func toggle(_ action: HotkeyAction) {
@@ -66,7 +61,6 @@ import ShotzCore
         if recording == action { stop() }
         problem = nil
         settings.setHotkey(nil, for: action)
-        recorded.insert(action)
     }
 
     private func handle(_ event: NSEvent) -> Bool {
@@ -95,7 +89,6 @@ import ShotzCore
         }
         problem = nil
         settings.setHotkey(combo, for: action)
-        recorded.insert(action)
         stop()
         return true
     }

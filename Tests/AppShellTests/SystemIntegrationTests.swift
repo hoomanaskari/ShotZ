@@ -94,10 +94,20 @@ struct LoginItemTests {
         #expect(act(true, .notInstalled) == .none)
     }
 
+    @Test func registrationPolicyPerVariant() {
+        let build = URL(filePath: "/Users/someone/Sites/shotz/build/Shotz Dev.app")
+        let apps = URL(filePath: "/Applications/Shotz.app")
+        #expect(LoginItemController.registrationAllowed(variant: .production, bundleURL: apps, testRun: false))
+        #expect(!LoginItemController.registrationAllowed(variant: .production, bundleURL: build, testRun: false))
+        #expect(LoginItemController.registrationAllowed(variant: .development, bundleURL: build, testRun: false))
+        #expect(!LoginItemController.registrationAllowed(variant: .development, bundleURL: build, testRun: true))
+        #expect(!LoginItemController.registrationAllowed(variant: .production, bundleURL: apps, testRun: true))
+    }
+
     @MainActor @Test func devBundleNeverRegistersButStoresPreference() throws {
         let (settings, suite) = makeSettings()
         defer { UserDefaults().removePersistentDomain(forName: suite) }
-        let item = LoginItemController(settings: settings, bundleURL: URL(filePath: "/tmp/build/Shotz.app"))
+        let item = LoginItemController(settings: settings, bundleURL: URL(filePath: "/tmp/build/Shotz.app"), variant: .production)
         #expect(item.state == .notInstalled)
         item.setEnabled(false)
         #expect(settings.launchAtLogin == false)
@@ -109,20 +119,9 @@ struct LoginItemTests {
 }
 
 struct RelaunchTests {
-    @Test func keepsDevHotkeysAndProfileOnly() {
-        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--dev-hotkeys", "--debug-present", "/a.png"], devProfile: false)
-            == ["--dev-hotkeys"])
-        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--debug-edit", "/a.png"], devProfile: false).isEmpty)
-        #expect(Permissions.relaunchArguments(from: ["--dev-hotkeys"], devProfile: false).isEmpty)   // argv[0] only
-        // A dev-profile run (even one started by --debug-*) relaunches in the dev profile.
-        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--debug-edit", "/a.png"], devProfile: true) == ["--dev-profile"])
-        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--dev-hotkeys", "--dev-profile"], devProfile: true)
-            == ["--dev-hotkeys", "--dev-profile"])
-    }
-
-    @MainActor @Test func standardProfileKeepsWindowAutosave() {
-        // The test process is not a dev launch.
-        #expect(WindowPresenter.autosaveName("ShotzSettings") == (DevProfile.isActive ? nil : "ShotzSettings"))
+    @Test func keepsOnlyNoHotkeys() {
+        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--no-hotkeys", "--debug-present", "/a.png"]) == ["--no-hotkeys"])
+        #expect(Permissions.relaunchArguments(from: ["/x/Shotz", "--debug-edit", "/a.png"]).isEmpty)
     }
 }
 

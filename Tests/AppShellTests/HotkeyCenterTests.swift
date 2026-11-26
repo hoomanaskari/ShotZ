@@ -7,64 +7,8 @@ import ShotzCore
 struct HotkeyBindingTests {
     let custom = KeyCombo(keyCode: 0x01, modifiers: [.command, .option])
 
-    @Test func devFlagDetection() {
-        #expect(HotkeyCenter.devHotkeysRequested(arguments: ["Shotz", "--dev-hotkeys"], environment: [:]))
-        #expect(HotkeyCenter.devHotkeysRequested(arguments: ["Shotz"], environment: ["SHOTZ_DEV_HOTKEYS": "1"]))
-        #expect(!HotkeyCenter.devHotkeysRequested(arguments: ["Shotz"], environment: ["SHOTZ_DEV_HOTKEYS": "0"]))
-        #expect(!HotkeyCenter.devHotkeysRequested(arguments: ["Shotz"], environment: [:]))
-    }
-
-    @Test func modeResolution() {
-        #expect(HotkeyMode.resolve(devProfile: false, devHotkeys: false) == .standard)
-        #expect(HotkeyMode.resolve(devProfile: false, devHotkeys: true) == .standardDevHotkeys)
-        #expect(HotkeyMode.resolve(devProfile: true, devHotkeys: false) == .devProfileOff)
-        #expect(HotkeyMode.resolve(devProfile: true, devHotkeys: true) == .devProfileDevHotkeys)
-        #expect(HotkeyMode.standard.sessionNote == nil)
-        #expect(HotkeyMode.devProfileOff.sessionNote != nil)
-    }
-
-    /// The full selection matrix: 4 modes × 5 actions, with every action
-    /// stored as a custom combo so overrides are visible.
-    @Test func bindingSelectionMatrix() {
-        let stored: [HotkeyAction: KeyCombo] = [
-            .captureFullscreen: .defaultFullscreen, .captureArea: .defaultArea, .captureAllInOne: .defaultAllInOne,
-            .captureWindow: custom, .restoreLastClosed: KeyCombo(keyCode: 0x0F, modifiers: [.command, .option]),
-        ]
-        func row(_ mode: HotkeyMode) -> [HotkeyAction: KeyCombo] {
-            HotkeyBindings.effectiveAll(stored: { stored[$0] }, mode: mode)
-        }
-        #expect(row(.standard) == stored)
-        #expect(row(.standardDevHotkeys) == [
-            .captureFullscreen: .devFullscreen, .captureArea: .devArea, .captureAllInOne: .devAllInOne,
-            .captureWindow: custom, .restoreLastClosed: stored[.restoreLastClosed]!,
-        ])
-        #expect(row(.devProfileOff).isEmpty)
-        #expect(row(.devProfileDevHotkeys) == [
-            .captureFullscreen: HotkeyBindings.devProfileFullscreen,
-            .captureArea: HotkeyBindings.devProfileArea,
-            .captureAllInOne: HotkeyBindings.devProfileAllInOne,
-        ])
-        // Unbound stays unbound outside the forced capture set.
-        #expect(HotkeyBindings.effective(for: .captureArea, stored: nil, mode: .standard) == nil)
-        #expect(HotkeyBindings.effective(for: .captureWindow, stored: nil, mode: .standardDevHotkeys) == nil)
-        #expect(!HotkeyBindings.isOverridden(.captureArea, mode: .standard))
-        #expect(HotkeyBindings.isOverridden(.captureWindow, mode: .devProfileOff))
-    }
-
-    /// A dev instance must never share a combo with the owner's instance,
-    /// whether the owner runs normally or with --dev-hotkeys.
-    @Test func devProfileCombosNeverCollideWithOwnerCombos() {
-        let owner = Set(HotkeyBindings.effectiveAll(stored: { SettingsStore.defaultHotkeyNonisolated($0) }, mode: .standard).values)
-            .union(HotkeyBindings.effectiveAll(stored: { SettingsStore.defaultHotkeyNonisolated($0) }, mode: .standardDevHotkeys).values)
-        let dev = Set(HotkeyBindings.effectiveAll(stored: { SettingsStore.defaultHotkeyNonisolated($0) }, mode: .devProfileDevHotkeys).values)
-        #expect(dev.count == 3)
-        #expect(owner.isDisjoint(with: dev))
-        #expect(HotkeyBindings.effectiveAll(stored: { SettingsStore.defaultHotkeyNonisolated($0) }, mode: .devProfileOff).isEmpty)
-        #expect(KeyNames.display(HotkeyBindings.devProfileArea) == "⌃⌥⇧⌘4")
-    }
-
     @MainActor @Test func effectiveAllSkipsUnbound() {
-        let all = HotkeyBindings.effectiveAll(stored: { SettingsStore.defaultHotkey(for: $0) }, mode: .standard)
+        let all = HotkeyBindings.effectiveAll(stored: { SettingsStore.defaultHotkey(for: $0, variant: .production) }, enabled: true)
         #expect(all == [.captureFullscreen: .defaultFullscreen, .captureArea: .defaultArea, .captureAllInOne: .defaultAllInOne])
     }
 
@@ -154,17 +98,5 @@ struct ShortcutValidationTests {
         #expect(KeyNames.menuKeyEquivalent(KeyCombo(keyCode: 0xFF, modifiers: [.command])) == "")
         #expect(KeyNames.modifiers(from: [.command, .shift, .capsLock]) == [.command, .shift])
         #expect(KeyNames.menuModifierMask([.control, .option]) == [.control, .option])
-    }
-}
-
-extension SettingsStore {
-    /// `defaultHotkey(for:)` is main-actor isolated only by its class; it is pure.
-    nonisolated static func defaultHotkeyNonisolated(_ action: HotkeyAction) -> KeyCombo? {
-        switch action {
-        case .captureFullscreen: .defaultFullscreen
-        case .captureArea: .defaultArea
-        case .captureAllInOne: .defaultAllInOne
-        case .captureWindow, .restoreLastClosed: nil
-        }
     }
 }

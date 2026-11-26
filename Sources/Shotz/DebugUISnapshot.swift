@@ -20,9 +20,6 @@ import ShotzCore
         for tab in SettingsTab.allCases {
             write(await coordinator.settingsWindow.debugRender(tab: tab), to: dir.appending(path: "settings-\(tab.rawValue).png"))
         }
-        // Shortcuts as if Capture Area had just been recorded (inline session warning).
-        write(await coordinator.settingsWindow.debugRender(tab: .shortcuts, recorded: [.captureArea]),
-              to: dir.appending(path: "settings-shortcuts-recorded.png"))
         if let button = coordinator.statusItem.debugButton { write(view: button, to: dir.appending(path: "status-item.png")) }
         do {
             try coordinator.statusItem.debugMenuDescription.write(to: dir.appending(path: "status-menu.txt"), atomically: true, encoding: .utf8)

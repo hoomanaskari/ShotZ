@@ -34,7 +34,7 @@ struct AdvancedSettingsView: View {
             Section {
                 HStack {
                     // The only way to quit when the menu-bar icon is hidden.
-                    Button(String(localized: "Quit Shotz")) { NSApp.terminate(nil) }
+                    Button(String(localized: "Quit \(AppVariant.current.displayName)")) { NSApp.terminate(nil) }
                     Spacer()
                     Button(String(localized: "Reset All Settings…"), role: .destructive) { confirmReset = true }
                 }

@@ -40,22 +40,16 @@ public enum Permissions {
 
     // MARK: Relaunch
 
-    /// Arguments worth keeping across a relaunch: `--dev-hotkeys` and the dev
-    /// profile (as `--dev-profile`); `--debug-*` actions must not run twice.
-    public static func relaunchArguments(
-        from arguments: [String], devProfile: Bool = DevProfile.isActive, keepDevHotkeys: Bool = true
-    ) -> [String] {
-        var out: [String] = []
-        if keepDevHotkeys, arguments.dropFirst().contains("--dev-hotkeys") { out.append("--dev-hotkeys") }
-        if devProfile { out.append("--dev-profile") }
-        return out
+    /// Arguments worth keeping across a relaunch: only `--no-hotkeys`
+    /// (`--debug-*` actions must not run twice).
+    public static func relaunchArguments(from arguments: [String]) -> [String] {
+        arguments.dropFirst().contains("--no-hotkeys") ? ["--no-hotkeys"] : []
     }
 
     /// Quits and reopens this same bundle (macOS often applies a new Screen
     /// Recording grant only to a fresh process).
-    /// `keepDevHotkeys: false` is "Relaunch Normally" (saved shortcuts apply).
-    @MainActor public static func relaunch(bundleURL: URL = Bundle.main.bundleURL, keepDevHotkeys: Bool = true) {
-        let args = relaunchArguments(from: ProcessInfo.processInfo.arguments, keepDevHotkeys: keepDevHotkeys)
+    @MainActor public static func relaunch(bundleURL: URL = Bundle.main.bundleURL) {
+        let args = relaunchArguments(from: ProcessInfo.processInfo.arguments)
         let process = Process()
         process.executableURL = URL(filePath: "/bin/sh")
         // Wait for this process to exit, then open a new instance of the bundle.

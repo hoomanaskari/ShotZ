@@ -14,14 +14,13 @@ import SwiftUI
 
     public var isVisible: Bool { window?.isVisible ?? false }
     /// For `--debug-snapshot-ui` only: one tab rendered off screen (no window is shown).
-    /// `recorded` shows those Shortcuts rows as if just recorded.
-    public func debugRender(tab: SettingsTab, recorded: Set<HotkeyAction> = []) async -> Data? {
+    public func debugRender(tab: SettingsTab) async -> Data? {
         let selection = SettingsSelection()
         selection.tab = tab
         return await OffscreenRenderer.png(
-            SettingsRootView(context: context, selection: selection, previewRecorded: recorded),
+            SettingsRootView(context: context, selection: selection),
             size: CGSize(width: 560, height: 500),
-            chrome: .init(title: String(localized: "Shotz Settings"), styleMask: [.titled, .closable, .miniaturizable])
+            chrome: .init(title: String(localized: "\(AppVariant.current.displayName) Settings"), styleMask: [.titled, .closable, .miniaturizable])
         )
     }
 
@@ -32,16 +31,14 @@ import SwiftUI
             let hosting = NSHostingController(rootView: root)
             hosting.sizingOptions = [.preferredContentSize]
             let window = NSWindow(contentViewController: hosting)
-            window.title = String(localized: "Shotz Settings")
+            window.title = String(localized: "\(AppVariant.current.displayName) Settings")
             window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
             window.delegate = self
-            if let name = WindowPresenter.autosaveName("ShotzSettings") {
-                window.setFrameAutosaveName(name)
-                if !window.setFrameUsingName(name) { window.center() }
-            } else {
-                window.center()
-            }
+            // Each app variant has its own preferences domain, so the saved
+            // frame never crosses between Shotz and Shotz Dev.
+            window.setFrameAutosaveName("ShotzSettings")
+            if !window.setFrameUsingName("ShotzSettings") { window.center() }
             WindowPresenter.prepare(window)
             self.window = window
         }
@@ -66,7 +63,6 @@ import SwiftUI
 struct SettingsRootView: View {
     let context: SettingsContext
     @ObservedObject var selection: SettingsSelection
-    var previewRecorded: Set<HotkeyAction> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -92,7 +88,7 @@ struct SettingsRootView: View {
             GeneralSettingsView(context: context, settings: context.settings, loginItem: context.loginItem,
                                 screenRecording: context.screenRecording)
         case .shortcuts:
-            ShortcutsSettingsView(settings: context.settings, hotkeys: context.hotkeys, previewRecorded: previewRecorded)
+            ShortcutsSettingsView(settings: context.settings, hotkeys: context.hotkeys)
         case .quickAccess:
             QuickAccessSettingsView(settings: context.settings)
         case .capture:

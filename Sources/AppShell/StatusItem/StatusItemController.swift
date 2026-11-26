@@ -39,13 +39,11 @@ import ShotzCore
             guard newValue != isVisible else { return }
             if newValue {
                 let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-                // AppKit keeps the item's position/visibility under this name in
-                // the standard domain; dev runs use their own so they never move
-                // or hide the owner's icon.
-                item.autosaveName = DevProfile.isActive ? "ShotzDevStatusItem" : "ShotzStatusItem"
-                item.button?.image = StatusItemIcon.make()
-                item.button?.toolTip = "Shotz"
-                item.button?.setAccessibilityLabel("Shotz")
+                // Position/visibility are kept per app variant (own defaults domain).
+                item.autosaveName = "ShotzStatusItem"
+                item.button?.image = StatusItemIcon.make(variant: .current)
+                item.button?.toolTip = AppVariant.current.displayName
+                item.button?.setAccessibilityLabel(AppVariant.current.displayName)
                 item.menu = menu
                 statusItem = item
             } else if let item = statusItem {
@@ -114,7 +112,7 @@ import ShotzCore
         menu.addItem(restore)
         menu.addItem(.separator())
         menu.addItem(item(String(localized: "Settings…"), #selector(openSettings), key: ","))
-        menu.addItem(item(String(localized: "Quit Shotz"), #selector(quit), key: "q"))
+        menu.addItem(item(String(localized: "Quit \(AppVariant.current.displayName)"), #selector(quit), key: "q"))
     }
 
     private func rebuildHistoryMenu() {

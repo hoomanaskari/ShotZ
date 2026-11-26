@@ -36,7 +36,7 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
         return await OffscreenRenderer.png(
             OnboardingView(model: model),
             size: CGSize(width: 600, height: 470),
-            chrome: .init(title: String(localized: "Welcome to Shotz"), styleMask: [.titled, .closable, .fullSizeContentView],
+            chrome: .init(title: String(localized: "Welcome to \(AppVariant.current.displayName)"), styleMask: [.titled, .closable, .fullSizeContentView],
                           transparentTitlebar: true)
         )
     }
@@ -53,7 +53,7 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
             window.styleMask = [.titled, .closable, .fullSizeContentView]
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
-            window.title = String(localized: "Welcome to Shotz")
+            window.title = String(localized: "Welcome to \(AppVariant.current.displayName)")
             window.isMovableByWindowBackground = true
             window.isReleasedWhenClosed = false
             window.delegate = self
