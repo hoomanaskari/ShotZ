@@ -33,7 +33,12 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
         let previous = model.step
         model.step = step
         defer { model.step = previous }
-        return await OffscreenRenderer.png(OnboardingView(model: model), size: CGSize(width: 600, height: 470))
+        return await OffscreenRenderer.png(
+            OnboardingView(model: model),
+            size: CGSize(width: 600, height: 470),
+            chrome: .init(title: String(localized: "Welcome to Shotz"), styleMask: [.titled, .closable, .fullSizeContentView],
+                          transparentTitlebar: true)
+        )
     }
     public var currentStep: OnboardingStep { model.step }
 

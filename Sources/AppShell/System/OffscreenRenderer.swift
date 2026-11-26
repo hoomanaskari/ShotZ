@@ -1,23 +1,39 @@
 import AppKit
 import SwiftUI
 
-/// Renders a SwiftUI view to PNG in a window that is never ordered on
-/// screen, for `--debug-snapshot-ui`: reviewing UI never pops a window over
-/// the user's work or activates Shotz.
+/// Renders a SwiftUI view to PNG for `--debug-snapshot-ui`, the way the real
+/// window looks: same window style, title bar and background, in the app's
+/// current appearance. The window is never ordered on screen, so reviewing UI
+/// never pops a window over the user's work or activates Shotz.
 @MainActor enum OffscreenRenderer {
-    static func png<V: View>(_ view: V, size: CGSize) async -> Data? {
+    struct Chrome {
+        var title: String
+        var styleMask: NSWindow.StyleMask
+        var transparentTitlebar = false
+    }
+
+    static func png<V: View>(_ view: V, size: CGSize, chrome: Chrome) async -> Data? {
         let hosting = NSHostingView(rootView: view)
-        hosting.frame = CGRect(origin: .zero, size: size)
-        let window = NSWindow(contentRect: hosting.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: chrome.styleMask,
+                              backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
+        window.title = chrome.title
+        if chrome.transparentTitlebar {
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+        }
+        window.appearance = NSApp.effectiveAppearance
         window.contentView = hosting
-        hosting.layoutSubtreeIfNeeded()
+        window.setContentSize(size)
         // Let SwiftUI finish its first update passes; a cancelled sleep only shortens the wait.
         try? await Task.sleep(for: .milliseconds(400))
-        hosting.layoutSubtreeIfNeeded()
+        // The theme frame (content view's superview) includes the title bar
+        // and the window background; the hosting view alone is transparent.
+        guard let frameView = window.contentView?.superview else { return nil }
+        frameView.layoutSubtreeIfNeeded()
         defer { window.contentView = nil }
-        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return nil }
-        hosting.cacheDisplay(in: hosting.bounds, to: rep)
+        guard let rep = frameView.bitmapImageRepForCachingDisplay(in: frameView.bounds) else { return nil }
+        frameView.cacheDisplay(in: frameView.bounds, to: rep)
         return rep.representation(using: .png, properties: [:])
     }
 }
