@@ -32,10 +32,10 @@ let package = Package(
         .testTarget(name: "ShotzCoreTests", dependencies: ["ShotzCore"]),
         .testTarget(name: "ShotzUITests", dependencies: ["ShotzUI", "ShotzCore"], exclude: ["Goldens"]),
         .testTarget(name: "CaptureKitTests", dependencies: ["CaptureKit", "ShotzCore"]),
-        .testTarget(name: "QuickAccessTests", dependencies: ["QuickAccess", "ShotzCore"]),
+        .testTarget(name: "QuickAccessTests", dependencies: ["QuickAccess", "ShotzCore", "ShotzUI"]),
         .testTarget(name: "AnnotationKitTests", dependencies: ["AnnotationKit", "ShotzCore"], exclude: ["Goldens"]),
-        .testTarget(name: "AnnotationEditorTests", dependencies: ["AnnotationEditor", "AnnotationKit", "ShotzCore"]),
-        .testTarget(name: "AppShellTests", dependencies: ["AppShell", "ShotzCore"]),
+        .testTarget(name: "AnnotationEditorTests", dependencies: ["AnnotationEditor", "AnnotationKit", "ShotzCore", "ShotzUI"]),
+        .testTarget(name: "AppShellTests", dependencies: ["AppShell", "ShotzCore", "ShotzUI"]),
     ],
     swiftLanguageModes: [.v6]
 )
