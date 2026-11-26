@@ -30,11 +30,10 @@ struct CaptureSettingsView: View {
 
             PrefSection(title: String(localized: "Windows")) {
                 PrefRow(label: String(localized: "Window captures")) {
-                    Toggle(String(localized: "Include the window's shadow"), isOn: $settings.windowShadow)
+                    ShellCheckbox(String(localized: "Include the window's shadow"), isOn: $settings.windowShadow)
                 }
             }
         }
-        .toggleStyle(.checkbox)
     }
 }
 
@@ -54,11 +53,10 @@ struct FileNamePatternField: View {
         PrefHelp(String(localized: "Example: \(FileNaming.format(draft.isEmpty ? FileNaming.defaultPattern : draft, date: Date())).\(settings.exportFormat.fileExtension)"))
         PrefHelp(String(localized: "%Y year · %m month · %d day · %H hour · %M minute · %S second"))
         if settings.fileNamePattern != FileNaming.defaultPattern {
-            Button(String(localized: "Restore Default Name")) {
+            ShellButton(String(localized: "Restore Default Name"), kind: .link) {
                 draft = FileNaming.defaultPattern
                 commit()
             }
-            .buttonStyle(.link)
             .font(.system(size: 11))
         }
     }

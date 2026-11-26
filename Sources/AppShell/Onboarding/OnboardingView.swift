@@ -32,10 +32,10 @@ struct OnboardingView: View {
                         .foregroundStyle(.tertiary)
                     Spacer()
                     if !model.isFirst {
-                        Button(String(localized: "Back")) { model.back() }
+                        ShellButton(String(localized: "Back")) { model.back() }
                             .keyboardShortcut(.cancelAction)
                     }
-                    Button(model.isLast ? String(localized: "Done") : String(localized: "Continue")) { model.next() }
+                    ShellButton(model.isLast ? String(localized: "Done") : String(localized: "Continue"), kind: .prominent) { model.next() }
                         .keyboardShortcut(.defaultAction)
                 }
                 .controlSize(.large)
@@ -89,7 +89,7 @@ private struct StepRow: View {
                     .fill(state == .upcoming ? Color.clear : Color.accentColor)
                     .overlay(Circle().strokeBorder(state == .upcoming ? Color.secondary.opacity(0.5) : Color.clear, lineWidth: 1))
                 if state == .done {
-                    Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                    ShellIcon.checkmark.view(size: 11).foregroundStyle(.white)
                 } else {
                     Text("\(step.rawValue + 1)")
                         .font(.system(size: 10, weight: .semibold))
@@ -186,7 +186,7 @@ struct ScreenRecordingPage: View {
                 StatusPill(text: status.isGranted ? String(localized: "Screen Recording is allowed") : String(localized: "Not allowed yet"),
                            positive: status.isGranted)
                 if !status.isGranted {
-                    Button(String(localized: "Open System Settings")) {
+                    ShellButton(String(localized: "Open System Settings")) {
                         // Makes Shotz appear in the list (first time only), then
                         // opens Privacy & Security ▸ Screen & System Audio Recording.
                         Permissions.requestScreenRecording()
@@ -200,8 +200,7 @@ struct ScreenRecordingPage: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button(String(localized: "Relaunch \(AppVariant.current.displayName)")) { Permissions.relaunch() }
-                .buttonStyle(.link)
+            ShellButton(String(localized: "Relaunch \(AppVariant.current.displayName)"), kind: .link) { Permissions.relaunch() }
                 .font(.system(size: 12))
         }
     }
@@ -230,8 +229,8 @@ struct SystemShortcutsPage: View {
                     }
                 }
                 HStack {
-                    Button(String(localized: "Open Keyboard Settings")) { Permissions.openKeyboardSettings() }
-                    Button(String(localized: "Check Again")) { model.refreshShortcuts() }
+                    ShellButton(String(localized: "Open Keyboard Settings")) { Permissions.openKeyboardSettings() }
+                    ShellButton(String(localized: "Check Again")) { model.refreshShortcuts() }
                 }
             }
             if !model.hotkeys.hotkeysEnabled {
@@ -239,12 +238,11 @@ struct SystemShortcutsPage: View {
             }
             ForEach(model.heldByAnotherApp, id: \.self) { action in
                 if let warning = model.hotkeys.registrationWarning(for: action) {
-                    Label("\(action.title): \(warning)", systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12)).foregroundStyle(.orange)
+                    ShellBanner(text: "\(action.title): \(warning)", tone: .warning)
                 }
             }
             if model.canOfferAlternates {
-                Button(HotkeyBindings.alternatesTitle(for: model.settings.variant)) { model.useAlternateShortcuts() }
+                ShellButton(HotkeyBindings.alternatesTitle(for: model.settings.variant)) { model.useAlternateShortcuts() }
             }
             note(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell ShotZ."))
         }
@@ -266,8 +264,7 @@ struct LaunchAtLoginPage: View {
                 title: String(localized: "Ready when you are"),
                 message: String(localized: "Start \(AppVariant.current.displayName) when you log in, so your shortcuts always work.")
             )
-            Toggle(String(localized: "Launch \(AppVariant.current.displayName) at login"), isOn: $model.launchAtLogin)
-                .toggleStyle(.switch)
+            ShellSwitch(String(localized: "Launch \(AppVariant.current.displayName) at login"), isOn: $model.launchAtLogin)
             Text(loginItem.isInstalled
                  ? String(localized: "You can change any of this later in Settings.")
                  : String(localized: "This copy doesn't add itself to your login items (it isn't in Applications, or it is a test run). The choice is saved."))

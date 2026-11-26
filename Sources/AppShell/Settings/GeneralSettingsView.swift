@@ -12,28 +12,28 @@ struct GeneralSettingsView: View {
         PrefPane {
             PrefSection {
                 PrefRow(label: String(localized: "Startup")) {
-                    Toggle(String(localized: "Launch \(AppVariant.current.displayName) at login"), isOn: Binding(
+                    ShellCheckbox(String(localized: "Launch \(AppVariant.current.displayName) at login"), isOn: Binding(
                         get: { loginItem.isOn },
                         set: { loginItem.setEnabled($0) }
                     ))
                     LoginItemNote(loginItem: loginItem)
                 }
                 PrefRow(label: String(localized: "Menu bar")) {
-                    Toggle(String(localized: "Show icon in the menu bar"), isOn: $settings.showMenuBarIcon)
+                    ShellCheckbox(String(localized: "Show icon in the menu bar"), isOn: $settings.showMenuBarIcon)
                     if !settings.showMenuBarIcon {
                         PrefHelp(String(localized: "Open \(AppVariant.current.displayName) again from Finder or Spotlight to get back to Settings."))
                     }
                 }
                 PrefRow(label: String(localized: "Sound")) {
-                    Toggle(String(localized: "Play a sound when capturing"), isOn: $settings.playSounds)
+                    ShellCheckbox(String(localized: "Play a sound when capturing"), isOn: $settings.playSounds)
                 }
             }
 
             PrefSection(title: String(localized: "After a capture")) {
                 PrefRow(label: String(localized: "Then")) {
-                    Toggle(String(localized: "Show it in the quick-access stack"), isOn: $settings.afterCaptureShowQuickAccess)
-                    Toggle(String(localized: "Copy it to the clipboard"), isOn: $settings.afterCaptureCopyToClipboard)
-                    Toggle(String(localized: "Save it to the export folder"), isOn: $settings.afterCaptureSave)
+                    ShellCheckbox(String(localized: "Show it in the quick-access stack"), isOn: $settings.afterCaptureShowQuickAccess)
+                    ShellCheckbox(String(localized: "Copy it to the clipboard"), isOn: $settings.afterCaptureCopyToClipboard)
+                    ShellCheckbox(String(localized: "Save it to the export folder"), isOn: $settings.afterCaptureSave)
                     if AfterCaptureActions(settings: settings).isSilent {
                         PrefHelp(String(localized: "Captures will only appear in Capture History in the menu."), tone: .warning)
                     }
@@ -49,14 +49,13 @@ struct GeneralSettingsView: View {
                         StatusPill(text: screenRecording.isGranted ? String(localized: "Allowed") : String(localized: "Not allowed"),
                                    positive: screenRecording.isGranted)
                         if !screenRecording.isGranted {
-                            Button(String(localized: "Set Up…")) { context.showOnboarding(true) }
+                            ShellButton(String(localized: "Set Up…")) { context.showOnboarding(true) }
                                 .controlSize(.small)
                         }
                     }
                 }
             }
         }
-        .toggleStyle(.checkbox)
     }
 }
 
@@ -74,7 +73,7 @@ struct LoginItemNote: View {
         case .requiresApproval:
             HStack(spacing: 8) {
                 PrefHelp(String(localized: "macOS needs you to allow it in Login Items."), tone: .warning)
-                Button(String(localized: "Open Login Items…")) { loginItem.openLoginItemsSettings() }
+                ShellButton(String(localized: "Open Login Items…")) { loginItem.openLoginItemsSettings() }
                     .controlSize(.small)
             }
         case .failed(let message):

@@ -83,7 +83,7 @@ struct ShortcutRecorderField: View {
                     }
                     Spacer(minLength: 0)
                     if hasWarning && !isRecording {
-                        ShellIcon.warning.image.foregroundStyle(.orange).font(.system(size: 11))
+                        ShellIcon.warning.view(size: 12).foregroundStyle(.orange)
                     }
                 }
                 .font(.system(size: 12))
@@ -106,7 +106,7 @@ struct ShortcutRecorderField: View {
             .accessibilityHint(String(localized: "Click, then press the new shortcut. Escape cancels, Delete clears."))
 
             Button(action: onClear) {
-                Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                ShellIcon.clear.view(size: 12).foregroundStyle(.secondary)
             }
             .buttonStyle(.borderless)
             .opacity(combo == nil || isRecording ? 0 : 1)

@@ -85,11 +85,13 @@ struct ScreenRecordingIllustration: View {
                     .foregroundStyle(granted ? Color.green : Color.accentColor)
                     .frame(width: 104, height: 54)
                     .offset(x: 46, y: 34)
-                Image(systemName: granted ? "checkmark.circle.fill" : "record.circle")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(granted ? Color.green : Color.red)
-                    .background(Circle().fill(Color(nsColor: .textBackgroundColor)).padding(2))
-                    .offset(x: 140, y: 74)
+                ZStack {
+                    Circle().fill(granted ? Color.green : Color.accentColor)
+                    (granted ? ShellIcon.checkmark : ShellIcon.screenRecording).view(size: 16)
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 30, height: 30)
+                .offset(x: 138, y: 72)
             }
             .frame(width: 200, height: 110)
         }
@@ -119,7 +121,9 @@ struct LaunchAtLoginIllustration: View {
             VStack(spacing: 14) {
                 HStack(spacing: 12) {
                     Spacer()
-                    ForEach(["wifi", "battery.75percent"], id: \.self) { Image(systemName: $0).foregroundStyle(.secondary) }
+                    ForEach(0..<2, id: \.self) { _ in
+                        Capsule().fill(Color.secondary.opacity(0.35)).frame(width: 16, height: 7)
+                    }
                     Image(nsImage: StatusItemIcon.make(variant: AppVariant.current))
                         .padding(4)
                         .background(RoundedRectangle(cornerRadius: 5).fill(Color.accentColor.opacity(on ? 0.25 : 0.08)))
@@ -128,9 +132,11 @@ struct LaunchAtLoginIllustration: View {
                 .padding(.horizontal, 14)
                 .frame(width: 230, height: 28)
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)).shadow(color: .black.opacity(0.12), radius: 4, y: 2))
-                Image(systemName: "power.circle.fill")
-                    .font(.system(size: 34))
-                    .foregroundStyle(on ? Color.accentColor : Color.secondary)
+                ZStack {
+                    Circle().fill(on ? Color.accentColor : Color.secondary.opacity(0.5))
+                    ShellIcon.launchAtLogin.view(size: 20).foregroundStyle(.white)
+                }
+                .frame(width: 40, height: 40)
             }
         }
     }
