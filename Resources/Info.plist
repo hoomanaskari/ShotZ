@@ -34,5 +34,9 @@
 	<string>Copyright © 2026 Shotz contributors. MIT License.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/hoomanaskari/ShotZ/main/appcast.xml</string>
 </dict>
 </plist>

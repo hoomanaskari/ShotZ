@@ -6,12 +6,16 @@ import PackageDescription
 // ShotzUI  ←  QuickAccess, AnnotationEditor, AppShell (design tokens and shared controls)
 // AnnotationKit  ←  AnnotationEditor
 // everything  ←  Shotz (executable)
+// Sparkle (software updates, production app only)  ←  AppShell
 
 let package = Package(
     name: "Shotz",
     platforms: [.macOS(.v15)],
     products: [
         .executable(name: "Shotz", targets: ["Shotz"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.4"),
     ],
     targets: [
         .target(name: "ShotzCore"),
@@ -20,7 +24,7 @@ let package = Package(
         .target(name: "QuickAccess", dependencies: ["ShotzCore", "ShotzUI"]),
         .target(name: "AnnotationKit", dependencies: ["ShotzCore"]),
         .target(name: "AnnotationEditor", dependencies: ["ShotzCore", "ShotzUI", "AnnotationKit"]),
-        .target(name: "AppShell", dependencies: ["ShotzCore", "ShotzUI"]),
+        .target(name: "AppShell", dependencies: ["ShotzCore", "ShotzUI", .product(name: "Sparkle", package: "Sparkle")]),
         .executableTarget(
             name: "Shotz",
             dependencies: [
