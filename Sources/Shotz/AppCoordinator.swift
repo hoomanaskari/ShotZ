@@ -116,7 +116,10 @@ import ShotzCore
     // MARK: Settings that act live
 
     private func applySettings() {
-        statusItem.isVisible = settings.showMenuBarIcon
+        if statusItem.isVisible != settings.showMenuBarIcon {
+            statusItem.isVisible = settings.showMenuBarIcon
+            log.info("Menu-bar icon \(self.settings.showMenuBarIcon ? "shown" : "hidden", privacy: .public)")
+        }
         statusItem.refreshShortcuts()
         let retention = settings.historyRetention
         if let last = lastAppliedRetention, last != retention {
@@ -180,6 +183,9 @@ import ShotzCore
             if let edit = debug.edit {
                 log.info("Debug edit \(edit.lastPathComponent, privacy: .public)")
                 editor.openEditor(imageAt: edit)
+            }
+            if let dir = debug.snapshotUI {
+                await DebugUISnapshot.run(self, into: dir)
             }
         }
     }

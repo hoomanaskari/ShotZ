@@ -34,11 +34,15 @@ struct FileNamePatternField: View {
     @State private var draft = ""
 
     var body: some View {
-        TextField(String(localized: "Pattern"), text: $draft)
-            .onAppear { draft = settings.fileNamePattern }
-            .onSubmit(commit)
-            .onChange(of: draft) { commit() }
-            .font(.body.monospaced())
+        LabeledContent(String(localized: "Pattern")) {
+            TextField(String(localized: "Pattern"), text: $draft)
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .font(.body.monospaced())
+                .onAppear { draft = settings.fileNamePattern }
+                .onSubmit(commit)
+                .onChange(of: draft) { commit() }
+        }
         LabeledContent(String(localized: "Example")) {
             Text(FileNaming.format(draft.isEmpty ? FileNaming.defaultPattern : draft, date: Date()) + "." + settings.exportFormat.fileExtension)
                 .foregroundStyle(.secondary)

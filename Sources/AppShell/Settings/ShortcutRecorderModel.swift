@@ -14,6 +14,7 @@ import ShotzCore
     private let settings: SettingsStore
     private let hotkeys: HotkeyCenter
     private var monitor: Any?
+    private var focusObservers: [NSObjectProtocol] = []
 
     init(settings: SettingsStore, hotkeys: HotkeyCenter) {
         self.settings = settings
@@ -26,6 +27,8 @@ import ShotzCore
 
     func start(_ action: HotkeyAction) {
         stop()
+        // Key events only reach the local monitor while Shotz is active.
+        NSApp.activate()
         recording = action
         problem = nil
         heldModifiers = []
@@ -34,11 +37,21 @@ import ShotzCore
             let consumed = MainActor.assumeIsolated { self?.handle(event) ?? false }
             return consumed ? nil : event
         }
+        // Losing focus ends recording, so global shortcuts never stay
+        // suspended while the user is in another app.
+        let center = NotificationCenter.default
+        for name in [NSApplication.didResignActiveNotification, NSWindow.didResignKeyNotification] {
+            focusObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.stop() }
+            })
+        }
     }
 
     func stop() {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
+        focusObservers.forEach(NotificationCenter.default.removeObserver)
+        focusObservers.removeAll()
         recording = nil
         heldModifiers = []
         hotkeys.isSuspended = false

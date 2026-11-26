@@ -51,6 +51,22 @@ import ShotzCore
         }
     }
 
+    /// For `--debug-snapshot-ui` only: the menu as text and the button view.
+    public var debugMenuDescription: String {
+        menuNeedsUpdate(menu)
+        func describe(_ menu: NSMenu, indent: String) -> [String] {
+            menu.items.flatMap { item -> [String] in
+                if item.isSeparatorItem { return [indent + "———"] }
+                let key = item.keyEquivalent.isEmpty ? "" : "  [\(KeyNames.modifierGlyphs(KeyNames.modifiers(from: item.keyEquivalentModifierMask)))\(item.keyEquivalent.uppercased())]"
+                let flags = (item.isEnabled ? "" : "  (disabled)") + (item.image != nil ? "  (thumbnail)" : "")
+                return [indent + item.title + key + flags] + (item.submenu.map { describe($0, indent: indent + "    ") } ?? [])
+            }
+        }
+        return describe(menu, indent: "").joined(separator: "\n")
+    }
+
+    public var debugButton: NSView? { statusItem?.button }
+
     /// Replaces the history submenu (last 10, newest first).
     public func updateHistory(_ items: [CaptureResult]) {
         history = Array(items.prefix(Self.historyLimit))

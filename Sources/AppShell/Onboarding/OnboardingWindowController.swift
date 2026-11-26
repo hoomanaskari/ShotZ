@@ -28,6 +28,8 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
     }
 
     public var isVisible: Bool { window?.isVisible ?? false }
+    /// For `--debug-snapshot-ui` only.
+    public var debugWindow: NSWindow? { window }
     public var currentStep: OnboardingStep { model.step }
 
     public func show(step: OnboardingStep = .welcome) {

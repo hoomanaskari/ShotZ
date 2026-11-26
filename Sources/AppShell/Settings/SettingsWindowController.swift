@@ -13,6 +13,8 @@ import SwiftUI
     }
 
     public var isVisible: Bool { window?.isVisible ?? false }
+    /// For `--debug-snapshot-ui` only.
+    public var debugWindow: NSWindow? { window }
 
     public func show(tab: SettingsTab? = nil) {
         if let tab { selection.tab = tab }
