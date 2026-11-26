@@ -1,26 +1,29 @@
 import ShotzCore
+import ShotzUI
 import SwiftUI
 
 struct EditorSettingsView: View {
     @ObservedObject var settings: SettingsStore
 
     var body: some View {
-        PrefPane {
-            PrefSection(title: String(localized: "Drawing")) {
-                PrefRow(label: String(localized: "Tools")) {
-                    ShellCheckbox(String(localized: "Return to the Select tool after drawing"), isOn: $settings.editorReturnToSelect)
+        ShotzSettingsPane {
+            ShotzSettingsSection(String(localized: "Drawing")) {
+                ShotzSettingsRow(String(localized: "Return to the Select tool after drawing")) {
+                    RowSwitch(String(localized: "Return to the Select tool after drawing"), isOn: $settings.editorReturnToSelect)
                 }
-                PrefRow(label: String(localized: "Snapping")) {
-                    ShellCheckbox(String(localized: "Snap while moving and cropping"), isOn: $settings.editorSnapping)
-                    PrefHelp(String(localized: "Hold ⌘ while dragging to turn snapping off for a moment."))
+                ShotzSettingsRow(String(localized: "Snap while moving and cropping"),
+                                 help: String(localized: "Hold ⌘ while dragging to turn snapping off for a moment.")) {
+                    RowSwitch(String(localized: "Snap while moving and cropping"), isOn: $settings.editorSnapping)
                 }
             }
 
-            PrefSection(title: String(localized: "Closing")) {
-                PrefRow(label: String(localized: "Close the editor")) {
-                    ShellCheckbox(String(localized: "After copying"), isOn: $settings.editorCloseAfterCopy)
-                    ShellCheckbox(String(localized: "After saving"), isOn: $settings.editorCloseAfterSave)
-                    PrefHelp(String(localized: "Closing the editor puts the capture back in the quick-access stack."))
+            ShotzSettingsSection(String(localized: "Closing"),
+                                 footer: String(localized: "Closing the editor puts the capture back in the quick-access stack.")) {
+                ShotzSettingsRow(String(localized: "Close the editor after copying")) {
+                    RowSwitch(String(localized: "Close the editor after copying"), isOn: $settings.editorCloseAfterCopy)
+                }
+                ShotzSettingsRow(String(localized: "Close the editor after saving")) {
+                    RowSwitch(String(localized: "Close the editor after saving"), isOn: $settings.editorCloseAfterSave)
                 }
             }
         }

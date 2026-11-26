@@ -87,8 +87,8 @@ import ShotzCore
     /// For `--debug-snapshot-ui`: the status menu drawn off screen from its real
     /// items (an approximation of the system menu, which can't be captured
     /// without opening it).
-    public func debugMenuSnapshot(appearance: NSAppearance.Name) async -> Data? {
-        await StatusMenuPreview.render(rows: debugMenuRows, appearance: appearance)
+    public func debugMenuSnapshot(appearance: NSAppearance.Name, scale: CGFloat = 2) async -> Data? {
+        await StatusMenuPreview.render(rows: debugMenuRows, appearance: appearance, scale: scale)
     }
 
     /// Replaces the history submenu (last 10, newest first).

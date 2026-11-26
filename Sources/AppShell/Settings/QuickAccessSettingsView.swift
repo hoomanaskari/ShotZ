@@ -1,54 +1,41 @@
 import ShotzCore
+import ShotzUI
 import SwiftUI
 
 struct QuickAccessSettingsView: View {
     @ObservedObject var settings: SettingsStore
 
     var body: some View {
-        PrefPane {
-            PrefSection(title: String(localized: "Placement")) {
-                PrefRow(label: String(localized: "Screen edge"), alignment: .center) {
-                    Picker("", selection: $settings.quickAccessSide) {
-                        ForEach(StackSide.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
+        ShotzSettingsPane {
+            ShotzSettingsSection(String(localized: "Placement")) {
+                ShotzSettingsRow(String(localized: "Screen edge")) {
+                    EnumSegmented(cases: StackSide.allCases, title: \.title, value: $settings.quickAccessSide)
                 }
-                PrefRow(label: String(localized: "Display"), alignment: .center) {
-                    Picker("", selection: $settings.quickAccessDisplay) {
-                        ForEach(StackDisplay.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
+                ShotzSettingsRow(String(localized: "Display")) {
+                    EnumMenu(cases: StackDisplay.allCases, title: \.title, value: $settings.quickAccessDisplay)
                 }
-                PrefRow(label: String(localized: "Card size"), alignment: .center) {
-                    Picker("", selection: $settings.quickAccessSize) {
-                        ForEach(CardSize.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
+                ShotzSettingsRow(String(localized: "Card size")) {
+                    EnumSegmented(cases: CardSize.allCases, title: \.title, value: $settings.quickAccessSize)
                 }
-                PrefRow(label: String(localized: "Close cards"), alignment: .center) {
-                    Picker("", selection: $settings.quickAccessAutoCloseSeconds) {
-                        ForEach(SettingsStore.autoCloseChoices, id: \.self) { seconds in
-                            Text(seconds == 0 ? String(localized: "Never automatically") : String(localized: "After \(seconds) seconds")).tag(seconds)
-                        }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
+                ShotzSettingsRow(String(localized: "Close cards automatically"), help: String(localized: "The timer pauses while the pointer is over the stack.")) {
+                    EnumMenu(cases: SettingsStore.autoCloseChoices,
+                             title: { $0 == 0 ? String(localized: "Never") : String(localized: "After \($0) seconds") },
+                             value: $settings.quickAccessAutoCloseSeconds)
                 }
             }
 
-            PrefSection(title: String(localized: "Cards")) {
-                PrefRow(label: String(localized: "Remove a card")) {
-                    ShellCheckbox(String(localized: "After dragging it out"), isOn: $settings.quickAccessRemoveAfterDrag)
-                    ShellCheckbox(String(localized: "After copying"), isOn: $settings.quickAccessCloseAfterCopy)
-                    ShellCheckbox(String(localized: "After saving"), isOn: $settings.quickAccessCloseAfterSave)
+            ShotzSettingsSection(String(localized: "Cards")) {
+                ShotzSettingsRow(String(localized: "Remove after dragging out")) {
+                    RowSwitch(String(localized: "Remove after dragging out"), isOn: $settings.quickAccessRemoveAfterDrag)
                 }
-                PrefRow(label: String(localized: "Saving")) {
-                    ShellCheckbox(String(localized: "Ask where to save each time"), isOn: $settings.askDestinationWhenSaving)
+                ShotzSettingsRow(String(localized: "Close after copying")) {
+                    RowSwitch(String(localized: "Close after copying"), isOn: $settings.quickAccessCloseAfterCopy)
+                }
+                ShotzSettingsRow(String(localized: "Close after saving")) {
+                    RowSwitch(String(localized: "Close after saving"), isOn: $settings.quickAccessCloseAfterSave)
+                }
+                ShotzSettingsRow(String(localized: "Ask where to save each time")) {
+                    RowSwitch(String(localized: "Ask where to save each time"), isOn: $settings.askDestinationWhenSaving)
                 }
             }
         }

@@ -1,5 +1,6 @@
 import AppKit
 import ShotzCore
+import ShotzUI
 import SwiftUI
 
 /// The Settings window (SPEC §7): a standard preferences window with toolbar
@@ -40,7 +41,7 @@ import SwiftUI
     }
 
     static func makeWindow(tabs: SettingsTabViewController) -> ShellWindow {
-        let window = ShellWindow(contentRect: NSRect(x: 0, y: 0, width: PrefMetrics.paneWidth, height: 400),
+        let window = ShellWindow(contentRect: NSRect(x: 0, y: 0, width: ShotzSettingsMetrics.paneWidth, height: 400),
                                  styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         window.contentViewController = tabs
         window.toolbarStyle = .preference
@@ -54,18 +55,20 @@ import SwiftUI
 
     /// For `--debug-snapshot-ui`: one tab in its own off-screen window (never
     /// ordered in), in the given appearance.
-    public func debugRender(tab: SettingsTab, appearance: NSAppearance.Name = .aqua) async -> Data? {
+    public func debugRender(tab: SettingsTab, appearance: NSAppearance.Name = .aqua, scale: CGFloat = 2) async -> Data? {
         let tabs = SettingsTabViewController(context: context)
         let window = Self.makeWindow(tabs: tabs)
         window.appearance = NSAppearance(named: appearance)
         tabs.select(tab)
         tabs.fitWindowToSelection(animate: false)
-        return await OffscreenRenderer.capture(window)
+        return await OffscreenRenderer.capture(window, scale: scale)
     }
 }
 
 /// Toolbar-style tabs, one hosting controller per pane.
 final class SettingsTabViewController: NSTabViewController {
+    /// Pane width from ShotzUI's settings metrics (the window is this wide).
+    static let paneWidth = ShotzSettingsMetrics.paneWidth
     private let context: SettingsContext
 
     init(context: SettingsContext) {
@@ -105,8 +108,8 @@ final class SettingsTabViewController: NSTabViewController {
         window.title = item.label
         // Ask SwiftUI for the pane's natural height at the fixed width (the
         // hosting view's own fitting size is bounded by its current frame).
-        let ideal = hosting.sizeThatFits(in: CGSize(width: PrefMetrics.paneWidth, height: 10_000))
-        let size = NSSize(width: PrefMetrics.paneWidth, height: ceil(ideal.height))
+        let ideal = hosting.sizeThatFits(in: CGSize(width: ShotzSettingsMetrics.paneWidth, height: 10_000))
+        let size = NSSize(width: ShotzSettingsMetrics.paneWidth, height: ceil(ideal.height))
         var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: size))
         frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)
         if frame.size != window.frame.size {

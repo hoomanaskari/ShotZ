@@ -15,16 +15,19 @@ import ShotzCore
         }
         // Rendered off screen: nothing is shown and Shotz is never activated.
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-            for step in OnboardingStep.allCases {
-                write(await coordinator.onboarding.debugRender(step: step, appearance: appearance),
-                      to: dir.appending(path: "onboarding-\(step.rawValue)-\(step)-\(name).png"))
+            for scale in [1.0, 2.0] {
+                let suffix = "\(name)@\(Int(scale))x"
+                for step in OnboardingStep.allCases {
+                    write(await coordinator.onboarding.debugRender(step: step, appearance: appearance, scale: scale),
+                          to: dir.appending(path: "onboarding-\(step.rawValue)-\(step)-\(suffix).png"))
+                }
+                for tab in SettingsTab.allCases {
+                    write(await coordinator.settingsWindow.debugRender(tab: tab, appearance: appearance, scale: scale),
+                          to: dir.appending(path: "settings-\(tab.rawValue)-\(suffix).png"))
+                }
+                write(await coordinator.statusItem.debugMenuSnapshot(appearance: appearance, scale: scale),
+                      to: dir.appending(path: "status-menu-\(suffix).png"))
             }
-            for tab in SettingsTab.allCases {
-                write(await coordinator.settingsWindow.debugRender(tab: tab, appearance: appearance),
-                      to: dir.appending(path: "settings-\(tab.rawValue)-\(name).png"))
-            }
-            write(await coordinator.statusItem.debugMenuSnapshot(appearance: appearance),
-                  to: dir.appending(path: "status-menu-\(name).png"))
         }
         let tabIcons: [ShellIcon] = [.general, .shortcuts, .quickAccess, .capture, .editor, .advanced]
         write(ShellIcon.debugToolbarStrip(tabIcons, scale: 1), to: dir.appending(path: "toolbar-icons-1x.png"))

@@ -1,5 +1,6 @@
 import AppKit
 import ShotzCore
+import ShotzUI
 import SwiftUI
 
 struct AdvancedSettingsView: View {
@@ -9,38 +10,40 @@ struct AdvancedSettingsView: View {
     @State private var confirmReset = false
     @State private var clearing = false
 
+    private var name: String { AppVariant.current.displayName }
+
     var body: some View {
-        PrefPane {
-            PrefSection(title: String(localized: "History")) {
-                PrefRow(label: String(localized: "Keep captures for")) {
-                    Picker("", selection: $settings.historyRetention) {
-                        ForEach(HistoryRetention.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
-                    PrefHelp(String(localized: "Older captures are removed when \(AppVariant.current.displayName) starts and once a day. Files you saved or exported are never touched."))
+        ShotzSettingsPane {
+            ShotzSettingsSection(String(localized: "History"),
+                                 footer: String(localized: "Older captures are removed when \(name) starts and once a day. Files you saved or exported are never touched.")) {
+                ShotzSettingsRow(String(localized: "Keep captures for"), icon: .history) {
+                    EnumMenu(cases: HistoryRetention.allCases, title: \.title, value: $settings.historyRetention)
                 }
-                PrefRow(label: nil) {
-                    ShellButton(String(localized: "Clear History…")) { confirmClear = true }
+                ShotzSettingsRow(String(localized: "Clear history"), help: String(localized: "Deletes every capture ShotZ keeps and its edits.")) {
+                    Button(String(localized: "Clear History…")) { confirmClear = true }
+                        .buttonStyle(.shotz(.destructive, size: .compact))
                         .disabled(clearing)
                 }
             }
 
-            PrefSection(title: String(localized: "Setup")) {
-                PrefRow(label: String(localized: "Welcome guide")) {
-                    ShellButton(String(localized: "Show Welcome Window…")) { context.showOnboarding(false) }
-                    PrefHelp(String(localized: "Screen Recording permission, macOS's screenshot shortcuts and launch at login."))
+            ShotzSettingsSection(String(localized: "Setup")) {
+                ShotzSettingsRow(String(localized: "Welcome guide"),
+                                 help: String(localized: "Screen Recording permission, macOS's screenshot shortcuts and launch at login."),
+                                 icon: .welcome) {
+                    Button(String(localized: "Show…")) { context.showOnboarding(false) }
+                        .buttonStyle(.shotz(.secondary, size: .compact))
                 }
             }
 
-            PrefSection(title: String(localized: "Reset")) {
-                PrefRow(label: String(localized: "Settings")) {
-                    ShellButton(String(localized: "Restore All Defaults…")) { confirmReset = true }
-                    PrefHelp(String(localized: "Every setting, including shortcuts, goes back to its default. History is kept."))
+            ShotzSettingsSection(String(localized: "Reset")) {
+                ShotzSettingsRow(String(localized: "Restore all default settings"),
+                                 help: String(localized: "Every setting, including shortcuts, goes back to its default. History is kept.")) {
+                    Button(String(localized: "Restore…")) { confirmReset = true }
+                        .buttonStyle(.shotz(.secondary, size: .compact))
                 }
-                PrefRow(label: AppVariant.current.displayName) {
-                    // The only way to quit when the menu-bar icon is hidden.
-                    ShellButton(String(localized: "Quit \(AppVariant.current.displayName)")) { NSApp.terminate(nil) }
+                ShotzSettingsRow(String(localized: "Quit \(name)"), help: String(localized: "The way to quit when the menu-bar icon is hidden."), icon: .quit) {
+                    Button(String(localized: "Quit")) { NSApp.terminate(nil) }
+                        .buttonStyle(.shotz(.secondary, size: .compact))
                 }
             }
         }

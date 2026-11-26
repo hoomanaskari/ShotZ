@@ -1,4 +1,5 @@
 import ShotzCore
+import ShotzUI
 import SwiftUI
 
 struct ShortcutsSettingsView: View {
@@ -20,14 +21,14 @@ struct ShortcutsSettingsView: View {
     }
 
     var body: some View {
-        PrefPane {
+        ShotzSettingsPane {
             if !hotkeys.hotkeysEnabled {
-                ShellBanner(text: String(localized: "Test run (--no-hotkeys): no shortcuts are registered. Changes here are saved to this run's settings only."),
+                ShotzBanner(String(localized: "Test run (--no-hotkeys): no shortcuts are registered. Changes here are saved to this run's settings only."),
                             tone: .warning)
             }
             if captureFailures {
-                ShellBanner(
-                    text: String(localized: "Another app may be using some of these shortcuts. Quit it or turn its shortcuts off, or use alternates."),
+                ShotzBanner(
+                    String(localized: "Another app may be using some of these shortcuts. Quit it or turn its shortcuts off, or use alternates."),
                     tone: .warning,
                     actionTitle: HotkeyBindings.alternatesTitle(for: settings.variant),
                     action: {
@@ -38,47 +39,48 @@ struct ShortcutsSettingsView: View {
                 )
             }
 
-            PrefSection(title: String(localized: "Capture")) {
-                ForEach(captureActions, id: \.self) { action in
-                    row(action)
-                }
+            ShotzSettingsSection(String(localized: "Capture")) {
+                ForEach(captureActions, id: \.self) { action in row(action) }
             }
 
-            PrefSection(title: String(localized: "Quick access")) {
+            ShotzSettingsSection(
+                String(localized: "Quick access"),
+                footer: String(localized: "Click a shortcut, then press the new keys. Esc cancels, Delete clears it. If a shortcut does nothing, another app may be using it: macOS does not always tell ShotZ.")
+            ) {
                 row(.restoreLastClosed)
             }
 
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    PrefHelp(String(localized: "Click a shortcut, then press the new keys. Esc cancels, Delete clears it."))
-                    PrefHelp(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell ShotZ when another app holds a shortcut."))
-                }
-                Spacer(minLength: 16)
-                ShellButton(String(localized: "Restore Defaults")) {
+            HStack {
+                Spacer()
+                Button(String(localized: "Restore Defaults")) {
                     recorder.stop()
                     settings.resetHotkeys()
                 }
+                .buttonStyle(.shotz(.secondary, size: .regular))
             }
         }
         .onDisappear { recorder.stop() }
     }
 
+    private func help(for action: HotkeyAction) -> String? {
+        if let problem = recorder.problem, problem.action == action { return problem.message }
+        return hotkeys.registrationWarning(for: action)
+    }
+
     private func row(_ action: HotkeyAction) -> some View {
-        PrefRow(label: action.title, alignment: .center) {
-            ShortcutRecorderField(
-                combo: settings.hotkey(for: action),
-                isRecording: recorder.recording == action,
-                heldModifiers: recorder.heldModifiers,
-                hasWarning: hotkeys.registrationWarning(for: action) != nil,
-                title: action.title,
-                onToggle: { recorder.toggle(action) },
-                onClear: { recorder.clear(action) }
-            )
-            if let problem = recorder.problem, problem.action == action {
-                PrefHelp(problem.message, tone: .error)
-            }
-            if let warning = hotkeys.registrationWarning(for: action) {
-                PrefHelp(warning, tone: .warning)
+        ShotzSettingsRow(action.title, help: help(for: action)) {
+            HStack(spacing: ShotzUI.Space.s) {
+                if hotkeys.registrationWarning(for: action) != nil {
+                    ShotzStatusBadge(String(localized: "Not registered"), tone: .warning)
+                }
+                ShortcutRecorderField(
+                    combo: settings.hotkey(for: action),
+                    isRecording: recorder.recording == action,
+                    heldModifiers: recorder.heldModifiers,
+                    title: action.title,
+                    onToggle: { recorder.toggle(action) },
+                    onClear: { recorder.clear(action) }
+                )
             }
         }
     }

@@ -1,63 +1,61 @@
 import ShotzCore
+import ShotzUI
 import SwiftUI
 
 struct CaptureSettingsView: View {
     @ObservedObject var settings: SettingsStore
 
     var body: some View {
-        PrefPane {
-            PrefSection(title: String(localized: "Exported files")) {
-                PrefRow(label: String(localized: "Format"), alignment: .center) {
-                    Picker("", selection: $settings.exportFormat) {
-                        ForEach(ImageFormat.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
+        ShotzSettingsPane {
+            ShotzSettingsSection(String(localized: "Exported files"),
+                                 footer: String(localized: "Applies to exported files. ShotZ keeps its own full-resolution PNG of every capture.")) {
+                ShotzSettingsRow(String(localized: "Format")) {
+                    EnumSegmented(cases: ImageFormat.allCases, title: \.title, value: $settings.exportFormat)
                 }
-                PrefRow(label: String(localized: "Retina captures")) {
-                    Picker("", selection: $settings.retinaScale) {
-                        ForEach(RetinaScale.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .labelsHidden()
-                    .fixedSize()
-                    PrefHelp(String(localized: "Applies to exported files. ShotZ keeps its own full-resolution PNG of every capture."))
-                }
-                PrefRow(label: String(localized: "File name")) {
-                    FileNamePatternField(settings: settings)
+                ShotzSettingsRow(String(localized: "Retina captures")) {
+                    EnumMenu(cases: RetinaScale.allCases, title: \.title, value: $settings.retinaScale)
                 }
             }
 
-            PrefSection(title: String(localized: "Windows")) {
-                PrefRow(label: String(localized: "Window captures")) {
-                    ShellCheckbox(String(localized: "Include the window's shadow"), isOn: $settings.windowShadow)
+            FileNameSection(settings: settings)
+
+            ShotzSettingsSection(String(localized: "Windows")) {
+                ShotzSettingsRow(String(localized: "Include the window's shadow"), help: String(localized: "For window captures (Space in area capture).")) {
+                    RowSwitch(String(localized: "Include the window's shadow"), isOn: $settings.windowShadow)
                 }
             }
         }
     }
 }
 
-struct FileNamePatternField: View {
+struct FileNameSection: View {
     @ObservedObject var settings: SettingsStore
     @State private var draft = ""
 
     var body: some View {
-        TextField(String(localized: "File name pattern"), text: $draft)
-            .labelsHidden()
-            .textFieldStyle(.roundedBorder)
-            .font(.system(size: 12, design: .monospaced))
-            .frame(width: 280)
-            .onAppear { draft = settings.fileNamePattern }
-            .onSubmit(commit)
-            .onChange(of: draft) { commit() }
-        PrefHelp(String(localized: "Example: \(FileNaming.format(draft.isEmpty ? FileNaming.defaultPattern : draft, date: Date())).\(settings.exportFormat.fileExtension)"))
-        PrefHelp(String(localized: "%Y year · %m month · %d day · %H hour · %M minute · %S second"))
-        if settings.fileNamePattern != FileNaming.defaultPattern {
-            ShellButton(String(localized: "Restore Default Name"), kind: .link) {
-                draft = FileNaming.defaultPattern
-                commit()
+        ShotzSettingsSection(String(localized: "File name"),
+                             footer: String(localized: "%Y year · %m month · %d day · %H hour · %M minute · %S second")) {
+            ShotzSettingsRow(String(localized: "Pattern"),
+                             help: String(localized: "Example: \(FileNaming.format(draft.isEmpty ? FileNaming.defaultPattern : draft, date: Date())).\(settings.exportFormat.fileExtension)")) {
+                // ShotzUI has no text field yet: the system field with ShotZ's value type.
+                TextField(String(localized: "File name pattern"), text: $draft)
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .font(ShotzUI.Typography.value.swiftUIFont)
+                    .frame(width: 240)
+                    .onAppear { draft = settings.fileNamePattern }
+                    .onSubmit(commit)
+                    .onChange(of: draft) { commit() }
             }
-            .font(.system(size: 11))
+            if settings.fileNamePattern != FileNaming.defaultPattern {
+                ShotzSettingsRow(String(localized: "Default name"), help: FileNaming.defaultPattern) {
+                    Button(String(localized: "Restore")) {
+                        draft = FileNaming.defaultPattern
+                        commit()
+                    }
+                    .buttonStyle(.shotz(.secondary, size: .compact))
+                }
+            }
         }
     }
 

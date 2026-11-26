@@ -1,4 +1,5 @@
 import ShotzCore
+import ShotzUI
 import SwiftUI
 
 /// Surfaces for the illustrations, chosen for luminance contrast in both
@@ -126,7 +127,8 @@ struct ShortcutsIllustration: View {
         IllustrationStage(tint: allClear ? .accentColor : .orange) {
             VStack(spacing: 12) {
                 ForEach(Array(combos.prefix(3).enumerated()), id: \.offset) { _, combo in
-                    KeyCapsRow(combo: combo, size: 16)
+                    ShotzKeyCapsView(combo.capLabels)
+                        .scaleEffect(1.4)
                         .environment(\.colorScheme, .light)   // light caps on the tinted stage in both appearances
                 }
             }
