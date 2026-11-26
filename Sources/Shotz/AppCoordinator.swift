@@ -57,9 +57,10 @@ import ShotzCore
             let url = history.renderedURL(for: id)
             return FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) ? url : nil
         }
-        hotkeys = HotkeyCenter(settings: settings, devHotkeys: HotkeyCenter.devHotkeysRequested())
+        let testRun = HotkeyCenter.hotkeysDisabledRequested()
+        hotkeys = HotkeyCenter(settings: settings, hotkeysEnabled: !testRun)
         statusItem = StatusItemController(hotkeys: hotkeys)
-        loginItem = LoginItemController(settings: settings)
+        loginItem = LoginItemController(settings: settings, testRun: testRun)
         onboarding = OnboardingWindowController(
             settings: settings, hotkeys: hotkeys, loginItem: loginItem, screenRecording: screenRecording
         )
@@ -76,11 +77,8 @@ import ShotzCore
     }
 
     func start() {
-        if DevProfile.isActive {
-            log.notice("Profile: dev (preferences \(DevProfile.suiteName, privacy: .public), data \(self.paths.root.path(percentEncoded: false), privacy: .public))")
-        } else {
-            log.notice("Profile: standard (preferences app.shotz.Shotz, data \(self.paths.root.path(percentEncoded: false), privacy: .public))")
-        }
+        let variant = AppVariant.current
+        log.notice("Variant: \(variant.rawValue, privacy: .public) (\(variant.displayName, privacy: .public), \(variant.bundleIdentifier, privacy: .public), data \(self.paths.root.path(percentEncoded: false), privacy: .public))")
         do { try paths.createDirectories() } catch {
             log.error("Cannot create app folders: \(error.localizedDescription, privacy: .public)")
         }
@@ -90,7 +88,7 @@ import ShotzCore
 
         hotkeys.onAction = { [weak self] action in self?.handle(action) }
         hotkeys.start()
-        log.notice("Hotkeys: \(self.hotkeys.mode.logDescription, privacy: .public)")
+        log.notice("Hotkeys: \(self.hotkeys.hotkeysEnabled ? "stored shortcuts" : "off for this run (--no-hotkeys)", privacy: .public)")
 
         statusItem.onCapture = { [weak self] mode in self?.capture(mode) }
         statusItem.onOpenSettings = { [weak self] in self?.openSettings() }
@@ -110,7 +108,9 @@ import ShotzCore
         startHistoryPruning()
         log.info("Shotz started (Screen Recording \(self.screenRecording.isGranted ? "granted" : "not granted", privacy: .public))")
 
-        if !settings.hasCompletedOnboarding {
+        // Test runs (--no-hotkeys, implied by every debug flag) never pop the
+        // welcome window over whoever is using the Mac.
+        if !settings.hasCompletedOnboarding && hotkeys.hotkeysEnabled {
             onboarding.show(step: .welcome)
         }
         runDebugLaunchArguments(DebugLaunchArguments())

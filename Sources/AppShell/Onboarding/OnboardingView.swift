@@ -89,7 +89,7 @@ struct WelcomePage: View {
         VStack(spacing: 22) {
             PageHeader(
                 symbol: nil,
-                title: String(localized: "Welcome to Shotz"),
+                title: String(localized: "Welcome to \(AppVariant.current.displayName)"),
                 message: String(localized: "Take a screenshot, find it waiting in the corner of your screen, mark it up, and drop it wherever it needs to go.")
             )
             VStack(alignment: .leading, spacing: 8) {
@@ -156,7 +156,7 @@ struct ScreenRecordingPage: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Button(String(localized: "Relaunch Shotz")) { Permissions.relaunch() }
+            Button(String(localized: "Relaunch \(AppVariant.current.displayName)")) { Permissions.relaunch() }
                 .buttonStyle(.link)
         }
     }
@@ -197,8 +197,8 @@ struct SystemShortcutsPage: View {
                     .foregroundStyle(.green)
                     .font(.headline)
             }
-            if let note = model.hotkeys.mode.sessionNote {
-                Text(note)
+            if !model.hotkeys.hotkeysEnabled {
+                Text(String(localized: "Started with --no-hotkeys: no shortcuts are registered this run."))
                     .font(.callout).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
@@ -214,7 +214,7 @@ struct SystemShortcutsPage: View {
                     if model.canOfferAlternates {
                         Text(String(localized: "Quit the other app or turn its shortcuts off, or use alternates."))
                             .font(.callout).multilineTextAlignment(.center)
-                        Button(String(localized: "Use ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5")) { model.useAlternateShortcuts() }
+                        Button(HotkeyBindings.alternatesTitle(for: model.settings.variant)) { model.useAlternateShortcuts() }
                     }
                 }
             }
@@ -237,10 +237,10 @@ struct LaunchAtLoginPage: View {
                 title: String(localized: "Ready when you are"),
                 message: String(localized: "Start Shotz when you log in, so your shortcuts always work.")
             )
-            Toggle(String(localized: "Launch Shotz at login"), isOn: $model.launchAtLogin)
+            Toggle(String(localized: "Launch \(AppVariant.current.displayName) at login"), isOn: $model.launchAtLogin)
                 .toggleStyle(.switch)
             if !loginItem.isInstalled {
-                Text(String(localized: "This is a development build, so nothing is added to your login items. The choice is saved for when Shotz runs from Applications."))
+                Text(String(localized: "This copy doesn't add itself to your login items (it isn't in Applications, or it is a test run). The choice is saved."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

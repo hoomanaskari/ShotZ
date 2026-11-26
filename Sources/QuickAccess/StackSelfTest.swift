@@ -17,7 +17,7 @@ import ShotzCore
     private let focusRecorder = RecordingFocusHost()
 
     static func makeIfRequested(controller: QuickAccessController) -> StackSelfTest? {
-        guard let path = DevProfile.defaults.string(forKey: "QuickAccessSelfTest"), !path.isEmpty else { return nil }
+        guard let path = UserDefaults.standard.string(forKey: "QuickAccessSelfTest"), !path.isEmpty else { return nil }
         return StackSelfTest(controller: controller, dir: URL(filePath: path, directoryHint: .isDirectory))
     }
 

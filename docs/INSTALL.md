@@ -66,19 +66,13 @@ These shortcuts only reach Shotz when nothing else claims them first.
   capture-options mode. Or quit that app, and stop it from opening at login.
   If two apps share a shortcut, either one may get the key press.
 
-## 5. Switching from `--dev-hotkeys` to the default shortcuts
+## 5. Checking the shortcuts
 
-`--dev-hotkeys` only applies to the run it was given to. The installed Shotz,
-opened normally, uses the shortcuts saved in its Settings: ⌘⇧3, ⌘⇧4 and
-⌘⇧5 unless you changed them.
+The installed Shotz uses the shortcuts saved in its Settings: ⌘⇧3, ⌘⇧4 and
+⌘⇧5 unless you changed them. (The Shotz you ran from the checkout before
+used ⌃⌥⌘3/4/5. From now on those belong to Shotz Dev; see step 8.)
 
-- **Check:** Shotz Settings ▸ Shortcuts lists the three shortcuts, without a
-  "This session" line under any of them.
-- If you used the **Use ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5** button earlier, click **Reset
-  to Defaults**.
-- If you record a shortcut while Shotz runs with `--dev-hotkeys`, an orange
-  warning appears under it: the shortcut is saved but not active until Shotz
-  starts normally. Click **Relaunch Normally** to switch.
+- **Check:** Shotz Settings ▸ Shortcuts lists the three shortcuts.
 - A yellow warning next to a shortcut means Shotz could not register it.
   Free it as described in step 4. macOS does not always report a shortcut
   that another app holds. So if a shortcut shows no warning but does nothing,
@@ -98,19 +92,10 @@ history.
 - In Shotz Settings ▸ Advanced, click **Clear History…**. This deletes the
   captures Shotz keeps for itself and their edits. Files you saved or
   exported stay where they are.
-- Test runs from engineering worktrees use separate data, which never shows up
-  in your Shotz:
-  - the folder `~/Library/Application Support/Shotz-Dev`
-  - the preferences domain `app.shotz.Shotz.dev`
-
-  To remove that data:
+- Older test builds kept their data in a folder you can delete:
 
   ```bash
   rm -rf ~/Library/Application\ Support/Shotz-Dev
-  ```
-
-  ```bash
-  defaults delete app.shotz.Shotz.dev
   ```
 
 ## 7. Rolling back
@@ -130,3 +115,34 @@ Your history (`~/Library/Application Support/Shotz`) and settings (preferences
 domain `app.shotz.Shotz`) stay in place, ready for a later reinstall. Delete
 them too if you want a clean slate. The Screen Recording entry for Shotz can
 be removed in Privacy & Security ▸ Screen & System Audio Recording with **−**.
+
+## 8. Running the development build next to the installed app
+
+`scripts/run.sh` builds and opens **Shotz Dev**, a separate app built from the
+same code for trying changes. It never touches your installed Shotz, and
+`scripts/install.sh` never touches Shotz Dev.
+
+- **Telling them apart:** Shotz Dev's icon has an amber **DEV** band, and its
+  menu-bar icon is amber.
+- **Shortcuts:** Shotz Dev uses ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5, so both apps can run
+  at once.
+- **Separate everything:** Shotz Dev has its own settings, history
+  (`~/Library/Application Support/Shotz Dev`) and login item (off by default).
+- **Screen Recording:** Shotz Dev needs its own permission, granted once:
+  1. The first time it captures, Shotz Dev opens its permission step.
+  2. Click **Open System Settings** and turn **Shotz Dev** on.
+  3. Click **Relaunch Shotz Dev**.
+
+  Until then, captures in Shotz Dev show the permission step instead.
+- **Quitting:** use Shotz Dev's menu-bar icon, or Settings ▸ Advanced ▸
+  **Quit Shotz Dev**.
+- **Removing it:**
+
+  ```bash
+  rm -rf "build/Shotz Dev.app" ~/Library/Application\ Support/Shotz\ Dev
+  ```
+
+  ```bash
+  defaults delete app.shotz.Shotz.dev
+  ```
+

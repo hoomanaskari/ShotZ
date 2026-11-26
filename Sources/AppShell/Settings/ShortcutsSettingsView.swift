@@ -6,10 +6,10 @@ struct ShortcutsSettingsView: View {
     @ObservedObject var hotkeys: HotkeyCenter
     @StateObject private var recorder: ShortcutRecorderModel
 
-    init(settings: SettingsStore, hotkeys: HotkeyCenter, previewRecorded: Set<HotkeyAction> = []) {
+    init(settings: SettingsStore, hotkeys: HotkeyCenter) {
         self.settings = settings
         self.hotkeys = hotkeys
-        _recorder = StateObject(wrappedValue: ShortcutRecorderModel(settings: settings, hotkeys: hotkeys, recorded: previewRecorded))
+        _recorder = StateObject(wrappedValue: ShortcutRecorderModel(settings: settings, hotkeys: hotkeys))
     }
 
     private let actions: [HotkeyAction] = [
@@ -17,7 +17,7 @@ struct ShortcutsSettingsView: View {
     ]
 
     private var captureFailures: Bool {
-        hotkeys.mode == .standard
+        hotkeys.hotkeysEnabled
             && [.captureFullscreen, .captureArea, .captureAllInOne].contains { hotkeys.registrationFailures[$0] != nil }
     }
 
@@ -38,9 +38,9 @@ struct ShortcutsSettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            if let note = hotkeys.mode.sessionNote {
+            if !hotkeys.hotkeysEnabled {
                 Section {
-                    Note(note)
+                    Note(String(localized: "Started with --no-hotkeys: no shortcuts are registered this run. Changes here are saved."))
                 }
             } else if hotkeys.registersNothing {
                 Section {
@@ -51,10 +51,10 @@ struct ShortcutsSettingsView: View {
             if captureFailures {
                 Section {
                     Note(String(localized: "Another app may already be using some of these shortcuts. Quit it or turn its shortcuts off, or use alternates."), warning: true)
-                    Button(String(localized: "Use ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5")) {
-                        settings.setHotkey(.devFullscreen, for: .captureFullscreen)
-                        settings.setHotkey(.devArea, for: .captureArea)
-                        settings.setHotkey(.devAllInOne, for: .captureAllInOne)
+                    Button(HotkeyBindings.alternatesTitle(for: settings.variant)) {
+                        for (action, combo) in HotkeyBindings.alternates(for: settings.variant) {
+                            settings.setHotkey(combo, for: action)
+                        }
                     }
                 }
             }
@@ -128,37 +128,6 @@ struct ShortcutRecorder: View {
                 Label(warning, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout).foregroundStyle(.orange)
             }
-            if recorder.recorded.contains(action), case .inactive(let effective) = hotkeys.sessionStatus(for: action) {
-                InactiveShortcutWarning(
-                    message: HotkeyBindings.inactiveMessage(for: action, mode: hotkeys.mode, effective: effective),
-                    canRelaunchNormally: hotkeys.mode == .standardDevHotkeys
-                )
-            } else if hotkeys.isDevOverridden(action) {
-                Text(String(localized: "This session: \(hotkeys.binding(for: action).map(KeyNames.display) ?? String(localized: "none"))"))
-                    .font(.callout).foregroundStyle(.secondary)
-            }
         }
-    }
-}
-
-/// Shown right under a recorder when the shortcut just saved cannot take
-/// effect in this session (dev hotkeys or dev profile).
-struct InactiveShortcutWarning: View {
-    let message: String
-    let canRelaunchNormally: Bool
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            Label(message, systemImage: "exclamationmark.triangle.fill")
-                .font(.callout)
-                .foregroundStyle(.orange)
-                .multilineTextAlignment(.trailing)
-                .fixedSize(horizontal: false, vertical: true)
-            if canRelaunchNormally {
-                Button(String(localized: "Relaunch Normally")) { Permissions.relaunch(keepDevHotkeys: false) }
-                    .help(String(localized: "Quit and reopen Shotz without --dev-hotkeys, so your saved shortcuts are used."))
-            }
-        }
-        .accessibilityElement(children: .combine)
     }
 }

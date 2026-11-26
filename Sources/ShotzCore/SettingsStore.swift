@@ -5,13 +5,16 @@ import Foundation
 /// Typed, observable settings over `UserDefaults`. Keys live in ShotzCore so
 /// every module reads the same values; the Settings UI lives in AppShell.
 ///
-/// Pass a suite (`UserDefaults(suiteName:)`) in tests. The default is
-/// `DevProfile.defaults`: the dev suite in the dev profile, else `.standard`.
+/// Pass a suite (`UserDefaults(suiteName:)`) in tests. Each app variant has
+/// its own bundle id, so `.standard` is already separate per variant; the
+/// variant only changes some defaults (shortcuts, launch at login).
 @MainActor public final class SettingsStore: ObservableObject {
     public let defaults: UserDefaults
+    public let variant: AppVariant
 
-    public init(defaults: UserDefaults = DevProfile.defaults) {
+    public init(defaults: UserDefaults = .standard, variant: AppVariant = .current) {
         self.defaults = defaults
+        self.variant = variant
     }
 
     /// The allowed auto-close values in seconds; 0 = off.
@@ -20,7 +23,7 @@ import Foundation
     // MARK: General
 
     public var launchAtLogin: Bool {
-        get { bool(SettingsKey.launchAtLogin, default: true) }
+        get { bool(SettingsKey.launchAtLogin, default: variant.launchAtLoginDefault) }
         set { set(newValue, SettingsKey.launchAtLogin) }
     }
     public var showMenuBarIcon: Bool {
@@ -59,26 +62,21 @@ import Foundation
 
     // MARK: Shortcuts
 
-    /// Default binding per action (nil = unbound by default).
-    public static func defaultHotkey(for action: HotkeyAction) -> KeyCombo? {
-        switch action {
-        case .captureFullscreen: .defaultFullscreen
-        case .captureArea: .defaultArea
-        case .captureAllInOne: .defaultAllInOne
-        case .captureWindow, .restoreLastClosed: nil
-        }
+    /// Default binding per action for a variant (nil = unbound by default).
+    public static func defaultHotkey(for action: HotkeyAction, variant: AppVariant = .current) -> KeyCombo? {
+        variant.defaultHotkey(for: action)
     }
 
     /// Stored binding; falls back to the default when never set. A cleared
     /// binding is stored explicitly and returns nil.
     public func hotkey(for action: HotkeyAction) -> KeyCombo? {
         let key = SettingsKey.hotkey(action)
-        guard let data = defaults.data(forKey: key) else { return Self.defaultHotkey(for: action) }
+        guard let data = defaults.data(forKey: key) else { return Self.defaultHotkey(for: action, variant: variant) }
         do {
             return try JSONDecoder().decode(KeyCombo?.self, from: data)
         } catch {
             ShotzLog.logger("Settings").error("Bad hotkey data for \(key, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            return Self.defaultHotkey(for: action)
+            return Self.defaultHotkey(for: action, variant: variant)
         }
     }
 

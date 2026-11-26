@@ -59,7 +59,9 @@ struct LoginItemNote: View {
         case .enabled, .disabled:
             EmptyView()
         case .notInstalled:
-            Note(String(localized: "Takes effect when Shotz runs from the Applications folder. This copy is a development build."))
+            Note(loginItem.variant == .production
+                 ? String(localized: "Takes effect when Shotz runs from the Applications folder.")
+                 : String(localized: "Not used in test runs (started with --no-hotkeys)."))
         case .requiresApproval:
             HStack {
                 Note(String(localized: "macOS needs you to allow Shotz in Login Items."))

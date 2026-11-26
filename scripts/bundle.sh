@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Builds Shotz and wraps it into build/Shotz.app.
-# Usage: scripts/bundle.sh [debug|release]
+# Builds one of the two Shotz apps (ARCHITECTURE §8):
+#   scripts/bundle.sh dev       → build/Shotz Dev.app  (app.shotz.Shotz.dev, debug build)
+#   scripts/bundle.sh release   → build/Shotz.app      (app.shotz.Shotz, release build)
+# `debug` is accepted as an alias for `dev`. The two apps are separate: own
+# bundle id, name, icon, preferences, data folder, login item, default
+# shortcuts and Screen Recording permission. Building one never touches the other.
 #
 # Version: CFBundleShortVersionString / CFBundleVersion come from
 # Resources/Info.plist (the single source of truth); they are checked and printed.
@@ -17,10 +21,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CONFIG="${1:-debug}"
-case "$CONFIG" in
-  debug|release) ;;
-  *) echo "usage: $0 [debug|release]" >&2; exit 64 ;;
+VARIANT="${1:-dev}"
+case "$VARIANT" in
+  dev|debug) VARIANT=dev; CONFIG=debug; APP_NAME="Shotz Dev"; APP_ID="app.shotz.Shotz.dev"; ICON="AppIcon-Dev.icns" ;;
+  release) CONFIG=release; APP_NAME="Shotz"; APP_ID="app.shotz.Shotz"; ICON="AppIcon.icns" ;;
+  *) echo "usage: $0 [dev|release]" >&2; exit 64 ;;
 esac
 
 PLIST="$ROOT/Resources/Info.plist"
@@ -37,12 +42,20 @@ cd "$ROOT"
 swift build -c "$CONFIG" --product Shotz
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
-APP="$ROOT/build/Shotz.app"
+APP="$ROOT/build/$APP_NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/Shotz" "$APP/Contents/MacOS/Shotz"
 cp "$PLIST" "$APP/Contents/Info.plist"
-cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+if [[ "$VARIANT" == "dev" ]]; then
+  # Same Info.plist, development identity. The app reads its variant from the bundle id.
+  /usr/libexec/PlistBuddy \
+    -c "Set :CFBundleIdentifier $APP_ID" \
+    -c "Set :CFBundleName $APP_NAME" \
+    -c "Set :CFBundleDisplayName $APP_NAME" \
+    "$APP/Contents/Info.plist"
+fi
+cp "$ROOT/Resources/$ICON" "$APP/Contents/Resources/AppIcon.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 IDENTITY="${SHOTZ_SIGN_IDENTITY:-}"
@@ -59,7 +72,7 @@ if [[ "$IDENTITY" == "-" && "$CONFIG" == "release" && "${SHOTZ_ALLOW_ADHOC:-0}" 
   exit 66
 fi
 
-SIGN_ARGS=(--force --sign "$IDENTITY" --identifier "$BUNDLE_ID" --timestamp=none)
+SIGN_ARGS=(--force --sign "$IDENTITY" --identifier "$APP_ID" --timestamp=none)
 if [[ "$CONFIG" == "release" ]]; then
   SIGN_ARGS+=(--options runtime)
 fi
@@ -79,4 +92,4 @@ if [[ "$CONFIG" == "release" ]]; then
     exit 67
   fi
 fi
-echo "Built $APP ($CONFIG, version $VERSION ($BUILD))"
+echo "Built $APP ($APP_ID, $CONFIG, version $VERSION ($BUILD))"

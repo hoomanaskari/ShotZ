@@ -367,8 +367,8 @@ struct FileHistoryStoreTests {
     // MARK: Dev profile isolation
 
     @Test func devProfileStoreNeverResolvesInsideTheRealFolder() {
-        let real = ShotzPaths.forProfile(dev: false)
-        let dev = ShotzPaths.forProfile(dev: true)
+        let real = ShotzPaths.forVariant(.production)
+        let dev = ShotzPaths.forVariant(.development)
         let realRoot = real.root.standardizedFileURL.path(percentEncoded: false)
         let realPrefix = realRoot.hasSuffix("/") ? realRoot : realRoot + "/"
         let store = FileHistoryStore(paths: dev)
@@ -381,7 +381,7 @@ struct FileHistoryStoreTests {
         }
         #expect(dev.historyIndex != real.historyIndex)
         #expect(dev.temporary != real.temporary)
-        #expect(dev.root.path(percentEncoded: false).contains("/Application Support/Shotz-Dev"))
+        #expect(dev.root.path(percentEncoded: false).contains("/Application Support/Shotz Dev"))
     }
 
     @Test func renderedPNGLivesNextToTheDocumentAndGoesWithTheCapture() async throws {

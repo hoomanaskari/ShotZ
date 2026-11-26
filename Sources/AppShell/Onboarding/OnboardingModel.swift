@@ -46,18 +46,18 @@ import ShotzCore
     }
 
     /// Capture shortcuts Shotz failed to register this session (another app
-    /// may hold them), in any mode.
+    /// may hold them).
     var heldByAnotherApp: [HotkeyAction] {
         [.captureFullscreen, .captureArea, .captureAllInOne].filter { hotkeys.registrationFailures[$0] != nil }
     }
 
     /// Alternates are offered only where they would take effect (standard profile).
-    var canOfferAlternates: Bool { hotkeys.mode == .standard && !heldByAnotherApp.isEmpty }
+    var canOfferAlternates: Bool { hotkeys.hotkeysEnabled && !heldByAnotherApp.isEmpty }
 
     func useAlternateShortcuts() {
-        settings.setHotkey(.devFullscreen, for: .captureFullscreen)
-        settings.setHotkey(.devArea, for: .captureArea)
-        settings.setHotkey(.devAllInOne, for: .captureAllInOne)
+        for (action, combo) in HotkeyBindings.alternates(for: settings.variant) {
+            settings.setHotkey(combo, for: action)
+        }
     }
 
     /// Window closed (Done or the close button): never nag again on launch.

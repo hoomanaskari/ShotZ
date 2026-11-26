@@ -16,7 +16,7 @@ import ShotzCore
         let file: URL
     }
 
-    static var requested: Bool { DevProfile.defaults.bool(forKey: "QuickAccessSelfTestCapture") }
+    static var requested: Bool { UserDefaults.standard.bool(forKey: "QuickAccessSelfTestCapture") }
 
     static func run(panel: NSPanel, cardFrameInPanel: CGRect, output: URL) async -> Result? {
         guard CGPreflightScreenCaptureAccess(), let mainHeight = NSScreen.screens.first?.frame.height else { return nil }

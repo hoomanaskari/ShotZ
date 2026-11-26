@@ -33,9 +33,10 @@ Requires Xcode 16 or later (Swift 6 toolchain) on macOS 15 or later.
 ```bash
 swift build                          # debug build of all modules
 swift test                           # all unit tests
-scripts/bundle.sh [debug|release]    # → build/Shotz.app (Info.plist, icon, codesign)
-scripts/run.sh [--dev-hotkeys] [app args…]   # bundle (debug) and launch; quits a previous instance of this bundle only; worktrees: adds --dev-profile, direct exec
-scripts/install.sh                   # release bundle → /Applications/Shotz.app (manager/owner only)
+scripts/bundle.sh dev                # → build/Shotz Dev.app (development app, debug build)
+scripts/bundle.sh release            # → build/Shotz.app (production app, release build)
+scripts/run.sh [app args…]           # build and run Shotz Dev; quits only its own previous instance
+scripts/install.sh                   # production release → /Applications/Shotz.app (manager/owner only)
 swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG
 ```
 
@@ -50,11 +51,11 @@ swift scripts/make-sample.swift 5120 2880 build/sample-5k.png
 ```
 
 ```bash
-scripts/run.sh --dev-profile --dev-hotkeys --debug-present build/sample-5k.png
+scripts/run.sh --debug-present build/sample-5k.png
 ```
 
 ```bash
-scripts/run.sh --dev-profile --dev-hotkeys --debug-edit build/sample-5k.png
+scripts/run.sh --debug-edit build/sample-5k.png
 ```
 
 - `--debug-present <png> [<png>…]` copies each image into the captures folder,
@@ -67,44 +68,38 @@ scripts/run.sh --dev-profile --dev-hotkeys --debug-edit build/sample-5k.png
   importing again (it is re-imported, under the same id, only if its file is
   gone). `--debug-capture-id <uuid>` forces the id.
 
-### Dev profile (required for every engineer and test launch)
+### Two apps: Shotz and Shotz Dev
 
-`--dev-profile` (or `SHOTZ_DEV_PROFILE=1`) runs Shotz with its own
-preferences (`UserDefaults` suite `app.shotz.Shotz.dev`) and its own data
-(`~/Library/Application Support/Shotz-Dev`, temp folder `Shotz-Dev`), so a
-test run never touches the owner's settings, onboarding state, history or
-captures. Any `--debug-*` argument, `SHOTZ_EDITOR_SCRIPT` or
-`-QuickAccessSelfTest` switches it on as well. The bundle id stays
-`app.shotz.Shotz`, so the Screen Recording grant still applies, and
-argument-domain overrides such as `-quickAccess.side right` keep working. The
-first log line after launch says which profile is active.
+There are two builds of the same code, told apart by their bundle id
+(`AppVariant` in ShotzCore). They run side by side and never share anything:
+
+| | Shotz (production) | Shotz Dev (development) |
+|---|---|---|
+| Built by | `scripts/bundle.sh release` | `scripts/bundle.sh dev`, `scripts/run.sh` |
+| Bundle | `build/Shotz.app`, installed to `/Applications` | `build/Shotz Dev.app` |
+| Bundle id / preferences | `app.shotz.Shotz` | `app.shotz.Shotz.dev` |
+| Data | `~/Library/Application Support/Shotz` | `~/Library/Application Support/Shotz Dev` |
+| Default capture shortcuts | ⌘⇧3 / ⌘⇧4 / ⌘⇧5 | ⌃⌥⌘3 / ⌃⌥⌘4 / ⌃⌥⌘5 |
+| Icon / menu-bar glyph | standard | amber DEV band / amber glyph |
+| Login item | its own (only from Applications) | its own (off by default) |
+| Screen Recording | its own grant | its own grant, given once |
+
+`scripts/run.sh` only ever builds and runs Shotz Dev, and `scripts/install.sh`
+only ever installs Shotz; neither quits, replaces or unregisters the other.
 
 Rules for engineers and test runs:
 
-- Always launch with `--dev-profile`. From any git worktree, `scripts/run.sh`
-  adds `--dev-profile` itself and starts the executable directly (not through
-  Launch Services), so it never relaunches the wrong copy.
-- Only run the bundle built in your own worktree. Never bundle, launch or quit
-  `build/Shotz.app` in the main checkout: that is the owner's instance.
+- From a git worktree, `scripts/run.sh` starts Shotz Dev with `--no-hotkeys`,
+  executes it directly and keeps it out of Launch Services, so several
+  worktree copies never fight over shortcuts or over which copy macOS opens.
+  Every `--debug-*` flag, `-QuickAccessSelfTest` and `SHOTZ_EDITOR_SCRIPT`
+  also imply `--no-hotkeys`, and such runs never open the welcome window by
+  themselves.
+- Never bundle, launch or quit `build/` in the main checkout or anything in
+  `/Applications`: those are the owner's.
 
-### Global shortcuts per run
-
-`--dev-hotkeys` (or `SHOTZ_DEV_HOTKEYS=1`) replaces the capture shortcuts for
-that run and never writes to preferences. In the dev profile Shotz registers
-**no** global shortcuts unless `--dev-hotkeys` is given, and then a set no
-other Shotz uses, so a test copy can never take a key press meant for the
-owner's copy:
-
-| Run | Capture fullscreen / area / all-in-one | Capture window, restore |
-|---|---|---|
-| standard | stored (⌘⇧3/4/5 by default) | stored |
-| standard + `--dev-hotkeys` | ⌃⌥⌘3/4/5 | stored |
-| dev profile | none | none |
-| dev profile + `--dev-hotkeys` | ⌃⌥⇧⌘3/4/5 | none |
-
-Settings ▸ Shortcuts shows the shortcut each action has in the current
-session, and says so when none are registered. The launch log has a
-`Hotkeys: …` line.
+The launch log starts with `Variant: …` and has one `Hotkey …` line per action
+(`registered`, `FAILED (Carbon status …)` or `not registered` with the reason).
 
 Signing: `bundle.sh` uses `$SHOTZ_SIGN_IDENTITY` if set, otherwise the first
 "Apple Development" identity in the keychain, otherwise ad-hoc, with the same

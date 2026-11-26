@@ -42,9 +42,4 @@ import ShotzCore
         }
     }
 
-    /// Window frame autosave name for this profile, or nil in the dev profile
-    /// (AppKit stores frames in the standard domain, which dev runs must not touch).
-    public static func autosaveName(_ base: String) -> String? {
-        DevProfile.isActive ? nil : base
-    }
 }

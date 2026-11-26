@@ -1,14 +1,17 @@
 // Draws Shotz's original app icon and writes Resources/AppIcon.icns.
 // Motif: two stacked snapshot cards (the quick-access stack) with a coral
 // annotation stroke on the front card, on a deep blue-to-teal tile.
-// Usage: swift Resources/make-app-icon.swift [preview.png]
+// Writes both app icons: Resources/AppIcon.icns (Shotz) and
+// Resources/AppIcon-Dev.icns (Shotz Dev: the same icon with an amber DEV band
+// across the lower tile, so the two apps never look alike in Finder, the Dock
+// or System Settings; Shotz Dev's menu-bar glyph uses the same amber).
+// Usage: swift Resources/make-app-icon.swift [preview-dir]
 import AppKit
+import CoreText
 import Foundation
 
 let scriptDir = URL(filePath: CommandLine.arguments[0]).deletingLastPathComponent()
 let resources = scriptDir
-let iconset = FileManager.default.temporaryDirectory.appending(path: "Shotz-\(UUID().uuidString).iconset")
-try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
@@ -24,7 +27,24 @@ func card(_ ctx: CGContext, center: CGPoint, size: CGSize, angle: CGFloat, radiu
     ctx.restoreGState()
 }
 
-func render(_ px: Int) -> Data {
+/// Amber band with "DEV", clipped by the tile's rounded shape (already clipped).
+func drawDevBand(_ ctx: CGContext, tile: CGRect) {
+    let band = CGRect(x: tile.minX, y: tile.minY + tile.height * 0.07, width: tile.width, height: tile.height * 0.19)
+    ctx.setFillColor(color(0xFF9F0A))
+    ctx.fill(band)
+    let font = CTFontCreateUIFontForLanguage(.emphasizedSystem, tile.height * 0.13, nil)!
+    let text = NSAttributedString(string: "DEV", attributes: [
+        NSAttributedString.Key(kCTFontAttributeName as String): font,
+        NSAttributedString.Key(kCTForegroundColorAttributeName as String): color(0x1B1B1F),
+        NSAttributedString.Key(kCTKernAttributeName as String): tile.height * 0.025,
+    ])
+    let line = CTLineCreateWithAttributedString(text)
+    let glyphs = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+    ctx.textPosition = CGPoint(x: band.midX - glyphs.width / 2 - glyphs.minX, y: band.midY - glyphs.height / 2 - glyphs.minY)
+    CTLineDraw(line, ctx)
+}
+
+func render(_ px: Int, dev: Bool = false) -> Data {
     let s = CGFloat(px)
     let ctx = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0,
                         space: srgb, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
@@ -117,25 +137,37 @@ func render(_ px: Int) -> Data {
         ctx.setLineWidth(w * 0.012)
         ctx.drawPath(using: .fillStroke)
     }
+    if dev { drawDevBand(ctx, tile: tile) }
     ctx.restoreGState()
 
     let rep = NSBitmapImageRep(cgImage: ctx.makeImage()!)
     return rep.representation(using: .png, properties: [:])!
 }
 
+func writeIcns(dev: Bool, to output: URL) throws {
+    let iconset = FileManager.default.temporaryDirectory.appending(path: "Shotz-\(UUID().uuidString).iconset")
+    try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: iconset) }
+    for base in [16, 32, 128, 256, 512] {
+        try render(base, dev: dev).write(to: iconset.appending(path: "icon_\(base)x\(base).png"))
+        try render(base * 2, dev: dev).write(to: iconset.appending(path: "icon_\(base)x\(base)@2x.png"))
+    }
+    let p = Process()
+    p.executableURL = URL(filePath: "/usr/bin/iconutil")
+    p.arguments = ["-c", "icns", iconset.path, "-o", output.path]
+    try p.run()
+    p.waitUntilExit()
+    guard p.terminationStatus == 0 else { fatalError("iconutil failed") }
+    print("Wrote \(output.path)")
+}
+
 if CommandLine.arguments.count > 1 {
-    try render(1024).write(to: URL(filePath: CommandLine.arguments[1]))
+    let dir = URL(filePath: CommandLine.arguments[1], directoryHint: .isDirectory)
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    for px in [1024, 64, 32, 16] {
+        try render(px).write(to: dir.appending(path: "AppIcon-\(px).png"))
+        try render(px, dev: true).write(to: dir.appending(path: "AppIcon-Dev-\(px).png"))
+    }
 }
-for base in [16, 32, 128, 256, 512] {
-    try render(base).write(to: iconset.appending(path: "icon_\(base)x\(base).png"))
-    try render(base * 2).write(to: iconset.appending(path: "icon_\(base)x\(base)@2x.png"))
-}
-let output = resources.appending(path: "AppIcon.icns")
-let p = Process()
-p.executableURL = URL(filePath: "/usr/bin/iconutil")
-p.arguments = ["-c", "icns", iconset.path, "-o", output.path]
-try p.run()
-p.waitUntilExit()
-try? FileManager.default.removeItem(at: iconset)
-guard p.terminationStatus == 0 else { fatalError("iconutil failed") }
-print("Wrote \(output.path)")
+try writeIcns(dev: false, to: resources.appending(path: "AppIcon.icns"))
+try writeIcns(dev: true, to: resources.appending(path: "AppIcon-Dev.icns"))

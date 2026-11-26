@@ -22,14 +22,34 @@ import ShotzCore
     }
 
     @Published public private(set) var state: State = .disabled
+    /// Whether this copy may register a login item (see `registrationAllowed`).
+    /// `notInstalled` covers both "not in Applications" and "test run".
     public let isInstalled: Bool
+    public let variant: AppVariant
     private let settings: SettingsStore
     private let log = ShotzLog.logger("AppShell")
 
-    public init(settings: SettingsStore, bundleURL: URL = Bundle.main.bundleURL) {
+    public init(
+        settings: SettingsStore,
+        bundleURL: URL = Bundle.main.bundleURL,
+        variant: AppVariant = .current,
+        testRun: Bool = false
+    ) {
         self.settings = settings
-        self.isInstalled = Self.isInstalledLocation(bundleURL)
+        self.variant = variant
+        self.isInstalled = Self.registrationAllowed(variant: variant, bundleURL: bundleURL, testRun: testRun)
         refresh()
+    }
+
+    /// Production registers only from Applications (a build folder copy never
+    /// adds itself). Shotz Dev has its own login item, so it may register from
+    /// wherever it runs, except in engineer/test runs (`--no-hotkeys`).
+    public nonisolated static func registrationAllowed(variant: AppVariant, bundleURL: URL, testRun: Bool) -> Bool {
+        if testRun { return false }
+        switch variant {
+        case .production: return isInstalledLocation(bundleURL)
+        case .development: return true
+        }
     }
 
     /// /Applications/… or ~/Applications/… (any depth).

@@ -1,12 +1,19 @@
 import AppKit
+import ShotzCore
 
-/// Shotz's menu-bar glyph, drawn in code as a template image: two stacked
-/// snapshot cards, the front one carrying a small annotation stroke.
+/// Shotz's menu-bar glyph, drawn in code: two stacked snapshot cards, the
+/// front one carrying a small annotation stroke. Production is a template
+/// image (menu-bar colour); Shotz Dev is tinted amber, matching the DEV band
+/// on its app icon, so the two are never confused side by side.
 enum StatusItemIcon {
-    static func make() -> NSImage {
+    /// The amber of Shotz Dev's glyph and icon band.
+    static let devTint = NSColor(srgbRed: 1.0, green: 0.62, blue: 0.04, alpha: 1)
+
+    static func make(variant: AppVariant = .production) -> NSImage {
+        let ink: NSColor = variant == .development ? devTint : .black
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: true) { _ in
-            NSColor.black.setStroke()
-            NSColor.black.setFill()
+            ink.setStroke()
+            ink.setFill()
 
             // Back card, peeking out above and to the right.
             let back = NSBezierPath(roundedRect: NSRect(x: 6.25, y: 2.25, width: 10, height: 8), xRadius: 2, yRadius: 2)
@@ -31,8 +38,8 @@ enum StatusItemIcon {
             tick.stroke()
             return true
         }
-        image.isTemplate = true
-        image.accessibilityDescription = "Shotz"
+        image.isTemplate = variant == .production
+        image.accessibilityDescription = variant.displayName
         return image
     }
 }
