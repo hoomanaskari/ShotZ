@@ -50,7 +50,7 @@ extension OptionsBarView {
             addColors(s)
         } else {
             add(controls.sliderRow(value: s.redactMode.strength, min: 0.2, max: 1, width: 90, label: String(localized: "Strength"),
-                                   glyph: .strength, format: OptionControls.percent) { [weak self] v, final in
+                                   glyph: .strength, format: EditorControls.percent) { [weak self] v, final in
                 self?.change(String(localized: "Strength"), final: final) { $0.redactMode.strength = v }
             })
         }
@@ -63,7 +63,7 @@ extension OptionsBarView {
             self?.model.cropAspect = aspects[i]
             self?.onCropAspect?()
         })
-        add(OptionControls.separator())
+        add(EditorControls.separator())
         let draft = model.cropDraft ?? model.imageBounds
         let w = controls.numberField(Int(draft.width), label: String(localized: "Width in pixels")) { [weak self] v in
             self?.onCropSize?(CGFloat(v), nil)
@@ -72,11 +72,11 @@ extension OptionsBarView {
             self?.onCropSize?(nil, CGFloat(v))
         }
         setCropFields(w, h)
-        add(OptionControls.caption("W"))
+        add(EditorControls.caption("W"))
         add(w)
-        add(OptionControls.caption("H"))
+        add(EditorControls.caption("H"))
         add(h)
-        add(OptionControls.separator())
+        add(EditorControls.separator())
         let cancel = controls.button(String(localized: "Cancel")) { [weak self] in self?.onCropCancel?() }
         cancel.toolTip = String(localized: "Cancel  Esc")
         let apply = controls.prominentButton(String(localized: "Apply")) { [weak self] in self?.onCropApply?() }

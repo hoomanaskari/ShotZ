@@ -57,11 +57,6 @@ extension EditorWindowController {
     // MARK: Zoom menu
 
     func setUpZoomMenu() {
-        zoomMenu.controlSize = .small
-        zoomMenu.font = .monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
-        zoomMenu.bezelStyle = .flexiblePush
-        zoomMenu.isBordered = false
-        zoomMenu.setAccessibilityLabel(String(localized: "Zoom"))
         let menu = zoomMenu.menu ?? NSMenu()
         menu.removeAllItems()
         // The pull-down's title item, kept by reference (never looked up by position).

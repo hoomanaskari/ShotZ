@@ -7,8 +7,10 @@ import AppKit
     private let model: EditorModel
     private let commandMenu: NSMenu
     let dragHandle = DragHandleView(frame: .zero)
-    private var toolStrip: GlyphSegmentedControl?
-    private var backgroundToggle: GlyphSegmentedControl?
+    /// All toolbar controls come from the chrome's control factory.
+    private let controls = EditorControls()
+    private var toolStrip: (any SegmentedPicker)?
+    private var backgroundToggle: (any SegmentedPicker)?
     var onSelectTool: ((ToolKind) -> Void)?
     var onToggleBackground: (() -> Void)?
     var onCopy: (() -> Void)?
@@ -57,43 +59,31 @@ import AppKit
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         switch id {
         case Self.toolsID:
-            let segments = Self.toolOrder.map { kind in
-                GlyphSegmentedControl.Segment(image: EditorGlyphs.image(.tool(kind), size: 18, label: kind.title), title: nil,
-                                              label: kind.title, shortcut: String(kind.key).uppercased())
-            }
-            let strip = GlyphSegmentedControl(style: .tools, segments: segments,
-                                              selected: Self.toolOrder.firstIndex(of: model.toolKind), label: String(localized: "Tools"))
-            strip.groupStarts = Self.groupStarts
-            strip.onSelect = { [weak self] i in self?.onSelectTool?(Self.toolOrder[i]) }
+            let items = Self.toolOrder.map { EditorControls.ToolItem(glyph: .tool($0), label: $0.title, shortcut: String($0.key).uppercased()) }
+            let strip = controls.toolStrip(items, selected: Self.toolOrder.firstIndex(of: model.toolKind), groupStarts: Self.groupStarts,
+                                           label: String(localized: "Tools")) { [weak self] i in self?.onSelectTool?(Self.toolOrder[i]) }
             toolStrip = strip
             return item(id, String(localized: "Tools"), String(localized: "Tools"), strip)
         case Self.backgroundID:
-            let toggle = GlyphSegmentedControl(
-                style: .toggle,
-                segments: [.init(image: EditorGlyphs.image(.background, size: 18, label: String(localized: "Background")), title: nil,
-                                 label: String(localized: "Background"), shortcut: "G")],
-                selected: nil, label: String(localized: "Background"))
-            toggle.setAccessibilityRole(.checkBox)
-            toggle.onSelect = { [weak self] _ in self?.onToggleBackground?() }
+            let toggle = controls.toolbarToggle(.init(glyph: .background, label: String(localized: "Background"), shortcut: "G"),
+                                                on: false) { [weak self] in self?.onToggleBackground?() }
             backgroundToggle = toggle
             return item(id, String(localized: "Background"), "\(String(localized: "Background"))  G", toggle)
         case Self.copyID:
-            let b = actionButton(String(localized: "Copy"), glyph: .copy, prominent: true, action: #selector(copyPressed))
+            let b = controls.primaryButton(String(localized: "Copy"), glyph: .copy,
+                                           tooltip: String(localized: "Copy the finished image  ⇧⌘C")) { [weak self] in self?.onCopy?() }
             return item(id, String(localized: "Copy"), String(localized: "Copy the finished image  ⇧⌘C"), b)
         case Self.saveID:
-            let b = actionButton(String(localized: "Save"), glyph: .save, prominent: false, action: #selector(savePressed))
+            let b = controls.secondaryButton(String(localized: "Save"), glyph: .save,
+                                             tooltip: String(localized: "Save to the export folder  ⌘S")) { [weak self] in self?.onSave?() }
             return item(id, String(localized: "Save"), String(localized: "Save to the export folder  ⌘S"), b)
         case Self.dragID:
             return item(id, String(localized: "Drag"), dragHandle.toolTip ?? "", dragHandle)
         case Self.moreID:
-            // A full-size button (not a bare glyph) that opens the command menu.
-            let b = NSButton(image: EditorGlyphs.image(.more, size: 16, label: String(localized: "More commands")),
-                             target: self, action: #selector(morePressed(_:)))
-            b.bezelStyle = .push
-            b.controlSize = .large
-            b.imagePosition = .imageOnly
-            b.widthAnchor.constraint(equalToConstant: 36).isActive = true
-            b.setAccessibilityLabel(String(localized: "More commands"))
+            let b = controls.iconButton(.more, label: String(localized: "More commands"),
+                                        tooltip: String(localized: "More commands: Save As, Print, Arrange, Zoom…")) { [weak self] button in
+                self?.showCommandMenu(from: button)
+            }
             return item(id, String(localized: "More"), String(localized: "More commands: Save As, Print, Arrange, Zoom…"), b)
         default:
             return nil
@@ -109,30 +99,8 @@ import AppKit
         return i
     }
 
-    /// Copy is the primary action (accent-filled); Save sits beside it.
-    private func actionButton(_ title: String, glyph: EditorGlyph, prominent: Bool, action: Selector) -> NSButton {
-        if prominent {
-            return ProminentButton(title: title, image: EditorGlyphs.image(glyph, size: 16, label: title), target: self, action: action)
-        }
-        let b = NSButton(title: title, image: EditorGlyphs.image(glyph, size: 16, label: title), target: self, action: action)
-        b.bezelStyle = .push
-        b.controlSize = .large
-        b.imagePosition = .imageLeading
-        b.imageHugsTitle = true
-        b.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .medium)
-        if prominent {
-            b.bezelColor = .controlAccentColor
-            b.contentTintColor = .white
-        }
-        b.setAccessibilityLabel(title)
-        return b
+    private func showCommandMenu(from button: NSButton) {
+        commandMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
     }
 
-    @objc private func morePressed(_ sender: NSButton) {
-        commandMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
-    }
-
-    @objc private func toggleBackground() { onToggleBackground?() }
-    @objc private func copyPressed() { onCopy?() }
-    @objc private func savePressed() { onSave?() }
 }

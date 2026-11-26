@@ -46,7 +46,7 @@ import ShotzCore
     let keyHandler: EditorKeyHandler
     let exporterOut: EditorExporter
     let commandMenu = EditorMenu.build()
-    let zoomMenu = NSPopUpButton(frame: .zero, pullsDown: true)
+    let zoomMenu = EditorControls.zoomMenu()
     var zoomTitleItem: NSMenuItem?
     private(set) var backgroundPanel: BackgroundPanelView?
     let mainSplit = NSStackView()

@@ -6,7 +6,7 @@ import AppKit
 @MainActor final class OptionsBarView: NSView {
     let model: EditorModel
     private let stack = NSStackView()
-    let controls = OptionControls()
+    let controls = EditorControls()
     private var rebuildScheduled = false
     /// The crop tool's numeric fields and Apply/Cancel actions.
     var onCropApply: (() -> Void)?
@@ -85,12 +85,12 @@ import AppKit
         let hasSelection = !model.selection.isEmpty
 
         if model.editingCounterID != nil {
-            stack.addArrangedSubview(OptionControls.caption(String(localized: "Type the number. Return finishes, Esc cancels.")))
+            stack.addArrangedSubview(EditorControls.caption(String(localized: "Type the number. Return finishes, Esc cancels.")))
         } else if model.toolKind == .crop {
             addCropControls()
         } else if let kind = hasSelection ? model.optionsKind : model.toolKind {
             if kind == .select {
-                stack.addArrangedSubview(OptionControls.caption(String(localized: "Click to select, drag to select several, ⌘A selects all. Press a tool key to draw.")))
+                stack.addArrangedSubview(EditorControls.caption(String(localized: "Click to select, drag to select several, ⌘A selects all. Press a tool key to draw.")))
             } else {
                 addOptions(for: kind, s)
             }
@@ -176,7 +176,7 @@ import AppKit
                                   label: String(localized: "Numbering")) { [weak self] i in
                 self?.change(String(localized: "Numbering")) { $0.counterNumbering = i == 0 ? .numeric : .alphabetic }
             })
-            add(OptionControls.caption(String(localized: "Start at")))
+            add(EditorControls.caption(String(localized: "Start at")))
             add(controls.numberField(s.counterStart, width: 40, label: String(localized: "Start value")) { [weak self] v in
                 self?.model.library.update(.counter) { $0.counterStart = max(1, v) }
             })
@@ -209,7 +209,7 @@ import AppKit
     func addColors(_ s: ToolSettings) {
         for (i, preset) in RGBAColor.presets.enumerated() {
             let color = NSColor(cgColor: preset.cgColor) ?? .red
-            let swatch = ColorSwatchControl(color: color, selected: preset == s.color, label: "\(Self.colorNames[i]) (\(i + 1))") { [weak self] in
+            let swatch = controls.swatch(color, selected: preset == s.color, label: "\(Self.colorNames[i]) (\(i + 1))") { [weak self] in
                 self?.change(String(localized: "Colour")) { $0.color = preset }
             }
             swatches.append(swatch)
@@ -226,14 +226,13 @@ import AppKit
         }
         let well = controls.colorWell(current, isCustom: !RGBAColor.presets.contains(s.color), label: String(localized: "Custom colour"), apply)
         add(well)
-        let dropper = EyedropperButton(label: String(localized: "Pick a colour from the screen"))
-        dropper.onPick = { [weak well] color in
+        let dropper = controls.eyedropper(label: String(localized: "Pick a colour from the screen")) { [weak well] color in
             well?.color = color
             well?.isCustom = true
             apply(color, true)
         }
         addOptional(dropper)
-        add(OptionControls.separator())
+        add(EditorControls.separator())
     }
 
     private func thickness(_ s: ToolSettings) -> NSView {
@@ -249,7 +248,7 @@ import AppKit
 
     func addOpacity(_ s: ToolSettings) {
         addOptional(controls.sliderRow(value: s.opacity, min: 0.1, max: 1, width: 64, label: String(localized: "Opacity"),
-                               glyph: .opacity, format: OptionControls.percent) { [weak self] v, final in
+                               glyph: .opacity, format: EditorControls.percent) { [weak self] v, final in
             self?.change(String(localized: "Opacity"), final: final) { $0.opacity = v }
         })
     }

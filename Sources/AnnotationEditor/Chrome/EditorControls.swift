@@ -7,13 +7,15 @@ import AppKit
     @objc func fire(_ sender: NSControl) { handler(sender) }
 }
 
-/// Builders for the small, consistent controls of the options bar and background panel.
-@MainActor final class OptionControls {
+/// The one place the editor chrome creates its controls (toolbar, options bar, background
+/// panel). Every surface asks this factory, so the whole chrome can move to the shared
+/// ShotzUI controls by changing only this type.
+@MainActor final class EditorControls {
     private(set) var actions: [ControlAction] = []
 
     func reset() { actions.removeAll() }
 
-    private func bind(_ control: NSControl, _ handler: @escaping (NSControl) -> Void) {
+    func bind(_ control: NSControl, _ handler: @escaping (NSControl) -> Void) {
         let a = ControlAction(handler)
         actions.append(a)
         control.target = a
