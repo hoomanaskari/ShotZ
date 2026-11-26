@@ -6,6 +6,7 @@ arrow-u-up-right
 camera
 cards
 check
+check-circle
 checkerboard
 circle
 clock-counter-clockwise
@@ -19,6 +20,7 @@ export
 eye
 floppy-disk
 folder
+folder-open
 frame-corners
 gear
 gradient
@@ -27,6 +29,7 @@ highlighter
 info
 keyboard
 line-segment
+link-simple
 magnifying-glass-minus
 magnifying-glass-plus
 minus
@@ -52,4 +55,6 @@ text-b
 text-t
 trash
 warning
+warning-circle
 x
+x-square

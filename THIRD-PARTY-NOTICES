@@ -1,7 +1,7 @@
-Third-party notices for Shotz
+Third-party notices for ShotZ
 =============================
 
-Shotz is MIT licensed. It includes the following third-party material.
+ShotZ is MIT licensed. It includes the following third-party material.
 
 Phosphor Icons
 --------------
@@ -12,7 +12,7 @@ url: https://github.com/phosphor-icons/core
 weight: regular (assets/regular)
 files: ThirdParty/phosphor/regular/*.svg (vendored unmodified), converted to path data in
        Sources/ShotzCore/Icons/PhosphorGlyphs.generated.swift by scripts/gen-icons.swift
-icons used (55): app-window, arrow-line-down, arrow-line-up, arrow-u-up-left, arrow-u-up-right, camera, cards, check, checkerboard, circle, clock-counter-clockwise, copy, crop, cursor, dots-three, download-simple, drop-half, export, eye, floppy-disk, folder, frame-corners, gear, gradient, hand-grabbing, highlighter, info, keyboard, line-segment, magnifying-glass-minus, magnifying-glass-plus, minus, monitor, number-circle-one, palette, pencil-simple, plus, push-pin-slash, rectangle, rocket-launch, scribble, selection, selection-all, selection-background, selection-foreground, shield-check, sign-out, text-align-center, text-align-left, text-align-right, text-b, text-t, trash, warning, x
+icons used (60): app-window, arrow-line-down, arrow-line-up, arrow-u-up-left, arrow-u-up-right, camera, cards, check, check-circle, checkerboard, circle, clock-counter-clockwise, copy, crop, cursor, dots-three, download-simple, drop-half, export, eye, floppy-disk, folder, folder-open, frame-corners, gear, gradient, hand-grabbing, highlighter, info, keyboard, line-segment, link-simple, magnifying-glass-minus, magnifying-glass-plus, minus, monitor, number-circle-one, palette, pencil-simple, plus, push-pin-slash, rectangle, rocket-launch, scribble, selection, selection-all, selection-background, selection-foreground, shield-check, sign-out, text-align-center, text-align-left, text-align-right, text-b, text-t, trash, warning, warning-circle, x, x-square
 
 MIT License
 
@@ -36,6 +36,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Shotz's own custom glyphs (arrow styles, fill modes, text decorations, highlight and redaction
+ShotZ's own custom glyphs (arrow styles, fill modes, text decorations, highlight and redaction
 modes, thickness steps and a few others in Sources/ShotzCore/Icons/CustomGlyphs.swift) are
-original work drawn for Shotz in the same visual language and are covered by Shotz's licence.
+original work drawn for ShotZ in the same visual language and are covered by ShotZ's licence.
