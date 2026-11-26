@@ -98,8 +98,13 @@ struct BackgroundPresetTests {
         #expect(p.saved.first?.style.padding == 0.05)
         p.last = s
         #expect(BackgroundPresets(defaults: defaults).last == s)
+        p.save(BackgroundStyle(padding: 0.1), name: "Slides")
+        p.save(BackgroundStyle(padding: 0.15), name: "Docs")
         p.delete(name: "Deck")
-        #expect(p.saved.isEmpty)
+        #expect(p.saved.map(\.name) == ["Slides", "Docs"])
+        p.delete(name: "Docs")
+        #expect(BackgroundPresets(defaults: defaults).saved.map(\.name) == ["Slides"])
+        #expect(BackgroundPresets(defaults: defaults).last == s) // deleting presets never touches the last-used style
         #expect(BackgroundPresets.gradients.count == 12)
     }
 
