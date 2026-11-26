@@ -15,22 +15,18 @@ struct CanvasLayout: Equatable {
     /// The visible image area in canvas units.
     var imageFrame: CGRect
 
-    /// - Parameter editingCrop: the crop tool shows the whole image without background.
-    /// - Parameter opaqueBounds: `BaseImageProvider.visibleContentBounds()` (window captures).
-    static func make(document: AnnotationDocument, editingCrop: Bool, opaqueBounds: CGRect? = nil) -> CanvasLayout {
+    /// - Parameters:
+    ///   - editingCrop: the crop tool shows the whole image without background.
+    ///   - backgroundLayout: `AnnotationRenderer.backgroundLayout(_:base:)` (the export's layout,
+    ///     including auto-balance); computed from the document alone when nil.
+    static func make(document: AnnotationDocument, editingCrop: Bool, backgroundLayout: BackgroundLayout? = nil) -> CanvasLayout {
         let full = CGRect(origin: .zero, size: document.pixelSize)
         if editingCrop {
             return CanvasLayout(extent: full.size, offset: .zero, background: nil, imageFrame: full)
         }
         let visible = document.imageRect
         if let bg = document.background {
-            // Same layout as the exported file (AnnotationRenderer).
-            var content: CGRect?
-            if bg.autoBalance, let opaque = opaqueBounds {
-                let r = opaque.intersection(visible)
-                if !r.isEmpty { content = r.offsetBy(dx: -visible.minX, dy: -visible.minY) }
-            }
-            let l = BackgroundLayout(document: document, visibleContent: content)
+            let l = backgroundLayout ?? BackgroundLayout(document: document)
             return CanvasLayout(
                 extent: l.canvasSize,
                 offset: CGVector(dx: l.imageFrame.minX - visible.minX, dy: l.imageFrame.minY - visible.minY),
