@@ -414,9 +414,13 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   repository's default branch, where the published `appcast.xml` lives (if the
   default branch is renamed, change `SUFeedURL` before the next release, or
   installed copies stop seeing updates). The public EdDSA key lives only in
-  `Resources/SparklePublicKey.txt`; `bundle.sh release` writes it into the
-  bundle's `SUPublicEDKey`. While that file is empty, Settings says updates are
-  unavailable. Automatic checks are on by default (`SUEnableAutomaticChecks`),
+  `Resources/SparklePublicKey.txt` (ShotZ's own key, committed in 33309b7; the
+  private half stays in the owner's keychain); `bundle.sh` writes it into each
+  bundle's `SUPublicEDKey`, and `SoftwareUpdatesTests` fails if the file is empty
+  or not a 32-byte Ed25519 key. Without a key the production app would report
+  updates as unavailable (`UpdateUnavailableReason.noPublicKey`), and snapshot
+  runs add the `settings-advanced-nokey-*` renders only in that case.
+  Automatic checks are on by default (`SUEnableAutomaticChecks`),
   with a switch, the last-checked date and **Check for Updates…** in Settings ▸
   Advanced, and **Check for Updates…** in the status menu. ShotZ is an
   LSUIElement app, so it activates itself before any Sparkle window. A

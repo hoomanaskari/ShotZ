@@ -32,8 +32,9 @@
 # SHOTZ_TIMESTAMP=1/0 forces it either way.
 #
 # Updates (production only): SUFeedURL and SUEnableAutomaticChecks come from
-# Resources/Info.plist; SUPublicEDKey is filled from Resources/SparklePublicKey.txt
-# (empty until a key exists: the app then shows "updates unavailable"). ShotZ Dev's
+# Resources/Info.plist; SUPublicEDKey is filled from Resources/SparklePublicKey.txt, the one
+# committed copy of ShotZ's public EdDSA key, in both apps (if the file were empty, the
+# production app would show "updates unavailable"; ShotZ Dev never updates). ShotZ Dev's
 # Info.plist drops all three; it never creates an updater anyway.
 #
 # For a fully signed release (e.g. scripts/release.sh):
@@ -101,6 +102,10 @@ ditto "$SPARKLE_SRC" "$APP/Contents/Frameworks/Sparkle.framework"
 
 INFO="$APP/Contents/Info.plist"
 cp "$PLIST" "$INFO"
+# The public EdDSA key lives in one committed file. Both apps carry it, so a snapshot run of
+# ShotZ Dev knows whether release builds have a key; only the production app ever uses it.
+PUBLIC_KEY="$(tr -d '[:space:]' < "$ROOT/Resources/SparklePublicKey.txt" 2>/dev/null || true)"
+/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $PUBLIC_KEY" "$INFO"
 if [[ "$VARIANT" == "dev" ]]; then
   # Same Info.plist, development identity. The app reads its variant from the bundle id.
   /usr/libexec/PlistBuddy \
@@ -110,11 +115,8 @@ if [[ "$VARIANT" == "dev" ]]; then
     -c "Delete :SUFeedURL" \
     -c "Delete :SUEnableAutomaticChecks" \
     "$INFO"
-else
-  # The public EdDSA key lives in one committed file; empty means "no updates yet".
-  PUBLIC_KEY="$(tr -d '[:space:]' < "$ROOT/Resources/SparklePublicKey.txt" 2>/dev/null || true)"
-  /usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $PUBLIC_KEY" "$INFO"
-  [[ -n "$PUBLIC_KEY" ]] || echo "Note: Resources/SparklePublicKey.txt is empty: this build reports updates as unavailable"
+elif [[ -z "$PUBLIC_KEY" ]]; then
+  echo "Note: Resources/SparklePublicKey.txt is empty: this build reports updates as unavailable"
 fi
 
 if [[ "$UNIVERSAL" == "1" ]]; then

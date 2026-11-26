@@ -53,8 +53,9 @@ need to run the install script again.
   Updates, next to the switch for automatic checks and the date of the last check.
 - Settings ▸ Advanced ▸ About shows the installed version and build.
 - Updates keep ShotZ's identity, so the Screen Recording permission carries over.
-- Until ShotZ's update signing key is set up, Settings says updates are
-  unavailable, and nothing is checked.
+- Every update is signed with ShotZ's own update key; ShotZ checks the
+  signature against the public key built into the app and refuses anything
+  that doesn't match.
 
 ## 2. Screen Recording permission
 

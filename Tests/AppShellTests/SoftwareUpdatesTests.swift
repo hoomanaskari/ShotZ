@@ -100,6 +100,22 @@ struct SoftwareUpdatesTests {
 
     // MARK: Configuration in the repository
 
+    /// The committed key and feed make the installed app's updates available. Reads the real
+    /// Resources/SparklePublicKey.txt, so an emptied or damaged key file fails the suite.
+    @Test func committedKeyAndFeedMakeUpdatesAvailable() throws {
+        let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let key = try String(contentsOf: root.appending(path: "Resources/SparklePublicKey.txt"), encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        #expect(!key.isEmpty, "Resources/SparklePublicKey.txt is empty")
+        #expect(Data(base64Encoded: key)?.count == 32, "not a base64 Ed25519 public key")   // what Sparkle expects
+        var info = try #require(NSDictionary(contentsOf: root.appending(path: "Resources/Info.plist")) as? [String: Any])
+        info[UpdatePolicy.publicKeyKey] = key   // as bundle.sh writes it
+        #expect(UpdatePolicy.hasPublicKey(info))
+        #expect(UpdatePolicy.decide(variant: .production, testRun: false, info: info) == .available)
+        #expect(UpdatePolicy.decide(variant: .development, testRun: false, info: info) == .unavailable(.developmentApp))
+        #expect(UpdatePolicy.decide(variant: .production, testRun: true, info: info) == .unavailable(.testRun))
+    }
+
     @Test func infoPlistHasTheFeedAndNoInlineKey() throws {
         let root = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let info = try #require(NSDictionary(contentsOf: root.appending(path: "Resources/Info.plist")) as? [String: Any])
