@@ -92,13 +92,41 @@ import ShotzCore
         }
     }
 
-    /// At launch: after onboarding the system state wins (the user may have
-    /// removed Shotz in System Settings), so mirror it into the preference.
-    public func syncPreferenceFromSystem() {
+    /// What to do at launch, given the stored choice and the system state.
+    enum LaunchAction: Equatable {
+        case none
+        /// The choice is "on" but nothing is registered yet (typically the
+        /// first launch from /Applications after onboarding ran in a dev
+        /// build): register now.
+        case register
+        /// Registered in the system although the choice says "off": show "on".
+        case mirrorOn
+    }
+
+    nonisolated static func launchAction(preference: Bool, state: State, installed: Bool, onboarded: Bool) -> LaunchAction {
+        guard installed, onboarded else { return .none }
+        switch state {
+        case .disabled: return preference ? .register : .none
+        // Turned off by the user in System Settings ▸ Login Items shows as
+        // requiresApproval: never fight that, the UI explains it.
+        case .enabled, .requiresApproval: return preference ? .none : .mirrorOn
+        case .notInstalled, .failed: return .none
+        }
+    }
+
+    /// At launch from an installed location, after onboarding: apply the
+    /// stored choice instead of overwriting it with "not registered".
+    public func applyAtLaunch() {
         refresh()
-        guard isInstalled, settings.hasCompletedOnboarding else { return }
-        let on = state == .enabled || state == .requiresApproval
-        if settings.launchAtLogin != on { settings.launchAtLogin = on }
+        switch Self.launchAction(preference: settings.launchAtLogin, state: state,
+                                 installed: isInstalled, onboarded: settings.hasCompletedOnboarding) {
+        case .none: break
+        case .register:
+            log.info("Launch at login: registering the stored choice")
+            setEnabled(true)
+        case .mirrorOn:
+            settings.launchAtLogin = true
+        }
     }
 
     public func openLoginItemsSettings() {

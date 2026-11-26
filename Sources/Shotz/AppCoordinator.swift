@@ -88,7 +88,7 @@ import ShotzCore
         statusItem.onSelectHistoryItem = { [weak self] capture in self?.reopenFromHistory(capture) }
         statusItem.onMenuWillOpen = { [weak self] in self?.refreshHistoryMenu() }
 
-        loginItem.syncPreferenceFromSystem()
+        loginItem.applyAtLaunch()
         applySettings()
         // objectWillChange fires before the value is stored: apply on the next turn.
         settingsObserver = settings.objectWillChange

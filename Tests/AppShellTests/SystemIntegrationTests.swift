@@ -76,6 +76,24 @@ struct LoginItemTests {
         #expect(!LoginItemController.isInstalledLocation(URL(filePath: "/Users/someone/Applications/../Sites/Shotz.app"), home: home))
     }
 
+    /// First launch from /Applications after onboarding in a dev build: the
+    /// stored "on" is applied, never overwritten with "not registered".
+    @Test func launchActionMatrix() {
+        func act(_ pref: Bool, _ state: LoginItemController.State, installed: Bool = true, onboarded: Bool = true)
+            -> LoginItemController.LaunchAction {
+            LoginItemController.launchAction(preference: pref, state: state, installed: installed, onboarded: onboarded)
+        }
+        #expect(act(true, .disabled) == .register)
+        #expect(act(false, .disabled) == .none)
+        #expect(act(true, .enabled) == .none)
+        #expect(act(false, .enabled) == .mirrorOn)
+        #expect(act(true, .requiresApproval) == .none)      // user turned it off in Login Items
+        #expect(act(true, .failed("x")) == .none)
+        #expect(act(true, .disabled, installed: false) == .none)   // dev bundle never registers
+        #expect(act(true, .disabled, onboarded: false) == .none)   // onboarding asks first
+        #expect(act(true, .notInstalled) == .none)
+    }
+
     @MainActor @Test func devBundleNeverRegistersButStoresPreference() throws {
         let (settings, suite) = makeSettings()
         defer { UserDefaults().removePersistentDomain(forName: suite) }
