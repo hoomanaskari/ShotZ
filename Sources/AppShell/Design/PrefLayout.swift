@@ -87,9 +87,9 @@ struct PrefHelp: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 5) {
             if tone != .secondary {
-                ShellIcon.warning.image
-                    .font(.system(size: 10))
+                ShellIcon.warning.view(size: 11)
                     .foregroundStyle(tone == .error ? Color.red : Color.orange)
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
             }
             Text(text)
                 .font(.system(size: 11))

@@ -21,26 +21,26 @@ struct AdvancedSettingsView: View {
                     PrefHelp(String(localized: "Older captures are removed when \(AppVariant.current.displayName) starts and once a day. Files you saved or exported are never touched."))
                 }
                 PrefRow(label: nil) {
-                    Button(String(localized: "Clear History…")) { confirmClear = true }
+                    ShellButton(String(localized: "Clear History…")) { confirmClear = true }
                         .disabled(clearing)
                 }
             }
 
             PrefSection(title: String(localized: "Setup")) {
                 PrefRow(label: String(localized: "Welcome guide")) {
-                    Button(String(localized: "Show Welcome Window…")) { context.showOnboarding(false) }
+                    ShellButton(String(localized: "Show Welcome Window…")) { context.showOnboarding(false) }
                     PrefHelp(String(localized: "Screen Recording permission, macOS's screenshot shortcuts and launch at login."))
                 }
             }
 
             PrefSection(title: String(localized: "Reset")) {
                 PrefRow(label: String(localized: "Settings")) {
-                    Button(String(localized: "Restore All Defaults…")) { confirmReset = true }
+                    ShellButton(String(localized: "Restore All Defaults…")) { confirmReset = true }
                     PrefHelp(String(localized: "Every setting, including shortcuts, goes back to its default. History is kept."))
                 }
                 PrefRow(label: AppVariant.current.displayName) {
                     // The only way to quit when the menu-bar icon is hidden.
-                    Button(String(localized: "Quit \(AppVariant.current.displayName)")) { NSApp.terminate(nil) }
+                    ShellButton(String(localized: "Quit \(AppVariant.current.displayName)")) { NSApp.terminate(nil) }
                 }
             }
         }

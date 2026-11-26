@@ -22,7 +22,20 @@ struct ShortcutsSettingsView: View {
     var body: some View {
         PrefPane {
             if !hotkeys.hotkeysEnabled {
-                PrefHelp(String(localized: "Started with --no-hotkeys: no shortcuts are registered this run. Changes here are saved."), tone: .warning)
+                ShellBanner(text: String(localized: "Test run (--no-hotkeys): no shortcuts are registered. Changes here are saved to this run's settings only."),
+                            tone: .warning)
+            }
+            if captureFailures {
+                ShellBanner(
+                    text: String(localized: "Another app may be using some of these shortcuts. Quit it or turn its shortcuts off, or use alternates."),
+                    tone: .warning,
+                    actionTitle: HotkeyBindings.alternatesTitle(for: settings.variant),
+                    action: {
+                        for (action, combo) in HotkeyBindings.alternates(for: settings.variant) {
+                            settings.setHotkey(combo, for: action)
+                        }
+                    }
+                )
             }
 
             PrefSection(title: String(localized: "Capture")) {
@@ -35,27 +48,13 @@ struct ShortcutsSettingsView: View {
                 row(.restoreLastClosed)
             }
 
-            if captureFailures {
-                PrefSection {
-                    PrefRow(label: nil) {
-                        PrefHelp(String(localized: "Another app may be using some of these shortcuts. Quit it or turn its shortcuts off, or use alternates."), tone: .warning)
-                        Button(HotkeyBindings.alternatesTitle(for: settings.variant)) {
-                            for (action, combo) in HotkeyBindings.alternates(for: settings.variant) {
-                                settings.setHotkey(combo, for: action)
-                            }
-                        }
-                        .controlSize(.small)
-                    }
-                }
-            }
-
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     PrefHelp(String(localized: "Click a shortcut, then press the new keys. Esc cancels, Delete clears it."))
                     PrefHelp(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell ShotZ when another app holds a shortcut."))
                 }
                 Spacer(minLength: 16)
-                Button(String(localized: "Restore Defaults")) {
+                ShellButton(String(localized: "Restore Defaults")) {
                     recorder.stop()
                     settings.resetHotkeys()
                 }

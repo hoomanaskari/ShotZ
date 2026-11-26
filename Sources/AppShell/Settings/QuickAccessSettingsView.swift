@@ -43,15 +43,14 @@ struct QuickAccessSettingsView: View {
 
             PrefSection(title: String(localized: "Cards")) {
                 PrefRow(label: String(localized: "Remove a card")) {
-                    Toggle(String(localized: "After dragging it out"), isOn: $settings.quickAccessRemoveAfterDrag)
-                    Toggle(String(localized: "After copying"), isOn: $settings.quickAccessCloseAfterCopy)
-                    Toggle(String(localized: "After saving"), isOn: $settings.quickAccessCloseAfterSave)
+                    ShellCheckbox(String(localized: "After dragging it out"), isOn: $settings.quickAccessRemoveAfterDrag)
+                    ShellCheckbox(String(localized: "After copying"), isOn: $settings.quickAccessCloseAfterCopy)
+                    ShellCheckbox(String(localized: "After saving"), isOn: $settings.quickAccessCloseAfterSave)
                 }
                 PrefRow(label: String(localized: "Saving")) {
-                    Toggle(String(localized: "Ask where to save each time"), isOn: $settings.askDestinationWhenSaving)
+                    ShellCheckbox(String(localized: "Ask where to save each time"), isOn: $settings.askDestinationWhenSaving)
                 }
             }
         }
-        .toggleStyle(.checkbox)
     }
 }

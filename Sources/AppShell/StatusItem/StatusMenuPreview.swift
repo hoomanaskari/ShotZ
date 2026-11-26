@@ -36,7 +36,7 @@ struct StatusMenuPreview: View {
                         Text(row.title)
                         Spacer(minLength: 24)
                         if row.hasSubmenu {
-                            Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
+                            Text("›").font(.system(size: 15, weight: .medium))
                         } else {
                             Text(row.shortcut).foregroundStyle(.secondary)
                         }
