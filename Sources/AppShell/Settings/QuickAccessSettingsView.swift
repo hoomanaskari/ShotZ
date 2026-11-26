@@ -5,33 +5,53 @@ struct QuickAccessSettingsView: View {
     @ObservedObject var settings: SettingsStore
 
     var body: some View {
-        Form {
-            Section(String(localized: "Placement")) {
-                Picker(String(localized: "Side"), selection: $settings.quickAccessSide) {
-                    ForEach(StackSide.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Picker(String(localized: "Display"), selection: $settings.quickAccessDisplay) {
-                    ForEach(StackDisplay.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                Picker(String(localized: "Size"), selection: $settings.quickAccessSize) {
-                    ForEach(CardSize.allCases, id: \.self) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                Picker(String(localized: "Auto-close"), selection: $settings.quickAccessAutoCloseSeconds) {
-                    ForEach(SettingsStore.autoCloseChoices, id: \.self) { seconds in
-                        Text(seconds == 0 ? String(localized: "Off") : String(localized: "After \(seconds) s")).tag(seconds)
+        PrefPane {
+            PrefSection(title: String(localized: "Placement")) {
+                PrefRow(label: String(localized: "Screen edge"), alignment: .center) {
+                    Picker("", selection: $settings.quickAccessSide) {
+                        ForEach(StackSide.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                PrefRow(label: String(localized: "Display"), alignment: .center) {
+                    Picker("", selection: $settings.quickAccessDisplay) {
+                        ForEach(StackDisplay.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                PrefRow(label: String(localized: "Card size"), alignment: .center) {
+                    Picker("", selection: $settings.quickAccessSize) {
+                        ForEach(CardSize.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                PrefRow(label: String(localized: "Close cards"), alignment: .center) {
+                    Picker("", selection: $settings.quickAccessAutoCloseSeconds) {
+                        ForEach(SettingsStore.autoCloseChoices, id: \.self) { seconds in
+                            Text(seconds == 0 ? String(localized: "Never automatically") : String(localized: "After \(seconds) seconds")).tag(seconds)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
                 }
             }
 
-            Section(String(localized: "Cards")) {
-                Toggle(String(localized: "Remove after dragging out"), isOn: $settings.quickAccessRemoveAfterDrag)
-                Toggle(String(localized: "Close after copy"), isOn: $settings.quickAccessCloseAfterCopy)
-                Toggle(String(localized: "Close after save"), isOn: $settings.quickAccessCloseAfterSave)
-                Toggle(String(localized: "Ask where to save"), isOn: $settings.askDestinationWhenSaving)
+            PrefSection(title: String(localized: "Cards")) {
+                PrefRow(label: String(localized: "Remove a card")) {
+                    Toggle(String(localized: "After dragging it out"), isOn: $settings.quickAccessRemoveAfterDrag)
+                    Toggle(String(localized: "After copying"), isOn: $settings.quickAccessCloseAfterCopy)
+                    Toggle(String(localized: "After saving"), isOn: $settings.quickAccessCloseAfterSave)
+                }
+                PrefRow(label: String(localized: "Saving")) {
+                    Toggle(String(localized: "Ask where to save each time"), isOn: $settings.askDestinationWhenSaving)
+                }
             }
         }
-        .formStyle(.grouped)
+        .toggleStyle(.checkbox)
     }
 }

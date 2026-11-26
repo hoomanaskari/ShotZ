@@ -9,45 +9,54 @@ struct GeneralSettingsView: View {
     @ObservedObject var screenRecording: ScreenRecordingStatus
 
     var body: some View {
-        Form {
-            Section {
-                Toggle(String(localized: "Launch at login"), isOn: Binding(
-                    get: { loginItem.isOn },
-                    set: { loginItem.setEnabled($0) }
-                ))
-                LoginItemNote(loginItem: loginItem)
-                Toggle(String(localized: "Show menu-bar icon"), isOn: $settings.showMenuBarIcon)
-                if !settings.showMenuBarIcon {
-                    Note(String(localized: "With the icon hidden, open Shotz again from Finder or Spotlight to get back to Settings."))
+        PrefPane {
+            PrefSection {
+                PrefRow(label: String(localized: "Startup")) {
+                    Toggle(String(localized: "Launch \(AppVariant.current.displayName) at login"), isOn: Binding(
+                        get: { loginItem.isOn },
+                        set: { loginItem.setEnabled($0) }
+                    ))
+                    LoginItemNote(loginItem: loginItem)
                 }
-                Toggle(String(localized: "Play sounds"), isOn: $settings.playSounds)
-            }
-
-            Section(String(localized: "Export folder")) {
-                ExportFolderRow(settings: settings)
-            }
-
-            Section(String(localized: "After capture")) {
-                Toggle(String(localized: "Show quick-access stack"), isOn: $settings.afterCaptureShowQuickAccess)
-                Toggle(String(localized: "Copy to clipboard"), isOn: $settings.afterCaptureCopyToClipboard)
-                Toggle(String(localized: "Save to export folder"), isOn: $settings.afterCaptureSave)
-                if AfterCaptureActions(settings: settings).isSilent {
-                    Note(String(localized: "Captures will only appear in Capture History in the menu."))
+                PrefRow(label: String(localized: "Menu bar")) {
+                    Toggle(String(localized: "Show icon in the menu bar"), isOn: $settings.showMenuBarIcon)
+                    if !settings.showMenuBarIcon {
+                        PrefHelp(String(localized: "Open \(AppVariant.current.displayName) again from Finder or Spotlight to get back to Settings."))
+                    }
+                }
+                PrefRow(label: String(localized: "Sound")) {
+                    Toggle(String(localized: "Play a sound when capturing"), isOn: $settings.playSounds)
                 }
             }
 
-            Section(String(localized: "Permissions")) {
-                LabeledContent(String(localized: "Screen Recording")) {
-                    HStack(spacing: 8) {
-                        PermissionBadge(granted: screenRecording.isGranted)
+            PrefSection(title: String(localized: "After a capture")) {
+                PrefRow(label: String(localized: "Then")) {
+                    Toggle(String(localized: "Show it in the quick-access stack"), isOn: $settings.afterCaptureShowQuickAccess)
+                    Toggle(String(localized: "Copy it to the clipboard"), isOn: $settings.afterCaptureCopyToClipboard)
+                    Toggle(String(localized: "Save it to the export folder"), isOn: $settings.afterCaptureSave)
+                    if AfterCaptureActions(settings: settings).isSilent {
+                        PrefHelp(String(localized: "Captures will only appear in Capture History in the menu."), tone: .warning)
+                    }
+                }
+                PrefRow(label: String(localized: "Export folder")) {
+                    ExportFolderPicker(settings: settings)
+                }
+            }
+
+            PrefSection(title: String(localized: "Permission")) {
+                PrefRow(label: String(localized: "Screen Recording"), alignment: .center) {
+                    HStack(spacing: 10) {
+                        StatusPill(text: screenRecording.isGranted ? String(localized: "Allowed") : String(localized: "Not allowed"),
+                                   positive: screenRecording.isGranted)
                         if !screenRecording.isGranted {
                             Button(String(localized: "Set Up…")) { context.showOnboarding(true) }
+                                .controlSize(.small)
                         }
                     }
                 }
             }
         }
-        .formStyle(.grouped)
+        .toggleStyle(.checkbox)
     }
 }
 
@@ -59,22 +68,24 @@ struct LoginItemNote: View {
         case .enabled, .disabled:
             EmptyView()
         case .notInstalled:
-            Note(loginItem.variant == .production
-                 ? String(localized: "Takes effect when Shotz runs from the Applications folder.")
-                 : String(localized: "Not used in test runs (started with --no-hotkeys)."))
+            PrefHelp(loginItem.variant == .production
+                     ? String(localized: "Takes effect when Shotz runs from the Applications folder.")
+                     : String(localized: "Not used in test runs (started with --no-hotkeys)."))
         case .requiresApproval:
-            HStack {
-                Note(String(localized: "macOS needs you to allow Shotz in Login Items."))
-                Spacer()
+            HStack(spacing: 8) {
+                PrefHelp(String(localized: "macOS needs you to allow it in Login Items."), tone: .warning)
                 Button(String(localized: "Open Login Items…")) { loginItem.openLoginItemsSettings() }
+                    .controlSize(.small)
             }
         case .failed(let message):
-            Note(String(localized: "Couldn't change launch at login: \(message)"), warning: true)
+            PrefHelp(String(localized: "Couldn't change launch at login: \(message)"), tone: .error)
         }
     }
 }
 
-struct ExportFolderRow: View {
+/// Folder pop-up in the style of the system's own folder pickers: the folder
+/// with its icon, then Other…, Show in Finder and Use Desktop.
+struct ExportFolderPicker: View {
     @ObservedObject var settings: SettingsStore
 
     private var folder: URL { settings.exportFolder }
@@ -84,31 +95,28 @@ struct ExportFolderRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: folder.path(percentEncoded: false)))
-                .resizable()
-                .frame(width: 20, height: 20)
-            Text(folder.path(percentEncoded: false).replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .help(folder.path(percentEncoded: false))
-            Spacer()
-            Button(String(localized: "Choose…"), action: choose)
-            Button {
-                NSWorkspace.shared.activateFileViewerSelecting([folder])
-            } label: {
-                Image(systemName: "arrow.right.circle")
+        Menu {
+            Button(String(localized: "Other…"), action: choose)
+            Button(String(localized: "Show in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
+                .disabled(!exists)
+            if folder.standardizedFileURL != ShotzPaths.defaultExportFolder.standardizedFileURL {
+                Divider()
+                Button(String(localized: "Use Desktop")) { settings.exportFolder = ShotzPaths.defaultExportFolder }
             }
-            .buttonStyle(.borderless)
-            .help(String(localized: "Show in Finder"))
-            .disabled(!exists)
+        } label: {
+            HStack(spacing: 6) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: folder.path(percentEncoded: false)))
+                    .resizable()
+                    .frame(width: 16, height: 16)
+                Text(FileManager.default.displayName(atPath: folder.path(percentEncoded: false)))
+            }
         }
+        .fixedSize()
+        .help(folder.path(percentEncoded: false))
         if !exists {
-            Note(String(localized: "This folder doesn't exist. Saving will create it."), warning: true)
-        }
-        if folder.standardizedFileURL != ShotzPaths.defaultExportFolder.standardizedFileURL {
-            Button(String(localized: "Use Desktop")) { settings.exportFolder = ShotzPaths.defaultExportFolder }
-                .buttonStyle(.link)
+            PrefHelp(String(localized: "This folder doesn't exist yet. Saving will create it."), tone: .warning)
+        } else {
+            PrefHelp(folder.path(percentEncoded: false).replacingOccurrences(of: NSHomeDirectory(), with: "~"))
         }
     }
 
@@ -124,43 +132,5 @@ struct ExportFolderRow: View {
         if panel.runModal() == .OK, let url = panel.url {
             settings.exportFolder = url
         }
-    }
-}
-
-/// Small secondary caption under a setting.
-struct Note: View {
-    let text: String
-    var warning = false
-
-    init(_ text: String, warning: Bool = false) {
-        self.text = text
-        self.warning = warning
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            if warning {
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow)
-            }
-            Text(text)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-struct PermissionBadge: View {
-    let granted: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(granted ? Color.green : Color.orange)
-                .frame(width: 8, height: 8)
-            Text(granted ? String(localized: "Allowed") : String(localized: "Not allowed"))
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
     }
 }

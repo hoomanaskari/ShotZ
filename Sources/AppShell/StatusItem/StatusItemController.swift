@@ -69,6 +69,28 @@ import ShotzCore
 
     public var debugButton: NSView? { statusItem?.button }
 
+    /// The top-level menu as rows, for the off-screen menu preview.
+    var debugMenuRows: [StatusMenuPreview.Row] {
+        menuNeedsUpdate(menu)
+        return menu.items.map { item in
+            if item.isSeparatorItem { return .init(separator: true) }
+            var shortcut = ""
+            if !item.keyEquivalent.isEmpty {
+                let mods = KeyNames.modifierGlyphs(KeyNames.modifiers(from: item.keyEquivalentModifierMask))
+                let key = item.keyEquivalent == "," ? "," : KeyNames.table.first { $0.value.menu == item.keyEquivalent }?.value.display ?? item.keyEquivalent.uppercased()
+                shortcut = mods + key
+            }
+            return .init(title: item.title, image: item.image, shortcut: shortcut, enabled: item.isEnabled, hasSubmenu: item.hasSubmenu)
+        }
+    }
+
+    /// For `--debug-snapshot-ui`: the status menu drawn off screen from its real
+    /// items (an approximation of the system menu, which can't be captured
+    /// without opening it).
+    public func debugMenuSnapshot(appearance: NSAppearance.Name) async -> Data? {
+        await StatusMenuPreview.render(rows: debugMenuRows, appearance: appearance)
+    }
+
     /// Replaces the history submenu (last 10, newest first).
     public func updateHistory(_ items: [CaptureResult]) {
         history = Array(items.prefix(Self.historyLimit))
@@ -102,17 +124,18 @@ import ShotzCore
         menu.addItem(.separator())
         let historyItem = NSMenuItem(title: String(localized: "Capture History"), action: nil, keyEquivalent: "")
         historyItem.submenu = historyMenu
+        historyItem.image = ShellIcon.history.nsImage()
         menu.addItem(historyItem)
-        let openLast = item(String(localized: "Open Last Capture in Editor"), #selector(openLast))
+        let openLast = item(String(localized: "Open Last Capture in Editor"), #selector(openLast), icon: .openInEditor)
         openLast.isEnabled = !history.isEmpty
         menu.addItem(openLast)
-        let restore = item(HotkeyAction.restoreLastClosed.title, #selector(restoreLastClosed))
+        let restore = item(HotkeyAction.restoreLastClosed.title, #selector(restoreLastClosed), icon: .restore)
         applyShortcut(of: .restoreLastClosed, to: restore)
         restore.isEnabled = canRestoreLastClosed()
         menu.addItem(restore)
         menu.addItem(.separator())
-        menu.addItem(item(String(localized: "Settings…"), #selector(openSettings), key: ","))
-        menu.addItem(item(String(localized: "Quit \(AppVariant.current.displayName)"), #selector(quit), key: "q"))
+        menu.addItem(item(String(localized: "Settings…"), #selector(openSettings), key: ",", icon: .settings))
+        menu.addItem(item(String(localized: "Quit \(AppVariant.current.displayName)"), #selector(quit), key: "q", icon: .quit))
     }
 
     private func rebuildHistoryMenu() {
@@ -144,6 +167,7 @@ import ShotzCore
     private func captureItem(_ action: HotkeyAction) -> NSMenuItem {
         let item = NSMenuItem(title: action.title, action: #selector(capture(_:)), keyEquivalent: "")
         item.target = self
+        item.image = Self.icon(for: action).nsImage()
         item.representedObject = action.rawValue
         applyShortcut(of: action, to: item)
         return item
@@ -158,10 +182,21 @@ import ShotzCore
         }
     }
 
-    private func item(_ title: String, _ selector: Selector, key: String = "") -> NSMenuItem {
+    private func item(_ title: String, _ selector: Selector, key: String = "", icon: ShellIcon? = nil) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: selector, keyEquivalent: key)
         item.target = self
+        item.image = icon?.nsImage()
         return item
+    }
+
+    static func icon(for action: HotkeyAction) -> ShellIcon {
+        switch action {
+        case .captureArea: .captureArea
+        case .captureWindow: .captureWindow
+        case .captureFullscreen: .captureFullscreen
+        case .captureAllInOne: .captureAllInOne
+        case .restoreLastClosed: .restore
+        }
     }
 
     @objc private func capture(_ sender: NSMenuItem) {

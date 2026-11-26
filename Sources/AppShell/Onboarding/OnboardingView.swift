@@ -2,83 +2,141 @@ import AppKit
 import ShotzCore
 import SwiftUI
 
+/// The welcome window: a sidebar with the steps (progress), the step's
+/// illustration, title, text and actions, and Back / Continue at the bottom.
 struct OnboardingView: View {
     @ObservedObject var model: OnboardingModel
+    static let size = CGSize(width: 700, height: 500)
 
     var body: some View {
-        VStack(spacing: 0) {
-            Group {
-                switch model.step {
-                case .welcome: WelcomePage(model: model)
-                case .screenRecording: ScreenRecordingPage(model: model, status: model.screenRecording)
-                case .systemShortcuts: SystemShortcutsPage(model: model)
-                case .launchAtLogin: LaunchAtLoginPage(model: model, loginItem: model.loginItem)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 40)
-            .padding(.top, 36)
-
+        HStack(spacing: 0) {
+            StepSidebar(current: model.step)
+                .frame(width: 214)
             Divider()
-            HStack {
-                StepDots(current: model.step)
-                Spacer()
-                if !model.isFirst {
-                    Button(String(localized: "Back")) { model.back() }
-                        .keyboardShortcut(.cancelAction)
+            VStack(spacing: 0) {
+                Group {
+                    switch model.step {
+                    case .welcome: WelcomePage(model: model)
+                    case .screenRecording: ScreenRecordingPage(model: model, status: model.screenRecording)
+                    case .systemShortcuts: SystemShortcutsPage(model: model)
+                    case .launchAtLogin: LaunchAtLoginPage(model: model, loginItem: model.loginItem)
+                    }
                 }
-                Button(model.isLast ? String(localized: "Done") : String(localized: "Continue")) { model.next() }
-                    .keyboardShortcut(.defaultAction)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.horizontal, 32)
+                .padding(.top, 40)
+
+                HStack {
+                    Text(String(localized: "Step \(model.step.rawValue + 1) of \(OnboardingStep.allCases.count)"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    if !model.isFirst {
+                        Button(String(localized: "Back")) { model.back() }
+                            .keyboardShortcut(.cancelAction)
+                    }
+                    Button(model.isLast ? String(localized: "Done") : String(localized: "Continue")) { model.next() }
+                        .keyboardShortcut(.defaultAction)
+                }
+                .controlSize(.large)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 16)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
         }
-        .frame(width: 600, height: 470)
+        .frame(width: Self.size.width, height: Self.size.height)
     }
 }
 
-private struct StepDots: View {
+private struct StepSidebar: View {
     let current: OnboardingStep
 
     var body: some View {
-        HStack(spacing: 7) {
-            ForEach(OnboardingStep.allCases, id: \.self) { step in
-                Capsule()
-                    .fill(step == current ? Color.accentColor : Color.secondary.opacity(0.3))
-                    .frame(width: step == current ? 18 : 7, height: 7)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 36, height: 36)
+                Text(AppVariant.current.displayName)
+                    .font(.system(size: 15, weight: .semibold))
             }
+            .padding(.top, 44)
+            .padding(.bottom, 28)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(OnboardingStep.allCases, id: \.self) { step in
+                    StepRow(step: step, state: step == current ? .current : (step.rawValue < current.rawValue ? .done : .upcoming))
+                }
+            }
+            Spacer()
         }
-        .animation(.snappy, value: current)
-        .accessibilityElement()
-        .accessibilityLabel(String(localized: "Step \(current.rawValue + 1) of \(OnboardingStep.allCases.count)"))
+        .padding(.horizontal, 18)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Color.primary.opacity(0.035))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(String(localized: "Steps"))
     }
 }
 
-/// Large symbol + title + body used at the top of every page.
-struct PageHeader: View {
-    let symbol: String?
+private struct StepRow: View {
+    enum State { case done, current, upcoming }
+    let step: OnboardingStep
+    let state: State
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(state == .upcoming ? Color.clear : Color.accentColor)
+                    .overlay(Circle().strokeBorder(state == .upcoming ? Color.secondary.opacity(0.5) : Color.clear, lineWidth: 1))
+                if state == .done {
+                    Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                } else {
+                    Text("\(step.rawValue + 1)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(state == .current ? Color.white : Color.secondary)
+                }
+            }
+            .frame(width: 20, height: 20)
+            Text(step.title)
+                .font(.system(size: 13, weight: state == .current ? .semibold : .regular))
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(state == .upcoming ? Color.secondary : Color.primary)
+            Spacer()
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(RoundedRectangle(cornerRadius: 7).fill(state == .current ? Color.accentColor.opacity(0.12) : Color.clear))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(step.title)
+        .accessibilityValue(state == .current ? String(localized: "Current step") : state == .done ? String(localized: "Done") : "")
+    }
+}
+
+/// Title + body under the illustration, shared by every page.
+private struct PageText: View {
     let title: String
     let message: String
 
     var body: some View {
-        VStack(spacing: 12) {
-            if let symbol {
-                Image(systemName: symbol)
-                    .font(.system(size: 40, weight: .regular))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(height: 48)
-            } else {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 80, height: 80)
-            }
-            Text(title).font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.system(size: 22, weight: .semibold)).accessibilityAddTraits(.isHeader)
             Text(message)
-                .multilineTextAlignment(.center)
+                .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
+    }
+}
+
+extension OnboardingStep {
+    var title: String {
+        switch self {
+        case .welcome: String(localized: "Welcome")
+        case .screenRecording: String(localized: "Screen Recording")
+        case .systemShortcuts: String(localized: "Shortcuts")
+        case .launchAtLogin: String(localized: "Launch at Login")
+        }
     }
 }
 
@@ -86,31 +144,27 @@ struct WelcomePage: View {
     @ObservedObject var model: OnboardingModel
 
     var body: some View {
-        VStack(spacing: 22) {
-            PageHeader(
-                symbol: nil,
+        VStack(alignment: .leading, spacing: 20) {
+            WelcomeIllustration()
+            PageText(
                 title: String(localized: "Welcome to \(AppVariant.current.displayName)"),
                 message: String(localized: "Take a screenshot, find it waiting in the corner of your screen, mark it up, and drop it wherever it needs to go.")
             )
             VStack(alignment: .leading, spacing: 8) {
                 ForEach([HotkeyAction.captureArea, .captureFullscreen, .captureAllInOne], id: \.self) { action in
                     HStack {
-                        Text(action.title)
+                        Text(action.title).font(.system(size: 13))
                         Spacer()
-                        Text(model.hotkeys.binding(for: action).map(KeyNames.display) ?? String(localized: "No shortcut"))
-                            .font(.body.monospaced())
-                            .foregroundStyle(.secondary)
+                        // The stored shortcut: what the user gets (even if this run has --no-hotkeys).
+                        if let combo = model.settings.hotkey(for: action) {
+                            KeyCapsRow(combo: combo, size: 11)
+                        } else {
+                            Text(String(localized: "No shortcut")).font(.system(size: 12)).foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
-            .padding(14)
-            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
-            .frame(maxWidth: 360)
-            Text(model.settings.showMenuBarIcon
-                 ? String(localized: "Shotz lives in the menu bar. Everything else is a shortcut away.")
-                 : String(localized: "The menu-bar icon is hidden. Open Shotz again from Finder or Spotlight to reach Settings."))
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            .frame(maxWidth: 340)
         }
     }
 }
@@ -120,44 +174,35 @@ struct ScreenRecordingPage: View {
     @ObservedObject var status: ScreenRecordingStatus
 
     var body: some View {
-        VStack(spacing: 20) {
-            PageHeader(
-                symbol: "rectangle.dashed.badge.record",
+        VStack(alignment: .leading, spacing: 20) {
+            ScreenRecordingIllustration(granted: status.isGranted)
+            PageText(
                 title: model.reason == .permissionMissing
-                    ? String(localized: "Shotz needs Screen Recording")
+                    ? String(localized: "\(AppVariant.current.displayName) needs Screen Recording")
                     : String(localized: "Allow Screen Recording"),
                 message: String(localized: "macOS only lets apps see what's on screen with your permission. Shotz uses it for screenshots and nothing else: no recording, no network.")
             )
-            HStack(spacing: 8) {
-                Image(systemName: status.isGranted ? "checkmark.circle.fill" : "circle.dashed")
-                    .foregroundStyle(status.isGranted ? .green : .orange)
-                    .font(.title3)
-                Text(status.isGranted
-                     ? String(localized: "Screen Recording is allowed")
-                     : String(localized: "Not allowed yet"))
-                    .font(.headline)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background((status.isGranted ? Color.green : Color.orange).opacity(0.12), in: Capsule())
-            .accessibilityElement(children: .combine)
-
-            if !status.isGranted {
-                Button(String(localized: "Open System Settings")) {
-                    // Makes Shotz appear in the list (first time only), then
-                    // opens Privacy & Security ▸ Screen & System Audio Recording.
-                    Permissions.requestScreenRecording()
-                    Permissions.openScreenRecordingSettings()
+            HStack(spacing: 12) {
+                StatusPill(text: status.isGranted ? String(localized: "Screen Recording is allowed") : String(localized: "Not allowed yet"),
+                           positive: status.isGranted)
+                if !status.isGranted {
+                    Button(String(localized: "Open System Settings")) {
+                        // Makes Shotz appear in the list (first time only), then
+                        // opens Privacy & Security ▸ Screen & System Audio Recording.
+                        Permissions.requestScreenRecording()
+                        Permissions.openScreenRecordingSettings()
+                    }
                 }
-                .controlSize(.large)
-                Text(String(localized: "Turn on Shotz in the list. If macOS asks to quit and reopen Shotz, choose Later and use Relaunch below."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
             }
+            Text(status.isGranted
+                 ? String(localized: "If captures still fail, relaunch so macOS applies the permission.")
+                 : String(localized: "Turn on \(AppVariant.current.displayName) in the list. If macOS asks to quit and reopen it, choose Later, then relaunch here."))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             Button(String(localized: "Relaunch \(AppVariant.current.displayName)")) { Permissions.relaunch() }
                 .buttonStyle(.link)
+                .font(.system(size: 12))
         }
     }
 }
@@ -167,62 +212,46 @@ struct SystemShortcutsPage: View {
 
     var body: some View {
         let shortcuts = model.systemShortcuts
-        VStack(spacing: 16) {
-            PageHeader(
-                symbol: "keyboard",
+        let combos = [HotkeyAction.captureFullscreen, .captureArea, .captureAllInOne].compactMap { model.settings.hotkey(for: $0) }
+        VStack(alignment: .leading, spacing: 16) {
+            ShortcutsIllustration(combos: combos, allClear: !shortcuts.anyEnabled)
+            PageText(
                 title: String(localized: "Screenshot shortcuts"),
                 message: shortcuts.anyEnabled
                     ? String(localized: "macOS's own screenshot shortcuts are on, so ⇧⌘3, ⇧⌘4 and ⇧⌘5 won't reach Shotz yet.")
                     : String(localized: "macOS's own screenshot shortcuts are off, so ⇧⌘3, ⇧⌘4 and ⇧⌘5 can reach Shotz.")
             )
             if shortcuts.anyEnabled {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(String(localized: "To turn them off:")).font(.headline)
-                    Text(String(localized: "1. Open System Settings ▸ Keyboard and click Keyboard Shortcuts…"))
-                    Text(String(localized: "2. Choose Screenshots in the sidebar."))
-                    Text(String(localized: "3. Untick these:"))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(String(localized: "System Settings ▸ Keyboard ▸ Keyboard Shortcuts… ▸ Screenshots, untick:"))
+                        .font(.system(size: 12, weight: .medium))
                     ForEach(shortcuts.enabledItems) { item in
-                        Text("    \(item.shortcut)  \(item.name)").foregroundStyle(.secondary)
+                        Text("\(item.shortcut)  \(item.name)").font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
                 HStack {
                     Button(String(localized: "Open Keyboard Settings")) { Permissions.openKeyboardSettings() }
                     Button(String(localized: "Check Again")) { model.refreshShortcuts() }
                 }
-            } else {
-                Label(String(localized: "Nothing to change"), systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .font(.headline)
             }
             if !model.hotkeys.hotkeysEnabled {
-                Text(String(localized: "Started with --no-hotkeys: no shortcuts are registered this run."))
-                    .font(.callout).foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                note(String(localized: "Started with --no-hotkeys: no shortcuts are registered this run."))
             }
-            if !model.heldByAnotherApp.isEmpty {
-                VStack(spacing: 8) {
-                    ForEach(model.heldByAnotherApp, id: \.self) { action in
-                        if let warning = model.hotkeys.registrationWarning(for: action) {
-                            Label("\(action.title): \(warning)", systemImage: "exclamationmark.triangle.fill")
-                                .font(.callout).foregroundStyle(.orange)
-                        }
-                    }
-                    if model.canOfferAlternates {
-                        Text(String(localized: "Quit the other app or turn its shortcuts off, or use alternates."))
-                            .font(.callout).multilineTextAlignment(.center)
-                        Button(HotkeyBindings.alternatesTitle(for: model.settings.variant)) { model.useAlternateShortcuts() }
-                    }
+            ForEach(model.heldByAnotherApp, id: \.self) { action in
+                if let warning = model.hotkeys.registrationWarning(for: action) {
+                    Label("\(action.title): \(warning)", systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 12)).foregroundStyle(.orange)
                 }
             }
-            Text(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell Shotz."))
-                .font(.callout).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            if model.canOfferAlternates {
+                Button(HotkeyBindings.alternatesTitle(for: model.settings.variant)) { model.useAlternateShortcuts() }
+            }
+            note(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell Shotz."))
         }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text).font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -231,24 +260,20 @@ struct LaunchAtLoginPage: View {
     @ObservedObject var loginItem: LoginItemController
 
     var body: some View {
-        VStack(spacing: 22) {
-            PageHeader(
-                symbol: "power",
+        VStack(alignment: .leading, spacing: 20) {
+            LaunchAtLoginIllustration(on: model.launchAtLogin)
+            PageText(
                 title: String(localized: "Ready when you are"),
-                message: String(localized: "Start Shotz when you log in, so your shortcuts always work.")
+                message: String(localized: "Start \(AppVariant.current.displayName) when you log in, so your shortcuts always work.")
             )
             Toggle(String(localized: "Launch \(AppVariant.current.displayName) at login"), isOn: $model.launchAtLogin)
                 .toggleStyle(.switch)
-            if !loginItem.isInstalled {
-                Text(String(localized: "This copy doesn't add itself to your login items (it isn't in Applications, or it is a test run). The choice is saved."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Text(String(localized: "You can change any of this later in Settings."))
-                .font(.callout)
+            Text(loginItem.isInstalled
+                 ? String(localized: "You can change any of this later in Settings.")
+                 : String(localized: "This copy doesn't add itself to your login items (it isn't in Applications, or it is a test run). The choice is saved."))
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

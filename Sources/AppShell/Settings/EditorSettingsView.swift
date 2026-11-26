@@ -5,17 +5,25 @@ struct EditorSettingsView: View {
     @ObservedObject var settings: SettingsStore
 
     var body: some View {
-        Form {
-            Section(String(localized: "Drawing")) {
-                Toggle(String(localized: "Return to Select tool after drawing"), isOn: $settings.editorReturnToSelect)
-                Toggle(String(localized: "Snap while moving and cropping"), isOn: $settings.editorSnapping)
-                Note(String(localized: "Hold ⌘ while dragging to turn snapping off for a moment."))
+        PrefPane {
+            PrefSection(title: String(localized: "Drawing")) {
+                PrefRow(label: String(localized: "Tools")) {
+                    Toggle(String(localized: "Return to the Select tool after drawing"), isOn: $settings.editorReturnToSelect)
+                }
+                PrefRow(label: String(localized: "Snapping")) {
+                    Toggle(String(localized: "Snap while moving and cropping"), isOn: $settings.editorSnapping)
+                    PrefHelp(String(localized: "Hold ⌘ while dragging to turn snapping off for a moment."))
+                }
             }
-            Section(String(localized: "Closing")) {
-                Toggle(String(localized: "Close editor after copy"), isOn: $settings.editorCloseAfterCopy)
-                Toggle(String(localized: "Close editor after save"), isOn: $settings.editorCloseAfterSave)
+
+            PrefSection(title: String(localized: "Closing")) {
+                PrefRow(label: String(localized: "Close the editor")) {
+                    Toggle(String(localized: "After copying"), isOn: $settings.editorCloseAfterCopy)
+                    Toggle(String(localized: "After saving"), isOn: $settings.editorCloseAfterSave)
+                    PrefHelp(String(localized: "Closing the editor puts the capture back in the quick-access stack."))
+                }
             }
         }
-        .formStyle(.grouped)
+        .toggleStyle(.checkbox)
     }
 }

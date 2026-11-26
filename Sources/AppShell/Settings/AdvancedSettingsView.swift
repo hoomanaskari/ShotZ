@@ -10,41 +10,41 @@ struct AdvancedSettingsView: View {
     @State private var clearing = false
 
     var body: some View {
-        Form {
-            Section(String(localized: "History")) {
-                Picker(String(localized: "Keep captures for"), selection: $settings.historyRetention) {
-                    ForEach(HistoryRetention.allCases, id: \.self) { Text($0.title).tag($0) }
+        PrefPane {
+            PrefSection(title: String(localized: "History")) {
+                PrefRow(label: String(localized: "Keep captures for")) {
+                    Picker("", selection: $settings.historyRetention) {
+                        ForEach(HistoryRetention.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    PrefHelp(String(localized: "Older captures are removed when \(AppVariant.current.displayName) starts and once a day. Files you saved or exported are never touched."))
                 }
-                Note(String(localized: "Older captures are removed when Shotz starts and once a day. Exported files are never touched."))
-                HStack {
-                    Spacer()
+                PrefRow(label: nil) {
                     Button(String(localized: "Clear History…")) { confirmClear = true }
                         .disabled(clearing)
                 }
             }
 
-            Section(String(localized: "Welcome")) {
-                HStack {
-                    Text(String(localized: "Permissions, system shortcuts and launch at login"))
-                    Spacer()
-                    Button(String(localized: "Show Welcome Window")) { context.showOnboarding(false) }
+            PrefSection(title: String(localized: "Setup")) {
+                PrefRow(label: String(localized: "Welcome guide")) {
+                    Button(String(localized: "Show Welcome Window…")) { context.showOnboarding(false) }
+                    PrefHelp(String(localized: "Screen Recording permission, macOS's screenshot shortcuts and launch at login."))
                 }
             }
 
-            Section {
-                HStack {
+            PrefSection(title: String(localized: "Reset")) {
+                PrefRow(label: String(localized: "Settings")) {
+                    Button(String(localized: "Restore All Defaults…")) { confirmReset = true }
+                    PrefHelp(String(localized: "Every setting, including shortcuts, goes back to its default. History is kept."))
+                }
+                PrefRow(label: AppVariant.current.displayName) {
                     // The only way to quit when the menu-bar icon is hidden.
                     Button(String(localized: "Quit \(AppVariant.current.displayName)")) { NSApp.terminate(nil) }
-                    Spacer()
-                    Button(String(localized: "Reset All Settings…"), role: .destructive) { confirmReset = true }
                 }
             }
         }
-        .formStyle(.grouped)
-        .confirmationDialog(
-            String(localized: "Clear capture history?"),
-            isPresented: $confirmClear
-        ) {
+        .confirmationDialog(String(localized: "Clear capture history?"), isPresented: $confirmClear) {
             Button(String(localized: "Clear History"), role: .destructive) {
                 clearing = true
                 Task {
@@ -55,11 +55,8 @@ struct AdvancedSettingsView: View {
         } message: {
             Text(String(localized: "All captures kept by Shotz and their edits are deleted. Files you saved or exported stay where they are."))
         }
-        .confirmationDialog(
-            String(localized: "Reset all settings?"),
-            isPresented: $confirmReset
-        ) {
-            Button(String(localized: "Reset"), role: .destructive) {
+        .confirmationDialog(String(localized: "Restore all default settings?"), isPresented: $confirmReset) {
+            Button(String(localized: "Restore Defaults"), role: .destructive) {
                 settings.resetAll()   // keeps the onboarding-done flag
             }
         } message: {

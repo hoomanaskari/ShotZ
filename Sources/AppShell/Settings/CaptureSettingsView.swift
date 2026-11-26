@@ -5,27 +5,36 @@ struct CaptureSettingsView: View {
     @ObservedObject var settings: SettingsStore
 
     var body: some View {
-        Form {
-            Section(String(localized: "Export")) {
-                Picker(String(localized: "Format"), selection: $settings.exportFormat) {
-                    ForEach(ImageFormat.allCases, id: \.self) { Text($0.title).tag($0) }
+        PrefPane {
+            PrefSection(title: String(localized: "Exported files")) {
+                PrefRow(label: String(localized: "Format"), alignment: .center) {
+                    Picker("", selection: $settings.exportFormat) {
+                        ForEach(ImageFormat.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
                 }
-                .pickerStyle(.segmented)
-                Picker(String(localized: "Retina scale"), selection: $settings.retinaScale) {
-                    ForEach(RetinaScale.allCases, id: \.self) { Text($0.title).tag($0) }
+                PrefRow(label: String(localized: "Retina captures")) {
+                    Picker("", selection: $settings.retinaScale) {
+                        ForEach(RetinaScale.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    PrefHelp(String(localized: "Applies to exported files. Shotz keeps its own full-resolution PNG of every capture."))
                 }
-                Note(String(localized: "Applies to exported files. Shotz keeps its own copy of every capture as a full-resolution PNG."))
+                PrefRow(label: String(localized: "File name")) {
+                    FileNamePatternField(settings: settings)
+                }
             }
 
-            Section(String(localized: "Capture")) {
-                Toggle(String(localized: "Window shadow"), isOn: $settings.windowShadow)
-            }
-
-            Section(String(localized: "File name")) {
-                FileNamePatternField(settings: settings)
+            PrefSection(title: String(localized: "Windows")) {
+                PrefRow(label: String(localized: "Window captures")) {
+                    Toggle(String(localized: "Include the window's shadow"), isOn: $settings.windowShadow)
+                }
             }
         }
-        .formStyle(.grouped)
+        .toggleStyle(.checkbox)
     }
 }
 
@@ -34,27 +43,23 @@ struct FileNamePatternField: View {
     @State private var draft = ""
 
     var body: some View {
-        LabeledContent(String(localized: "Pattern")) {
-            TextField(String(localized: "Pattern"), text: $draft)
-                .labelsHidden()
-                .multilineTextAlignment(.trailing)
-                .font(.body.monospaced())
-                .onAppear { draft = settings.fileNamePattern }
-                .onSubmit(commit)
-                .onChange(of: draft) { commit() }
-        }
-        LabeledContent(String(localized: "Example")) {
-            Text(FileNaming.format(draft.isEmpty ? FileNaming.defaultPattern : draft, date: Date()) + "." + settings.exportFormat.fileExtension)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
-        }
-        Note(String(localized: "%Y year, %m month, %d day, %H hour, %M minute, %S second."))
+        TextField(String(localized: "File name pattern"), text: $draft)
+            .labelsHidden()
+            .textFieldStyle(.roundedBorder)
+            .font(.system(size: 12, design: .monospaced))
+            .frame(width: 280)
+            .onAppear { draft = settings.fileNamePattern }
+            .onSubmit(commit)
+            .onChange(of: draft) { commit() }
+        PrefHelp(String(localized: "Example: \(FileNaming.format(draft.isEmpty ? FileNaming.defaultPattern : draft, date: Date())).\(settings.exportFormat.fileExtension)"))
+        PrefHelp(String(localized: "%Y year · %m month · %d day · %H hour · %M minute · %S second"))
         if settings.fileNamePattern != FileNaming.defaultPattern {
-            Button(String(localized: "Restore Default Pattern")) {
+            Button(String(localized: "Restore Default Name")) {
                 draft = FileNaming.defaultPattern
                 commit()
             }
             .buttonStyle(.link)
+            .font(.system(size: 11))
         }
     }
 
