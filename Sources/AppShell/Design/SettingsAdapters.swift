@@ -71,3 +71,10 @@ extension KeyCombo {
         return out
     }
 }
+
+extension EnvironmentValues {
+    /// True in `--debug-snapshot-ui` renders: views leave out test-run banners and
+    /// notes so the review images show what a normal, installed run shows.
+    /// Real test-run windows keep them.
+    @Entry var presentsAsNormalRun = false
+}

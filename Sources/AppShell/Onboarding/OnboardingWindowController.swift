@@ -34,15 +34,15 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
         let previous = model.step
         model.step = step
         defer { model.step = previous }
-        let window = makeWindow()
+        let window = makeWindow(presentsAsNormalRun: true)
         window.appearance = NSAppearance(named: appearance)
         return await OffscreenRenderer.capture(window, scale: scale)
     }
 
-    private func makeWindow() -> ShellWindow {
+    private func makeWindow(presentsAsNormalRun: Bool = false) -> ShellWindow {
         let window = ShellWindow(contentRect: NSRect(origin: .zero, size: OnboardingView.size),
                                  styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
-        window.contentViewController = NSHostingController(rootView: OnboardingView(model: model))
+        window.contentViewController = NSHostingController(rootView: OnboardingView(model: model).environment(\.presentsAsNormalRun, presentsAsNormalRun))
         window.setContentSize(OnboardingView.size)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden

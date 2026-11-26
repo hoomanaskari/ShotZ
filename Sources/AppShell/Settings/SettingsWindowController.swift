@@ -56,7 +56,7 @@ import SwiftUI
     /// For `--debug-snapshot-ui`: one tab in its own off-screen window (never
     /// ordered in), in the given appearance.
     public func debugRender(tab: SettingsTab, appearance: NSAppearance.Name = .aqua, scale: CGFloat = 2) async -> Data? {
-        let tabs = SettingsTabViewController(context: context)
+        let tabs = SettingsTabViewController(context: context, presentsAsNormalRun: true)
         let window = Self.makeWindow(tabs: tabs)
         window.appearance = NSAppearance(named: appearance)
         tabs.select(tab)
@@ -71,13 +71,13 @@ final class SettingsTabViewController: NSTabViewController {
     static let paneWidth = ShotzSettingsMetrics.paneWidth
     private let context: SettingsContext
 
-    init(context: SettingsContext) {
+    init(context: SettingsContext, presentsAsNormalRun: Bool = false) {
         self.context = context
         super.init(nibName: nil, bundle: nil)
         tabStyle = .toolbar
         transitionOptions = [.crossfade]
         for tab in SettingsTab.allCases {
-            let hosting = NSHostingController(rootView: AnyView(pane(for: tab)))
+            let hosting = NSHostingController(rootView: AnyView(pane(for: tab).environment(\.presentsAsNormalRun, presentsAsNormalRun)))
             hosting.sizingOptions = []
             let item = NSTabViewItem(viewController: hosting)
             item.label = tab.title
