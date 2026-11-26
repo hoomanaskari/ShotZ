@@ -2,22 +2,23 @@
 
 A checklist of every place ShotZ, ShotZ Dev and the older "Shotz" spellings leave something on a
 Mac, with a command to **inspect** each one and, separately, a command to **remove** it. It covers
-**both generations of identifiers**:
+**both generations of identifiers**, all verified against the code (`ShotzCore/AppVariant.swift`,
+`ShotzCore/ShotzPaths.swift`, `ShotzCore/ShotzLog.swift`, `AppShell/System/LegacyDataMigration.swift`,
+`scripts/bundle.sh`, `scripts/install.sh`, `scripts/run.sh`, the test suites):
 
-- **Current (pre-release) ids** `app.shotz.Shotz` / `app.shotz.Shotz.dev`: verified against the
-  code (`ShotzCore/ShotzPaths.swift`, `ShotzCore/AppVariant.swift`, `scripts/bundle.sh`,
-  `scripts/install.sh`, `scripts/run.sh`, the test suites).
-- **Release ids** `com.pixelforty.shotz` / `com.pixelforty.shotz.dev`, which replace them before
-  release with a one-time migration. Every entry for these is marked **⟨verify⟩**: check it
-  against `AppVariant` / `ShotzPaths` once that change is on `main`.
+- **Current ids** `com.pixelforty.shotz` (ShotZ) and `com.pixelforty.shotz.dev` (ShotZ Dev).
+- **Earlier ids** `app.shotz.Shotz` and `app.shotz.Shotz.dev`, used by builds before the change.
+  On first launch, `LegacyDataMigration` **moves** the old data folder into the new one, leaves only
+  a `MIGRATED.txt` note in the old folder, and copies ShotZ's settings into the new preferences
+  domain; the **old preferences domains are left untouched**.
 
-A Mac that ran builds from both generations can have leftovers from both; remove both.
+A Mac that ran builds from both generations has leftovers from both; remove both.
 
 Nothing here runs by itself. Read each step, inspect first, then remove what you mean to remove.
 
-> **Your captures live in `~/Library/Application Support/Shotz/`** (current ids) or, after the
-> migration, `~/Library/Application Support/com.pixelforty.shotz/` ⟨verify⟩ (step 3). Copy out
-> anything you want to keep before removing those folders. Files you exported or saved (default
+> **Your captures live in `~/Library/Application Support/com.pixelforty.shotz/`** (step 3); on a Mac
+> where a current build has not run yet they are still in `~/Library/Application Support/Shotz/`.
+> Copy out anything you want to keep before removing those folders. Files you exported or saved (default
 > `~/Desktop`) are ordinary files and are not touched by anything below.
 
 ## Names at a glance
@@ -25,28 +26,27 @@ Nothing here runs by itself. Read each step, inspect first, then remove what you
 | | ShotZ (installed) | ShotZ Dev (built by `scripts/run.sh`) |
 |---|---|---|
 | App | `/Applications/ShotZ.app` (older: `/Applications/Shotz.app`) | `<repo>/build/ShotZ Dev.app` (older: `Shotz Dev.app`) |
-| **Release** bundle id / defaults domain ⟨verify⟩ | `com.pixelforty.shotz` | `com.pixelforty.shotz.dev` |
-| **Release** test-run suite ⟨verify⟩ | `com.pixelforty.shotz.testrun` | `com.pixelforty.shotz.dev.testrun` |
-| **Release** data folder ⟨verify⟩ | `Application Support/com.pixelforty.shotz` | `Application Support/com.pixelforty.shotz.dev` |
-| **Release** test-run data ⟨verify⟩ | `Application Support/com.pixelforty.shotz.testrun` | `Application Support/com.pixelforty.shotz.dev.testrun` |
-| Current bundle id / defaults domain | `app.shotz.Shotz` | `app.shotz.Shotz.dev` |
-| Current test-run suite | `app.shotz.Shotz.testrun` | `app.shotz.Shotz.dev.testrun` |
-| Current data folder (Application Support) | `Shotz` | `ShotZ Dev` |
-| Current test-run data folder | `ShotZ Test Runs` | `ShotZ Dev Test Runs` |
-| Current temp folders (`$TMPDIR`) | `Shotz`, `ShotZ Test Runs` | `ShotZ Dev`, `ShotZ Dev Test Runs` |
-| Log subsystem | `app.shotz.Shotz` (both); release value ⟨verify⟩ | |
+| Bundle id / defaults domain | `com.pixelforty.shotz` | `com.pixelforty.shotz.dev` |
+| Test-run defaults suite | `com.pixelforty.shotz.testrun` | `com.pixelforty.shotz.dev.testrun` |
+| Data folder (`~/Library/Application Support/…`) | `com.pixelforty.shotz` | `com.pixelforty.shotz.dev` |
+| Test-run data folder | `com.pixelforty.shotz.testrun` | `com.pixelforty.shotz.dev.testrun` |
+| Temp folders (`$TMPDIR`) | `com.pixelforty.shotz`, `…shotz.testrun` | `com.pixelforty.shotz.dev`, `…dev.testrun` |
+| Log subsystem | `com.pixelforty.shotz` (both apps) | |
+| **Earlier** bundle id / defaults domain | `app.shotz.Shotz` | `app.shotz.Shotz.dev` |
+| **Earlier** test-run suite | `app.shotz.Shotz.testrun` | `app.shotz.Shotz.dev.testrun` |
+| **Earlier** data folder | `Shotz` (after migration: only `MIGRATED.txt`) | `ShotZ Dev` (same) |
+| **Earlier** test-run data folder | `ShotZ Test Runs` | `ShotZ Dev Test Runs` |
+| **Earlier** temp folders | `Shotz`, `ShotZ Test Runs` | `ShotZ Dev`, `ShotZ Dev Test Runs` |
+| **Earlier** log subsystem | `app.shotz.Shotz` | |
 
-Release temp-folder names ⟨verify⟩: `ShotzPaths.temporary` uses the data folder's name, so expect
-`$TMPDIR/com.pixelforty.shotz…`.
+Test-run folders and suites are never migrated: the earlier ones simply stay behind. A migration that
+was interrupted can leave a staging folder `com.pixelforty.shotz.migrating` (or `….dev.migrating`)
+next to the data folder; the next launch discards and redoes it.
 
 Older still: the dev profile used before the variants landed
-(`~/Library/Application Support/Shotz-Dev`, `$TMPDIR/Shotz-Dev`, defaults suite
-`app.shotz.Shotz.dev`, later the dev app's own domain) and the pre-rename app names `Shotz.app` /
-`Shotz Dev.app`. On the default case-insensitive APFS disk, `Shotz.app` and `ShotZ.app` (or
-`Shotz Dev` and `ShotZ Dev`) are the same folder.
-
-The one-time migration moves data from the current to the release locations ⟨verify: move or
-copy⟩. If it copies, the current-id folders and domains below stay behind and need removing too.
+(`~/Library/Application Support/Shotz-Dev`, `$TMPDIR/Shotz-Dev`) and the pre-rename app names
+`Shotz.app` / `Shotz Dev.app`. On the default case-insensitive APFS disk, `Shotz.app` and
+`ShotZ.app` (or `Shotz Dev` and `ShotZ Dev`) are the same folder.
 
 ## 0. Quit and switch off launch at login first
 
@@ -103,7 +103,8 @@ Each folder holds `Captures/` (original PNGs), `Documents/` (editable annotation
 
 Inspect:
 ```bash
-ls -ld ~/Library/Application\ Support/com.pixelforty.shotz* 2>/dev/null   # release ids ⟨verify⟩
+ls -ld ~/Library/Application\ Support/com.pixelforty.shotz* 2>/dev/null   # current ids (incl. .testrun, .migrating)
+cat ~/Library/Application\ Support/Shotz/MIGRATED.txt 2>/dev/null           # where the earlier data went
 ls -ld ~/Library/Application\ Support/{Shotz,"ShotZ Dev","ShotZ Test Runs","ShotZ Dev Test Runs",Shotz-Dev} 2>/dev/null
 du -sh ~/Library/Application\ Support/{com.pixelforty.shotz,com.pixelforty.shotz.dev,Shotz,"ShotZ Dev","ShotZ Test Runs","ShotZ Dev Test Runs",Shotz-Dev} 2>/dev/null
 ```
@@ -111,12 +112,13 @@ Remove (move to the Trash; one line per folder):
 ```bash
 osascript -e 'tell application "Finder" to delete POSIX file "'"$HOME"'/Library/Application Support/Shotz"'
 ```
-- `com.pixelforty.shotz` ⟨verify⟩: the installed app's data after the migration. **Back up first.**
-- `com.pixelforty.shotz.dev`, `com.pixelforty.shotz.testrun`, `com.pixelforty.shotz.dev.testrun`
-  ⟨verify⟩: the development app and test runs under the release ids.
-- `Shotz`: the installed app's captures and history under the current ids (or what the migration
-  left behind). **Back up first if you want them.**
-- `ShotZ Dev`: the development app's data.
+- `com.pixelforty.shotz`: the installed app's captures, documents and history. **Back up first.**
+- `com.pixelforty.shotz.dev`, `com.pixelforty.shotz.testrun`, `com.pixelforty.shotz.dev.testrun`, and
+  any `….migrating` staging folder: the development app, test runs, an interrupted migration.
+- `Shotz`: after migration it holds only `MIGRATED.txt` and can go. If it still holds `Captures/`
+  and `history.json`, no current build has run yet (or the migration failed and left the data in
+  place, as designed): **back up first if you want them.**
+- `ShotZ Dev`: the earlier development app's data (after migration: only `MIGRATED.txt`).
 - `ShotZ Test Runs`, `ShotZ Dev Test Runs`: hermetic engineer and test launches; safe to remove.
 - `Shotz-Dev`: the old dev profile; safe to remove.
 
@@ -145,8 +147,9 @@ For the test suites, delete each by name (they are only test data):
 ```bash
 ls ~/Library/Preferences | grep -E '^Shotz[A-Za-z]*Tests-' | sed 's/\.plist$//' | while read -r d; do defaults delete "$d"; done
 ```
-The four `com.pixelforty.shotz…` names are the release ids ⟨verify⟩. Use `defaults delete` rather
-than deleting `.plist` files: `cfprefsd` caches preferences and would
+The migration copies ShotZ's settings into the new domain and leaves the `app.shotz.Shotz…` domains
+as they were, so both generations show up here. Use `defaults delete` rather than deleting `.plist`
+files: `cfprefsd` caches preferences and would
 write a deleted file back.
 
 ## 5. Caches, saved state, HTTP storage
@@ -157,7 +160,7 @@ Inspect:
 ```bash
 ls -ld ~/Library/Caches/{app.shotz.Shotz,com.pixelforty.shotz}* \
        ~/Library/Saved\ Application\ State/{app.shotz.Shotz,com.pixelforty.shotz}* \
-       ~/Library/HTTPStorages/{app.shotz.Shotz,com.pixelforty.shotz}* 2>/dev/null   # com.pixelforty… ⟨verify⟩
+       ~/Library/HTTPStorages/{app.shotz.Shotz,com.pixelforty.shotz}* 2>/dev/null
 ```
 Remove: move whatever the listing shows to the Trash (Finder ▸ Go ▸ Go to Folder… `~/Library/Caches`
 and so on).
@@ -170,7 +173,7 @@ Drag-out copies and in-flight capture files live under the user temp directory
 Inspect:
 ```bash
 ls -ld "$TMPDIR"Shotz "$TMPDIR"Shotz-Dev "$TMPDIR""ShotZ Dev" "$TMPDIR""ShotZ Test Runs" "$TMPDIR""ShotZ Dev Test Runs" 2>/dev/null
-ls -ld "$TMPDIR"com.pixelforty.shotz* 2>/dev/null   # release ids ⟨verify⟩
+ls -ld "$TMPDIR"com.pixelforty.shotz* 2>/dev/null   # current ids
 ls -d "$TMPDIR"Shotz*Tests-* 2>/dev/null   # leftovers from interrupted test runs
 ```
 Remove: these folders are scratch space; move them to the Trash, or leave them: macOS clears
@@ -185,13 +188,13 @@ ShotZ Dev). From Terminal this needs Full Disk Access, so the Settings pane is e
 
 Remove (one command per bundle id; run only the ones whose entry exists):
 ```bash
-tccutil reset ScreenCapture com.pixelforty.shotz       # release ⟨verify⟩
-tccutil reset ScreenCapture com.pixelforty.shotz.dev   # release ⟨verify⟩
+tccutil reset ScreenCapture com.pixelforty.shotz
+tccutil reset ScreenCapture com.pixelforty.shotz.dev
 tccutil reset ScreenCapture app.shotz.Shotz
 tccutil reset ScreenCapture app.shotz.Shotz.dev
 ```
-A permission granted to the current ids does not carry over to the release ids: after the change
-ShotZ asks for Screen Recording again, and the old entry stays in the list until reset.
+A permission granted to an earlier id does not carry over: after the id change ShotZ asks for Screen
+Recording again, and the earlier entry stays in the list until reset.
 Or select the entry in the Settings pane and click −. Don't run `tccutil reset ScreenCapture`
 without a bundle id: that resets the permission for every app.
 
@@ -203,7 +206,7 @@ sfltool dumpbtm | grep -i -B2 -A6 -E 'shotz|pixelforty'   # asks for an administ
 ```
 Remove: turn it off in ShotZ's own Settings while the app is still installed (step 0), or click −
 in the Login Items pane. Each bundle id registers its own login item, so after the id change there
-can be two ShotZ entries (current and release ⟨verify⟩); remove the stale one. Avoid `sfltool resetbtm`: it resets the login and background items of
+can be two ShotZ entries (earlier and current); remove the stale one. Avoid `sfltool resetbtm`: it resets the login and background items of
 every app.
 
 ## 9. Launch Services registrations
@@ -229,7 +232,7 @@ Avoid `lsregister -kill`: it rebuilds the database for every app.
 
 Inspect:
 ```bash
-log show --last 1d --info --predicate 'subsystem == "app.shotz.Shotz" OR subsystem BEGINSWITH "com.pixelforty.shotz"' | tail -50   # release subsystem ⟨verify⟩
+log show --last 1d --info --predicate 'subsystem == "com.pixelforty.shotz" OR subsystem == "app.shotz.Shotz"' | tail -50
 ls ~/Library/Logs/DiagnosticReports | grep -iE 'shotz'
 ```
 Remove:
@@ -237,12 +240,18 @@ Remove:
   erases the logs of every app; not recommended.)
 - Crash reports: move the `ShotZ…` / `Shotz…` `.ips` files listed above to the Trash.
 
-## 11. Sparkle (once updates ship)
+## 11. Sparkle (software updates)
 
-Not present yet: engineer A is adding Sparkle. When it lands, verify against the code and fill in.
-Sparkle ships with the release ids, so expect its downloaded updates under
-`~/Library/Caches/com.pixelforty.shotz/` (covered by step 5) and its settings as `SU…` keys in the
-`com.pixelforty.shotz` defaults domain (covered by step 4) ⟨verify⟩.
+ShotZ (production only) embeds Sparkle; its feed and key settings are in `Resources/Info.plist` and
+`scripts/bundle.sh`. Where Sparkle keeps things is Sparkle's own convention, not ShotZ code:
+
+Inspect:
+```bash
+ls -ld ~/Library/Caches/com.pixelforty.shotz/org.sparkle-project.Sparkle 2>/dev/null   # downloaded updates
+defaults read com.pixelforty.shotz 2>/dev/null | grep -E '^ *"?SU'                      # Sparkle's own settings
+```
+Remove: the cache folder goes with step 5 (`~/Library/Caches/com.pixelforty.shotz`), and the `SU…`
+settings go with the domain in step 4. ShotZ Dev has no updater.
 
 ## 12. Empty the Trash and check
 
