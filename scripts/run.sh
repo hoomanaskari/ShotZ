@@ -23,8 +23,15 @@ done
 "$ROOT/scripts/bundle.sh" debug
 
 # Quit a previous dev instance: only processes whose executable is this bundle's.
+# Matched by the resolved executable path of each running Shotz process, so an
+# instance started with a relative or symlinked path is found too.
 dev_pids() {
-  pgrep -f -x "$EXE( .*)?" || true
+  local pid exe
+  for pid in $(pgrep -x Shotz || true); do
+    exe="$(lsof -a -p "$pid" -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+    [[ "$exe" == "$EXE" ]] && echo "$pid"
+  done
+  return 0
 }
 PIDS="$(dev_pids)"
 if [[ -n "$PIDS" ]]; then
