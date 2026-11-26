@@ -124,6 +124,20 @@ public final class SoftwareUpdates: ObservableObject {
     }
 }
 
+extension SoftwareUpdates {
+    /// For `--debug-snapshot-ui` renders: a stand-in that never touches the network.
+    public static func preview(_ availability: UpdateAvailability) -> SoftwareUpdates {
+        SoftwareUpdates(availability: availability) { _ in PreviewUpdater() }
+    }
+}
+
+@MainActor
+private final class PreviewUpdater: UpdaterBackend {
+    var automaticallyChecks = true
+    var lastCheckDate: Date? = Date().addingTimeInterval(-2 * 3600)
+    func checkForUpdates() {}
+}
+
 /// Sparkle 2's standard updater and user driver, set up for a menu-bar (LSUIElement) app:
 /// ShotZ comes to the front whenever Sparkle shows a window, and an update found by a
 /// background check waits as a gentle reminder ("Update Available…" in the menu)

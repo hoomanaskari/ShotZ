@@ -13,6 +13,8 @@ import ShotzCore
             log.error("Snapshot dir: \(error.localizedDescription, privacy: .public)")
             return
         }
+        // The menu as the installed app shows it (with "Check for Updates…"); never contacts the network.
+        coordinator.statusItem.updates = .preview(.available)
         // Rendered off screen: nothing is shown and Shotz is never activated.
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             for scale in [1.0, 2.0] {
@@ -25,6 +27,10 @@ import ShotzCore
                     write(await coordinator.settingsWindow.debugRender(tab: tab, appearance: appearance, scale: scale),
                           to: dir.appending(path: "settings-\(tab.rawValue)-\(suffix).png"))
                 }
+                // The updates section without a signing key yet (what the first builds show).
+                write(await coordinator.settingsWindow.debugRender(tab: .advanced, appearance: appearance, scale: scale,
+                                                                   updates: .preview(.unavailable(.noPublicKey))),
+                      to: dir.appending(path: "settings-advanced-nokey-\(suffix).png"))
                 write(await coordinator.statusItem.debugMenuSnapshot(appearance: appearance, scale: scale),
                       to: dir.appending(path: "status-menu-\(suffix).png"))
             }

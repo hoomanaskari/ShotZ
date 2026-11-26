@@ -15,6 +15,8 @@ import ShotzCore
 @MainActor final class AppCoordinator: QuickAccessDelegate {
     let paths = ShotzPaths.default
     let settings = SettingsStore()
+    /// Sparkle in the production app; nothing (no network) in ShotZ Dev and test runs.
+    let updates = SoftwareUpdates.forThisApp()
     let engine: CaptureEngine = SystemCaptureEngine()
     let history: FileHistoryStore
     let exporter: ExportService
@@ -62,6 +64,7 @@ import ShotzCore
         let testRun = AppVariant.isTestRun
         hotkeys = HotkeyCenter(settings: settings, hotkeysEnabled: !testRun)
         statusItem = StatusItemController(hotkeys: hotkeys)
+        statusItem.updates = updates
         loginItem = LoginItemController(settings: settings, testRun: testRun)
         onboarding = OnboardingWindowController(
             settings: settings, hotkeys: hotkeys, loginItem: loginItem, screenRecording: screenRecording
@@ -74,7 +77,8 @@ import ShotzCore
             clearHistory: { [weak self] in await self?.clearHistory() },
             showOnboarding: { [weak self] permissionStep in
                 self?.onboarding.show(step: permissionStep ? .screenRecording : .welcome)
-            }
+            },
+            updates: updates
         ))
     }
 

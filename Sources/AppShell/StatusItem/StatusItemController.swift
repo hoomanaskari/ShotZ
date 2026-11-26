@@ -11,6 +11,8 @@ import ShotzCore
     public var onOpenSettings: (() -> Void)?
     /// Called when the menu opens so the owner can refresh history.
     public var onMenuWillOpen: (() -> Void)?
+    /// Software updates: "Check for Updates…" appears only when they are available.
+    public var updates: SoftwareUpdates?
     /// Whether "Restore Last Closed Card" is available right now.
     public var canRestoreLastClosed: () -> Bool = { false }
 
@@ -135,6 +137,11 @@ import ShotzCore
         menu.addItem(restore)
         menu.addItem(.separator())
         menu.addItem(item(String(localized: "Settings…"), #selector(openSettings), key: ",", icon: .settings))
+        if let updates, updates.isAvailable {
+            let title = updates.pendingVersion.map { String(localized: "Update Available (\($0))…") }
+                ?? String(localized: "Check for Updates…")
+            menu.addItem(item(title, #selector(checkForUpdates)))
+        }
         menu.addItem(item(String(localized: "Quit \(AppVariant.current.displayName)"), #selector(quit), key: "q", icon: .quit))
     }
 
@@ -198,6 +205,8 @@ import ShotzCore
         case .restoreLastClosed: .restore
         }
     }
+
+    @objc private func checkForUpdates() { updates?.checkForUpdates() }
 
     @objc private func capture(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,

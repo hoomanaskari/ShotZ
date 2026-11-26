@@ -4,7 +4,8 @@ ShotZ is an original, open-source macOS screenshot and annotation app. It is a
 menu-bar agent: a global shortcut captures the screen, the capture appears in
 a quick-access stack of thumbnail cards, and one click opens it in an
 annotation editor. It is native Swift 6, AppKit-first, built for macOS 15 and
-later, with no third-party dependencies, no network access and no telemetry.
+later, with no telemetry. Its one dependency, Sparkle 2, checks for updates in
+the installed app; nothing else uses the network.
 
 - Behaviour: [docs/SPEC.md](docs/SPEC.md)
 - Structure, module contracts and conventions: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -109,9 +110,11 @@ The launch log starts with `Variant: …` and has one `Hotkey …` line per acti
 Signing: `bundle.sh` uses `$SHOTZ_SIGN_IDENTITY` if set, otherwise the first
 "Apple Development" identity in the keychain, otherwise ad-hoc, with the same
 rule for debug and release so the Screen Recording grant carries over. A
-release build refuses ad-hoc signing unless `SHOTZ_ALLOW_ADHOC=1`, uses the
-hardened runtime (checked after signing) and never contacts the network (no
-secure timestamp). The version comes from `Resources/Info.plist`.
+release build refuses ad-hoc signing unless `SHOTZ_ALLOW_ADHOC=1`, is universal
+(arm64 + x86_64), uses the hardened runtime (checked after signing), embeds and
+signs Sparkle.framework, and gets a secure timestamp only with a Developer ID
+identity. The version comes from `Resources/Info.plist`: change it with
+`scripts/bump-version.sh <marketing> [build]`.
 
 `install.sh` (owner/manager, main checkout only; it refuses to run from a
 worktree) builds a release, stages and verifies the copy next to
