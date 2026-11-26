@@ -23,8 +23,8 @@ Sources/
   Shotz/             executable: main.swift, AppDelegate, AppCoordinator (engineer A)
 Tests/
   <Module>Tests/     one test target per library module (owned with the module)
-Resources/           Info.plist, entitlements, AppIcon (original art), sounds
-scripts/             bundle.sh, run.sh, install.sh
+Resources/           Info.plist, entitlements, AppIcon.icns / AppIcon-Dev.icns, icon-master/, icon generators
+scripts/             bundle.sh, run.sh, install.sh, make-icons.sh
 docs/
 ```
 
@@ -285,7 +285,8 @@ scripts/bundle.sh dev            # → build/ShotZ Dev.app (development app, deb
 scripts/bundle.sh release        # → build/ShotZ.app (production app, release build)
 scripts/run.sh [app args…]       # build and run ShotZ Dev; quits only its own previous instance
 scripts/install.sh               # production release → /Applications/ShotZ.app (manager/owner only)
-swift Resources/make-app-icon.swift [preview-dir]   # writes AppIcon.icns and AppIcon-Dev.icns
+scripts/make-icons.sh [<master>] [--glyph <file>]  # app icons (+ menu-bar glyph) from the owner's art; docs/ICON.md
+swift Resources/make-app-icon.swift [preview-dir]   # placeholder icon (used when Resources/icon-master/ is empty)
 swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradient, shapes, text; 144 dpi)
 ```
 
