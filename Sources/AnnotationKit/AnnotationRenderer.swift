@@ -10,81 +10,150 @@ public enum AnnotationRenderer {
     public static func draw(
         _ object: AnnotationObject, in ctx: CGContext, document: AnnotationDocument, base: BaseImageProvider
     ) {
-        // TODO(engineer C): real drawing for every shape. Minimal placeholder strokes only.
+        draw(object, in: ctx, document: document, base: base, quality: .final)
+    }
+
+    /// As `draw(_:in:document:base:)`, with a quality choice (use `.preview` while dragging a redaction).
+    public static func draw(
+        _ object: AnnotationObject, in ctx: CGContext, document: AnnotationDocument, base: BaseImageProvider,
+        quality: RenderQuality
+    ) {
         ctx.saveGState()
         defer { ctx.restoreGState() }
-        ctx.setStrokeColor(object.style.color.withAlpha(object.style.color.alpha * object.style.opacity).cgColor)
-        ctx.setLineWidth(object.style.lineWidth)
-        ctx.stroke(bounds(of: object).insetBy(dx: object.style.lineWidth, dy: object.style.lineWidth))
+        ctx.setShouldAntialias(true)
+        ctx.setAllowsAntialiasing(true)
+        let style = object.style
+        switch object.shape {
+        case .arrow(let g):
+            drawArrow(g, style: style, in: ctx)
+        case .rectangle(let rect, let radius):
+            drawBox(rect, cornerRadius: radius, ellipse: false, style: style, in: ctx)
+        case .ellipse(let rect):
+            drawBox(rect, cornerRadius: 0, ellipse: true, style: style, in: ctx)
+        case .line(let s, let e):
+            drawLine(s, e, style: style, in: ctx)
+        case .text(let box):
+            drawText(box, style: style, in: ctx)
+        case .highlight(let h):
+            drawHighlight(h, style: style, in: ctx)
+        case .redact(let rect, let mode):
+            drawRedaction(rect, mode: mode, style: style, document: document, base: base, quality: quality, in: ctx)
+        case .counter(let c):
+            drawCounter(c, style: style, in: ctx)
+        case .pen(let pts):
+            drawPen(pts, style: style, in: ctx)
+        }
+    }
+
+    /// Blend mode an object needs against what is beneath it. The editor should mirror this on
+    /// the object's layer (e.g. `compositingFilter = "multiplyBlendMode"` for highlights),
+    /// because a separate layer cannot multiply against the image by itself.
+    public static func blendMode(for object: AnnotationObject) -> CGBlendMode {
+        if case .highlight = object.shape { return .multiply }
+        return .normal
+    }
+
+    /// Objects in paint order: redactions first (SPEC §5.3), then everything else in z-order.
+    public static func paintOrder(_ objects: [AnnotationObject]) -> [AnnotationObject] {
+        objects.filter(\.isRedaction) + objects.filter { !$0.isRedaction }
     }
 
     /// Full flattened image at base-image pixel resolution (× outputScale).
     public static func renderImage(
         _ document: AnnotationDocument, base: BaseImageProvider, outputScale: CGFloat
     ) throws -> CGImage {
-        let image = try base.image()
-        let rect = document.imageRect
-        let width = Int((rect.width * outputScale).rounded())
-        let height = Int((rect.height * outputScale).rounded())
-        guard let ctx = CGContext(
-            data: nil, width: max(width, 1), height: max(height, 1), bitsPerComponent: 8, bytesPerRow: 0,
-            space: image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { throw RenderError.contextCreationFailed }
+        try renderImage(document, base: base, outputScale: outputScale, opaqueMatte: nil)
+    }
 
-        // Flip to top-left origin pixel space, then translate for crop.
+    /// `opaqueMatte`: composite onto this colour first (for formats without alpha, e.g. JPEG).
+    static func renderImage(
+        _ document: AnnotationDocument, base: BaseImageProvider, outputScale rawScale: CGFloat, opaqueMatte: RGBAColor?
+    ) throws -> CGImage {
+        let image = try base.image()
+        let outputScale = rawScale > 0 ? rawScale : 1
+        let layout = BackgroundLayout(document: document, visibleContent: visibleContent(document, base: base))
+        let width = max(Int((layout.canvasSize.width * outputScale).rounded()), 1)
+        let height = max(Int((layout.canvasSize.height * outputScale).rounded()), 1)
+        let space = Redactor.workingSpace(of: image)
+        guard let ctx = Redactor.bitmap(width: width, height: height, space: space) else {
+            throw RenderError.contextCreationFailed
+        }
+        ctx.interpolationQuality = .high
+        // Flip to a top-left-origin canvas space.
         ctx.translateBy(x: 0, y: CGFloat(height))
         ctx.scaleBy(x: outputScale, y: -outputScale)
-        ctx.translateBy(x: -rect.minX, y: -rect.minY)
+        let canvas = CGRect(origin: .zero, size: layout.canvasSize)
+        if let opaqueMatte {
+            ctx.setFillColor(opaqueMatte.cgColor)
+            ctx.fill(canvas)
+        }
+        if let background = document.background {
+            drawBackgroundFill(background.fill, in: canvas, ctx: ctx)
+        }
 
-        // CGContext.draw expects bottom-up; draw the image un-flipped locally.
+        // Image group: base image, redactions, objects; clipped to the visible image, with the
+        // background's corner radius and shadow applied to the group as a whole.
+        let rect = document.imageRect
         ctx.saveGState()
-        ctx.translateBy(x: 0, y: document.pixelSize.height)
-        ctx.scaleBy(x: 1, y: -1)
-        ctx.draw(image, in: CGRect(origin: .zero, size: document.pixelSize))
+        ctx.translateBy(x: layout.imageFrame.minX - rect.minX, y: layout.imageFrame.minY - rect.minY)
+        let shadow = document.background.map { shadowParameters($0.shadow, imageSize: rect.size) } ?? nil
+        if let shadow {
+            ctx.setShadowInUserSpace(offset: shadow.offset, blur: shadow.blur, color: shadow.color)
+            ctx.beginTransparencyLayer(in: rect.insetBy(dx: -1, dy: -1), auxiliaryInfo: nil)
+        }
+        let radius = min(document.background?.cornerRadius ?? 0, min(rect.width, rect.height) / 2)
+        if radius > 0 {
+            ctx.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
+        } else {
+            ctx.addRect(rect)
+        }
+        ctx.clip()
+        ctx.drawFlipped(image, in: CGRect(origin: .zero, size: document.pixelSize))
+        for object in paintOrder(document.objects) {
+            draw(object, in: ctx, document: document, base: base, quality: .final)
+        }
+        if shadow != nil { ctx.endTransparencyLayer() }
         ctx.restoreGState()
 
-        // TODO(engineer C): background, redactions first, then other objects.
-        for object in document.objects {
-            draw(object, in: ctx, document: document, base: base)
-        }
         guard let output = ctx.makeImage() else { throw RenderError.contextCreationFailed }
         return output
     }
 
-    /// Dirty rect including stroke. TODO(engineer C): exact for text, arrow heads, curves.
-    public static func bounds(of object: AnnotationObject) -> CGRect {
-        let pad = object.style.lineWidth
-        let raw: CGRect
-        switch object.shape {
-        case .arrow(let g):
-            raw = rectContaining([g.start, g.end] + (g.control.map { [$0] } ?? []))
-            return raw.insetBy(dx: -pad * 3, dy: -pad * 3)
-        case .rectangle(let r, _), .ellipse(let r), .redact(let r, _), .highlight(.rect(let r)):
-            raw = r.standardized
-        case .line(let s, let e):
-            raw = rectContaining([s, e])
-        case .text(let box):
-            let width = box.wrapWidth ?? CGFloat(max(box.string.count, 1)) * object.style.fontSize * 0.6
-            let lines = CGFloat(max(box.string.split(separator: "\n", omittingEmptySubsequences: false).count, 1))
-            raw = CGRect(origin: box.origin, size: CGSize(width: width, height: lines * object.style.fontSize * 1.25))
-        case .highlight(.freehand(let pts)), .pen(let pts):
-            raw = rectContaining(pts)
-        case .counter(let c):
-            let r = object.style.fontSize
-            let circle = CGRect(x: c.center.x - r, y: c.center.y - r, width: 2 * r, height: 2 * r)
-            raw = c.tail.map { circle.union(rectContaining([$0])) } ?? circle
-        }
-        return raw.insetBy(dx: -pad, dy: -pad)
+    /// The visible-content rect used for auto-balance, relative to the crop's origin.
+    static func visibleContent(_ document: AnnotationDocument, base: BaseImageProvider) -> CGRect? {
+        guard let bg = document.background, bg.autoBalance, let visible = base.visibleContentBounds() else { return nil }
+        let rect = document.imageRect
+        let r = visible.intersection(rect)
+        guard !r.isEmpty else { return nil }
+        return r.offsetBy(dx: -rect.minX, dy: -rect.minY)
     }
 
-    static func rectContaining(_ points: [CGPoint]) -> CGRect {
-        guard let first = points.first else { return .null }
-        var minX = first.x, minY = first.y, maxX = first.x, maxY = first.y
-        for p in points.dropFirst() {
-            minX = min(minX, p.x); minY = min(minY, p.y)
-            maxX = max(maxX, p.x); maxY = max(maxY, p.y)
+    /// Dirty rect including stroke, heads, outlines, pills and shadows.
+    public static func bounds(of object: AnnotationObject) -> CGRect {
+        let style = object.style
+        let w = style.lineWidth
+        let r: CGRect
+        switch object.shape {
+        case .arrow(let g):
+            let path = ArrowPath.make(g, width: w)
+            r = path.boundingBox(extraWidth: style.contrastOutline ? 2 * contrastOutlineWidth(lineWidth: w) : 0)
+        case .rectangle(let rect, _), .ellipse(let rect):
+            r = style.fill == .filled ? rect.standardized : rect.standardized.insetBy(dx: -w / 2, dy: -w / 2)
+        case .line(let s, let e):
+            r = Geometry.rect(s, e).insetBy(dx: -w / 2, dy: -w / 2)
+        case .text(let box):
+            let layout = TextLayout(box: box, fontSize: style.fontSize)
+            r = layout.frame.insetBy(dx: -TextLayout.outlineWidth(fontSize: style.fontSize), dy: -TextLayout.outlineWidth(fontSize: style.fontSize))
+        case .highlight(.freehand(let pts)), .pen(let pts):
+            r = StrokeSmoothing.path(through: pts).boundingBoxOfPath.insetBy(dx: -w / 2, dy: -w / 2)
+        case .highlight(.rect(let rect)), .redact(let rect, _):
+            r = rect.standardized
+        case .counter(let c):
+            r = CounterShape(c, radius: style.fontSize).bounds
         }
-        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        // One pixel of slack for antialiasing.
+        return r.insetBy(dx: -1, dy: -1)
     }
+
+    static func rectContaining(_ points: [CGPoint]) -> CGRect { Geometry.rectContaining(points) }
 }
