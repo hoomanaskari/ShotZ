@@ -75,6 +75,12 @@ public actor FileHistoryStore: HistoryStore {
 
     public var count: Int { loaded().count }
 
+    /// The capture's last export if that file still exists.
+    public func exportURL(for id: CaptureResult.ID) -> URL? {
+        guard let url = entry(id: id)?.exportURL, Self.exists(url) else { return nil }
+        return url
+    }
+
     /// True when the editor has written an editable document for this capture.
     public nonisolated func hasDocument(for id: CaptureResult.ID) -> Bool {
         Self.exists(documentURL(for: id))
@@ -82,8 +88,8 @@ public actor FileHistoryStore: HistoryStore {
 
     // MARK: Mutations
 
-    /// Records the latest export of a capture (Save, auto-save).
-    public func markExported(id: CaptureResult.ID, to url: URL) {
+    /// Records the latest export of a capture (Save, auto-save, editor Save).
+    public func markExported(id: CaptureResult.ID, url: URL) {
         mutate { list in
             guard let index = list.firstIndex(where: { $0.id == id }) else { return }
             list[index].exportURL = url
