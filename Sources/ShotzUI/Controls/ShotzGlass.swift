@@ -19,23 +19,23 @@ extension ShotzUI {
         public var glassDiameter: CGFloat {
             switch self {
             case .small: 22
-            case .medium: 24
-            case .large: 26
+            case .medium: 28
+            case .large: 30
             }
         }
         public var glassGlyph: CGFloat {
             switch self {
             case .small: 12
-            case .medium: 13
-            case .large: 14
+            case .medium: 15
+            case .large: 16
             }
         }
         /// Distance from the card edge to a corner circle.
         public var cornerInset: CGFloat { self == .small ? 6 : 8 }
         /// Size of the centred labelled pair (Copy / Save).
         public var labelSize: ControlSize { self == .large ? .regular : .compact }
-        /// Small cards show icon-only centre buttons (labels don't fit two-up at 150 pt).
-        public var centreShowsLabels: Bool { self != .small }
+        /// Small cards use a tighter labelled pair (11-pt label, 6-pt padding) so two fit in 150 pt.
+        var isTight: Bool { self == .small }
         public var cornerRadius: CGFloat { self == .small ? 8 : 10 }
     }
 }
@@ -118,10 +118,14 @@ public final class ShotzCaptionPill: NSView {
 }
 
 extension ShotzButton {
-    /// The labelled glass pair button for a card (Copy / Save with icons; icon-only on small cards).
+    /// The labelled glass pair button for a card (Copy / Save, icon + label at every card size).
     public static func glass(_ title: String, icon: ShotzIcon, cardSize: ShotzUI.CardSize) -> ShotzButton {
-        let b = ShotzButton(title: cardSize.centreShowsLabels ? title : nil, icon: icon, role: .glass, size: cardSize.labelSize)
-        b.setAccessibilityLabel(title)
+        let b = ShotzButton(title: title, icon: icon, role: .glass, size: cardSize.labelSize)
+        if cardSize.isTight {
+            b.titleFont = NSFont.systemFont(ofSize: 11, weight: .medium)
+            b.paddingOverride = 6
+            b.iconSizeOverride = 12
+        }
         return b
     }
 }

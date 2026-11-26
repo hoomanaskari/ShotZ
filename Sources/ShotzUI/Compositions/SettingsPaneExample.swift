@@ -1,11 +1,11 @@
 import ShotzCore
 import SwiftUI
 
-/// Reference composition for a Settings pane (General), built only from ShotzUI parts:
-/// icon+label tabs, an inline banner, sections with headers over grouped cards, rows with help
-/// text and trailing controls, key caps and a status badge. Guidance for AppShell; not wired.
+/// Reference composition for a Settings pane's content (General), built only from ShotzUI parts:
+/// an inline banner, sections with headers over grouped cards, rows with help text and trailing
+/// controls, key caps and a status badge. Tabs come from the window's system preferences
+/// toolbar (AppShell's `NSToolbar` with `ShotzIcon`), not from this view. Guidance; not wired.
 public struct SettingsPaneExample: View {
-    @State private var tab = 0
     @State private var launchAtLogin = true
     @State private var menuBarIcon = false
     @State private var sounds = true
@@ -16,19 +16,8 @@ public struct SettingsPaneExample: View {
 
     public init() {}
 
-    public static let tabs: [ShotzSettingsTabBar.Tab] = [
-        .init(String(localized: "General"), icon: .general), .init(String(localized: "Shortcuts"), icon: .keyboard),
-        .init(String(localized: "Quick Access"), icon: .stack), .init(String(localized: "Capture"), icon: .capture),
-        .init(String(localized: "Editor"), icon: .editor), .init(String(localized: "Advanced"), icon: .advanced),
-    ]
-
     public var body: some View {
         VStack(spacing: 0) {
-            ShotzSettingsTabBar(Self.tabs, selection: $tab)
-                .padding(.vertical, ShotzUI.Space.s)
-                .frame(maxWidth: .infinity)
-                .background(Color(nsColor: ShotzUI.Palette.surface))
-            Rectangle().fill(Color(nsColor: ShotzUI.Palette.separator)).frame(height: 1)
             ShotzSettingsPane {
                 ShotzBanner(String(localized: "This copy is a development build. Launch at login takes effect from the Applications folder."), tone: .info)
                 ShotzSettingsSection(String(localized: "Startup")) {

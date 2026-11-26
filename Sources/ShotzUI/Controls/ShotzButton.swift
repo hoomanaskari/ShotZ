@@ -10,6 +10,11 @@ public final class ShotzButton: ShotzControlView {
     public var role: ShotzUI.ControlRole = .secondary { didSet { needsDisplay = true } }
     /// Overrides the label font (e.g. `Typography.value` for a zoom percentage).
     public var titleFont: NSFont? { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
+    /// Tighter metrics for dense placements (small stack cards); nil uses the control size's.
+    public var paddingOverride: CGFloat? { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
+    public var iconSizeOverride: CGFloat? { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
+    private var padding: CGFloat { paddingOverride ?? shotzSize.horizontalPadding }
+    private var iconSide: CGFloat { iconSizeOverride ?? shotzSize.iconSize }
     /// Keeps paired buttons (Copy / Save) the same width.
     public var minimumWidth: CGFloat = 0 { didSet { invalidateIntrinsicContentSize() } }
 
@@ -28,11 +33,12 @@ public final class ShotzButton: ShotzControlView {
     public override var intrinsicContentSize: NSSize {
         let s = shotzSize
         if isIconOnly { return NSSize(width: s.hitHeight, height: s.hitHeight) }
-        var w = 2 * s.horizontalPadding
-        if icon != nil { w += s.iconSize + s.iconLabelGap }
+        var w = 2 * padding
+        if icon != nil { w += iconSide + s.iconLabelGap }
         if let title { w += ceil((title as NSString).size(withAttributes: [.font: titleFont ?? s.font]).width) }
         // Text buttons get a little extra breathing room so short labels don't look cramped.
-        return NSSize(width: max(ceil(w) + 4, minimumWidth, s.height * 2), height: s.hitHeight)
+        let extra: CGFloat = paddingOverride == nil ? 4 : 0
+        return NSSize(width: max(ceil(w) + extra, minimumWidth, paddingOverride == nil ? s.height * 2 : 0), height: s.hitHeight)
     }
 
     public override func drawControl(in ctx: CGContext, state: ShotzUI.ControlState) {
@@ -46,12 +52,12 @@ public final class ShotzButton: ShotzControlView {
 
         let font = titleFont ?? s.font
         let titleWidth = title.map { ceil(($0 as NSString).size(withAttributes: [.font: font]).width) } ?? 0
-        let contentWidth = (icon != nil ? s.iconSize : 0) + (icon != nil && titleWidth > 0 ? s.iconLabelGap : 0) + titleWidth
+        let contentWidth = (icon != nil ? iconSide : 0) + (icon != nil && titleWidth > 0 ? s.iconLabelGap : 0) + titleWidth
         var x = (chrome.midX - contentWidth / 2).rounded()
         if let icon {
-            let r = CGRect(x: x, y: (chrome.midY - s.iconSize / 2).rounded(), width: s.iconSize, height: s.iconSize)
+            let r = CGRect(x: x, y: (chrome.midY - iconSide / 2).rounded(), width: iconSide, height: iconSide)
             drawIcon(icon, in: r, color: fills.content, ctx: ctx)
-            x += s.iconSize + s.iconLabelGap
+            x += iconSide + s.iconLabelGap
         }
         if let title, titleWidth > 0 {
             drawText(title, font: font, color: fills.content, centeredIn: CGRect(x: x, y: chrome.minY, width: titleWidth, height: chrome.height))

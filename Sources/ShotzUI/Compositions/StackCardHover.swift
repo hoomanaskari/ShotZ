@@ -4,8 +4,9 @@ import ShotzCore
 /// Reference composition for a quick-access card on hover, built from the glass controls:
 /// close (top-left), annotate (top-right), the Copy / Save pair centred, Quick Look
 /// (bottom-right) and the size caption pill (bottom-left). Metrics come from `ShotzUI.CardSize`:
-/// corner circles 22 / 24 / 26 pt inset 6 / 8 / 8 pt; the centre pair is compact on small and
-/// medium cards (icon-only on small) and regular on large, 8 pt apart. The image dims by 25 %.
+/// corner circles 22 / 28 / 30 pt (hit ≥ 28) inset 6 / 8 / 8 pt; the centre pair is icon + label at
+/// every size: tight compact on small, compact on medium, regular on large, 8 pt apart (6 on small).
+/// The image dims by 25 %.
 @MainActor
 public final class StackCardHover: NSView {
     public let cardSize: ShotzUI.CardSize
@@ -53,9 +54,10 @@ public final class StackCardHover: NSView {
         annotateButton.frame = CGRect(x: bounds.maxX - o - s.width, y: o, width: s.width, height: s.height)
         quickLookButton.frame = CGRect(x: bounds.maxX - o - s.width, y: bounds.maxY - o - s.height, width: s.width, height: s.height)
         let c = copyButton.intrinsicContentSize
-        let total = 2 * c.width + ShotzUI.Space.s
+        let gap = cardSize == .small ? 6 : ShotzUI.Space.s
+        let total = 2 * c.width + gap
         copyButton.frame = CGRect(x: (bounds.midX - total / 2).rounded(), y: (bounds.midY - c.height / 2).rounded(), width: c.width, height: c.height)
-        saveButton.frame = copyButton.frame.offsetBy(dx: c.width + ShotzUI.Space.s, dy: 0)
+        saveButton.frame = copyButton.frame.offsetBy(dx: c.width + gap, dy: 0)
         let p = caption.intrinsicContentSize
         caption.frame = CGRect(x: cardSize.cornerInset, y: (quickLookButton.frame.midY - p.height / 2).rounded(), width: p.width, height: p.height)
     }

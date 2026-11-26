@@ -38,8 +38,8 @@ first-mouse, Space/Return activation, VoiceOver role/label/value, `stateOverride
 | `ShotzButton` `.secondary` | Other labelled actions (editor Copy and Save, Choose…) |
 | `ShotzButton` `.quiet` (icon only) | Toolbar actions: zoom, more, undo; always with `setShotzToolTip(_:shortcut:)` |
 | `ShotzButton` `.destructive` | Delete, Clear history |
-| `ShotzButton.glass(_:icon:cardSize:)` | The labelled Copy / Save pair on a card (icon-only on small cards) |
-| `ShotzGlassIconButton` | Circular glass corner buttons on a card; 22 / 24 / 26 pt by `ShotzUI.CardSize` |
+| `ShotzButton.glass(_:icon:cardSize:)` | The icon + label Copy / Save pair on a card (tighter metrics on small cards) |
+| `ShotzGlassIconButton` | Circular glass corner buttons on a card; 30 / 28 / 22 pt (large / medium / small), hit ≥ 28 |
 | `ShotzCaptionPill` | The size caption on a card |
 | `ShotzToolButton` | Editor tools; selected = soft accent tint + accent edge + accent glyph |
 | `ShotzSegmentedControl` | Mutually exclusive styles (arrow style, fill mode, text style); text or icon segments |
@@ -64,7 +64,7 @@ SwiftUI (Settings and onboarding), drawn from the same tokens and the same state
 `.buttonStyle(.shotz(role, size:))`, `ShotzLabel`, `ShotzIconView`, `.toggleStyle(.shotzSwitch)`,
 `.toggleStyle(.shotzCheckbox)`, `.toggleStyle(.shotzChip)`, `ShotzSegmentedPicker`, `ShotzMenuPicker`,
 `ShotzSliderView`, `ShotzSwatchPicker`, `ShotzSettingsPane`, `ShotzSettingsSection`, `ShotzCard`,
-`ShotzSettingsRow`, `ShotzSettingsTabBar`, `ShotzBanner`, `ShotzKeyCapsView`, `ShotzStatusBadge`.
+`ShotzSettingsRow`, `ShotzSettingsTabBar` (onboarding / in-window tabs only), `ShotzBanner`, `ShotzKeyCapsView`, `ShotzStatusBadge`.
 
 SwiftUI also has `ShotzFormRow` (label column), `ShotzHelpText(tone:)` and `ShotzShortcutField`
 (the recorder's look; key capture stays with the caller).
@@ -145,8 +145,10 @@ Settings and onboarding (AppShell): one ShotzUI part per existing wrapper
 | `KeyCap`, `KeyCapsRow` | `ShotzKeyCapsView([…])` |
 | `ShortcutRecorderField` | `ShotzShortcutField` |
 | `StatusPill(text:positive:)` | `ShotzStatusBadge(_:positive:)` |
-| Window tabs | `ShotzSettingsTabBar` (icons `.general`, `.keyboard`, `.stack`, `.capture`, `.editor`, `.advanced`) |
 
+- [ ] Tabs: keep the system preferences toolbar (`NSToolbar`) with `ShotzIcon` images (`.general`,
+      `.keyboard`, `.stack`, `.capture`, `.editor`, `.advanced`). Pane content uses ShotzUI sections,
+      cards, rows and switches. (`ShotzSettingsTabBar` is for onboarding or in-window tab strips only.)
 - [ ] Swap each wrapper body for its ShotzUI part (the panes don't change).
 - [ ] Format and similar choices: `ShotzSegmentedPicker` (≤ 4 options) or `ShotzMenuPicker`.
 - [ ] Onboarding primary action: `.shotz(.primary, size: .large)`, one per page.

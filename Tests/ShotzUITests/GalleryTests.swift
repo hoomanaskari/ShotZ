@@ -153,12 +153,14 @@ struct GalleryTests {
             let sheet = GallerySheet(width: 900)
             for (accentName, accent) in [("blue", GalleryOutput.blue), ("purple", NSColor(srgbRed: 0.58, green: 0.33, blue: 0.80, alpha: 1)),
                                          ("orange", NSColor(srgbRed: 0.97, green: 0.51, blue: 0.10, alpha: 1)), ("graphite", NSColor(srgbRed: 0.55, green: 0.55, blue: 0.57, alpha: 1)),
+                                         ("green", NSColor(srgbRed: 0.38, green: 0.73, blue: 0.27, alpha: 1)), ("red", NSColor(srgbRed: 1, green: 0.27, blue: 0.23, alpha: 1)),
                                          ("yellow", NSColor(srgbRed: 1.0, green: 0.78, blue: 0.0, alpha: 1))] {
                 ShotzUI.Palette.accentOverride = accent
                 let tool = ShotzToolButton(icon: .arrowTool); tool.isSelected = true
+                let done = ShotzButton(title: "Done", role: .primary)
                 let chip = ShotzToggleChip(title: "Outline", isOn: true)
                 let slider = ShotzSlider(value: 0.6, icon: .opacity, label: "Opacity", size: .compact); slider.trackWidth = 72
-                sheet.row(accentName, [ShotzButton(title: "Save", icon: .save, role: .primary), tool, chip, slider], height: 40)
+                sheet.row(accentName, [done, tool, chip, slider], height: 40)
                 // Render each accent row immediately (dynamic colours resolve at draw time).
                 let img = AccentRowSnapshot.capture(sheet, appearance: appearance)
                 AccentRowSnapshot.rows.append(img)

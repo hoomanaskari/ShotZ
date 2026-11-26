@@ -143,24 +143,29 @@ extension ShotzUI {
         static func black(_ a: CGFloat) -> NSColor { NSColor(srgbRed: 0, green: 0, blue: 0, alpha: a) }
         static func white(_ a: CGFloat) -> NSColor { NSColor(srgbRed: 1, green: 1, blue: 1, alpha: a) }
 
-        /// The primary fill and its label. White labels are preferred (they read as "Mac primary");
-        /// the accent deepens up to 40 % to get white to the contrast goal. Only light accents
-        /// (yellow, orange) that would turn muddy get a dark label on the accent instead.
+        /// Accents brighter than this (yellow, orange, green) are "light": they keep a dark label.
+        static let lightAccentLuminance: CGFloat = 0.32
+
+        /// The primary fill and its label. On blue, purple, pink, red and graphite the label is white,
+        /// as macOS users expect, and the fill deepens just enough (a little more in dark mode) for
+        /// white to reach the contrast goal. Genuinely light accents keep their colour, undeepened,
+        /// with a near-black label.
         static func accentPair(accent: NSColor, variant v: Variant) -> (fill: NSColor, label: NSColor) {
-            let start: CGFloat = v == .light ? 0.12 : v == .lightHC ? 0.30 : v == .dark ? 0 : 0.15
             let goal: CGFloat = v.isHighContrast ? 7 : 4.6
-            var t = start
-            while t <= 0.4 {
+            if luminance(accent) > lightAccentLuminance {
+                var t: CGFloat = 0
+                while t < 0.9 {
+                    let c = accent.mixed(with: .black, t)
+                    if contrast(nearBlack, c) >= goal { return (c, nearBlack) }
+                    t += 0.03
+                }
+                return (accent, nearBlack)
+            }
+            var t: CGFloat = v == .light ? 0.12 : v == .lightHC ? 0.30 : v == .dark ? 0 : 0.15
+            while t < 0.9 {
                 let c = accent.mixed(with: .black, t)
                 if contrast(.white, c) >= goal { return (c, .white) }
                 t += 0.02
-            }
-            t = start
-            while t < 0.9 {
-                let c = accent.mixed(with: .black, t)
-                if contrast(nearBlack, c) >= goal { return (c, nearBlack) }
-                if contrast(.white, c) >= goal { return (c, .white) }
-                t += 0.03
             }
             return (accent.mixed(with: .black, 0.9), .white)
         }

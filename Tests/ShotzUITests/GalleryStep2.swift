@@ -94,7 +94,7 @@ struct GalleryStep2Tests {
             x += size.width + 40
         }
         sheet.block(holder, height: 156, x: 24 + sheet.labelWidth)
-        sheet.label("Large card shows the pointer over Copy. Small cards use icon-only centre buttons.", at: CGPoint(x: 24 + sheet.labelWidth, y: sheet.cursor - 6))
+        sheet.label("Large card shows the pointer over Copy. Circles 22 / 28 / 30 pt; icon + label pair at every size.", at: CGPoint(x: 24 + sheet.labelWidth, y: sheet.cursor - 6))
         sheet.spacer(16)
         sheet.title("Glass pieces")
         let strip = ImageBackdrop(frame: CGRect(x: 0, y: 0, width: 1132, height: 52))
@@ -105,14 +105,14 @@ struct GalleryStep2Tests {
             strip.addSubview(v)
             gx += s.width + 14
         }
-        for size in ShotzUI.CardSize.allCases { put(ShotzGlassIconButton(icon: .annotate, cardSize: size)) }
+        for size in ShotzUI.CardSize.allCases.reversed() { put(ShotzGlassIconButton(icon: .annotate, cardSize: size)) }
         let pressed = ShotzGlassIconButton(icon: .close); pressed.stateOverride = .pressed; put(pressed)
         put(ShotzButton.glass("Copy", icon: .copy, cardSize: .large)); put(ShotzButton.glass("Save", icon: .save, cardSize: .medium))
         put(ShotzButton.glass("Save", icon: .save, cardSize: .small))
         for size in ShotzUI.CardSize.allCases { put(ShotzCaptionPill("1920 × 1080", cardSize: size)) }
-        put(ShotzToast("Copied", compact: true)); put(ShotzToast("Couldn't save", tone: .failure, compact: true))
+        put(ShotzToast("Copied", compact: true)); put(ShotzToast("Couldn't save", tone: .failure, compact: true)); put(ShotzToast("Saved"))
         sheet.block(strip, height: 52)
-        sheet.label("Glass circles 22 / 24 / 26 pt, pressed; Copy · Save pairs (large, medium, small); caption pills; compact toasts.",
+        sheet.label("Glass circles 30 / 28 / 22 pt (by card size), pressed; Copy · Save pairs (large, medium, small); caption pills; toasts.",
                     at: CGPoint(x: 24, y: sheet.cursor - 6))
         sheet.spacer(12)
         sheet.finish()
