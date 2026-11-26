@@ -41,18 +41,78 @@ struct CounterToolTests {
         #expect(m.selection == [m.objects[0].id])
     }
 
-    @Test func startValueAndTypedValue() {
+    @Test func startValue() {
         let m = makeModel(tool: .counter)
         m.library.update(.counter) { $0.counterStart = 5 }
         m.click(CGPoint(x: 100, y: 100))
         #expect(values(m) == [5])
+    }
+
+    @Test func digitsPickColoursUntilValueEditingStarts() {
+        let m = makeModel(tool: .counter)
+        m.click(CGPoint(x: 100, y: 100))
         let keys = EditorKeyHandler(model: m)
-        var t = Date()
-        keys.now = { t }
+        // A selected counter: 5 picks blue, it does not change the number.
+        #expect(keys.handle(.character("5")))
+        #expect(values(m) == [1])
+        #expect(m.objects[0].style.color == RGBAColor.presets[4])
+        // Return enters value editing; digits replace the number; Return commits in one step.
+        #expect(keys.handle(.returnKey))
+        #expect(m.editingCounterID == m.objects[0].id)
         _ = keys.handle(.character("1"))
-        t += 0.2
         _ = keys.handle(.character("2"))
         #expect(values(m) == [12])
+        _ = keys.handle(.delete)
+        #expect(values(m) == [1])
+        _ = keys.handle(.character("7"))
+        _ = keys.handle(.returnKey)
+        #expect(m.editingCounterID == nil)
+        #expect(values(m) == [17])
+        m.store.undo()
+        #expect(values(m) == [1])
+        #expect(m.objects[0].style.color == RGBAColor.presets[4]) // the colour change was its own step
+    }
+
+    @Test func escCancelsValueEditingAndDoubleClickStartsIt() {
+        let m = makeModel(tool: .counter)
+        m.click(CGPoint(x: 100, y: 100))
+        m.setTool(.select)
+        m.click(CGPoint(x: 100, y: 100), count: 2)
+        #expect(m.editingCounterID == m.objects[0].id)
+        let keys = EditorKeyHandler(model: m)
+        _ = keys.handle(.character("9"))
+        #expect(values(m) == [9])
+        #expect(keys.handle(.escape))
+        #expect(m.editingCounterID == nil)
+        #expect(values(m) == [1])
+        #expect(!m.selection.isEmpty) // Esc ended the edit only
+    }
+
+    @Test func clickingAnotherObjectEndsValueEditing() {
+        let m = makeModel(tool: .counter)
+        m.click(CGPoint(x: 100, y: 100))
+        m.click(CGPoint(x: 400, y: 100))
+        m.beginCounterValueEditing(m.objects[0].id)
+        m.typeCounterDigit(4)
+        m.select([m.objects[1].id])
+        #expect(m.editingCounterID == nil)
+        #expect(values(m) == [4, 2])
+    }
+
+    @Test func counterToolClickOnAnyObjectSelectsIt() {
+        let m = makeModel(tool: .rectangle)
+        m.library.update(.rectangle) { $0.fill = .filled }
+        m.drag(CGPoint(x: 100, y: 100), CGPoint(x: 300, y: 300))
+        m.setTool(.counter)
+        m.clearSelection()
+        m.click(CGPoint(x: 200, y: 200))
+        #expect(m.objects.count == 1)
+        #expect(m.selection == [m.objects[0].id])
+        // A drag that starts on an unselected object still places a counter with a tail
+        // (dragging a selected object moves it).
+        m.clearSelection()
+        m.drag(CGPoint(x: 200, y: 200), CGPoint(x: 500, y: 450))
+        #expect(m.objects.count == 2)
     }
 }
 
@@ -88,6 +148,26 @@ struct TextToolTests {
         m.store.undo(); m.store.undo()
         guard case .text(let original) = m.objects[0].shape else { Issue.record("not text"); return }
         #expect(original.string == "Hello")
+    }
+
+    @Test func plainClickSelectsAnyObjectAndDoubleClickEditsText() throws {
+        let m = makeModel(tool: .rectangle)
+        m.library.update(.rectangle) { $0.fill = .filled }
+        m.drag(CGPoint(x: 100, y: 100), CGPoint(x: 300, y: 300))
+        let text = AnnotationObject(shape: .text(TextBox(origin: CGPoint(x: 600, y: 100), string: "Hi")), style: m.style(for: .text))
+        m.store.perform("Add") { $0.objects.append(text) }
+        m.setTool(.text)
+        let host = FakeTextHost()
+        m.textHost = host
+        m.click(CGPoint(x: 200, y: 200))
+        #expect(m.selection == [m.objects[0].id])
+        #expect(host.began.isEmpty)
+        m.click(CGPoint(x: 610, y: 110))
+        #expect(m.selection == [text.id])
+        #expect(host.began.isEmpty) // a plain click selects
+        m.click(CGPoint(x: 610, y: 110), count: 2)
+        #expect(host.began.first?.0.id == text.id)
+        #expect(host.began.first?.1 == false)
     }
 
     @Test func dragSetsWrapWidth() throws {

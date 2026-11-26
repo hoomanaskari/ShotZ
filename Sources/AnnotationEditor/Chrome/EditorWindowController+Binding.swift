@@ -160,6 +160,10 @@ extension EditorWindowController {
                 content.handles.append((Handle(kind: h.kind, position: overlayPoint(h.position)), h.kind == .control || h.kind == .tail))
             }
         }
+        if let id = model.editingCounterID, let object = model.document[id: id] {
+            // The counter whose number is being typed.
+            content.hintOutlines.append(CGPath(ellipseIn: overlayRect(model.frame(of: object)).insetBy(dx: -6, dy: -6), transform: nil))
+        }
         for id in model.redactionHintIDs {
             guard let object = model.document[id: id] else { continue }
             content.hintOutlines.append(CGPath(rect: overlayRect(model.frame(of: object)).insetBy(dx: -0.5, dy: -0.5), transform: nil))
@@ -233,11 +237,13 @@ extension EditorWindowController: CanvasKeyHandling {
 extension EditorWindowController: EditorUndoTarget {
     func undoDocument() {
         if canvas.text.isEditingText { canvas.text.endEditing() }
+        model.endCounterValueEditing(commit: true)
         store.undo()
     }
 
     func redoDocument() {
         if canvas.text.isEditingText { canvas.text.endEditing() }
+        model.endCounterValueEditing(commit: true)
         store.redo()
     }
 

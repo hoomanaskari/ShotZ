@@ -145,6 +145,7 @@ import AppKit
             NSCursor.closedHand.set()
             return
         }
+        model.endCounterValueEditing(commit: true)
         if text.isEditingText {
             text.endEditing()
             if model.toolKind == .select || model.toolKind == .text { return }

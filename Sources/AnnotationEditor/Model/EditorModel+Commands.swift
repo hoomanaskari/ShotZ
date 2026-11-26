@@ -155,17 +155,6 @@ extension EditorModel {
         return o
     }
 
-    // MARK: Counter value
-
-    /// Types over the value of a selected counter.
-    func setCounterValue(_ value: Int, for id: AnnotationObject.ID) {
-        guard let object = document[id: id], case .counter(var c) = object.shape else { return }
-        c.value = max(1, value)
-        store.perform(String(localized: "Change Number")) { doc in
-            doc[id: id]?.shape = .counter(c)
-        }
-    }
-
     // MARK: Background
 
     func setBackground(_ background: BackgroundStyle?, interactive: Bool) {

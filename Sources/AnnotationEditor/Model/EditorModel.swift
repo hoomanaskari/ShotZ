@@ -34,6 +34,9 @@ import Foundation
     var marquee: CGRect? { didSet { if marquee != oldValue { notify(.overlay) } } }
     var cropDraft: CGRect? { didSet { if cropDraft != oldValue { notify(.overlay) } } }
     var cropAspect: CropAspect = .free { didSet { notify(.toolSettings) } }
+    /// The counter whose value is being typed over (nil = not editing).
+    var editingCounterID: AnnotationObject.ID? { didSet { if editingCounterID != oldValue { notify(.tool) } } }
+    var counterDigits = ""
     /// The object under the pointer (for hover outlines).
     var hoveredObjectID: AnnotationObject.ID? { didSet { if hoveredObjectID != oldValue { notify(.overlay) } } }
     /// Objects hidden while they are edited in place.
@@ -63,6 +66,7 @@ import Foundation
 
     func setTool(_ kind: ToolKind) {
         if textHost?.isEditingText == true { textHost?.endEditing() }
+        endCounterValueEditing(commit: true)
         tool.deactivate()
         toolKind = kind
         tool = Self.makeTool(kind, model: self)
@@ -106,6 +110,7 @@ import Foundation
         var unique: [AnnotationObject.ID] = []
         for id in valid where !unique.contains(id) { unique.append(id) }
         guard unique != selection else { return }
+        if let editing = editingCounterID, unique != [editing] { endCounterValueEditing(commit: true) }
         selection = unique
         notify(.selection)
     }
