@@ -76,7 +76,7 @@ import ShotzCore
         let withBackdrop = qa.cards.values.filter(\.hasBackdrop).count
         check("blurred backdrop on letterboxed cards only", !backdrops.isEmpty && backdrops.allSatisfy { $0 }, "\(withBackdrop) of \(backdrops.count) cards")
         snapshot("01-initial")
-        if DevProfile.defaults.bool(forKey: "QuickAccessSelfTestGallery") { await gallery(qa: qa) }
+        if UserDefaults.standard.bool(forKey: "QuickAccessSelfTestGallery") { await gallery(qa: qa) }
         await captureExclusion()
         await hoverAndStyle()
         await focusRules()
