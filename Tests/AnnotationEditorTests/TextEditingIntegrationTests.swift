@@ -123,4 +123,28 @@ struct TextEditingIntegrationTests {
         try key(c, "\r", 36, [.command])
         #expect(preview.superlayer == nil)
     }
+
+    @Test func escapeInAnOptionsFieldReturnsTheKeyboardToTheCanvas() throws {
+        let c = try makeController()
+        c.model.setTool(.crop)
+        c.optionsBar.rebuild()
+        let field = try #require(c.optionsBar.widthField)
+        let window = try #require(c.window)
+        window.makeFirstResponder(field)
+        #expect(window.firstResponder !== c.canvas)
+        window.cancelOperation(nil)
+        #expect(window.firstResponder === c.canvas)
+    }
+
+    @Test func swatchesAreAccessibleAndPressable() throws {
+        var pressed = 0
+        let swatch = ColorSwatchControl(color: .systemBlue, selected: true, label: "Blue (5)") { pressed += 1 }
+        #expect(swatch.accessibilityRole() == .radioButton)
+        #expect(swatch.accessibilityLabel() == "Blue (5)")
+        #expect(swatch.accessibilityPerformPress())
+        let space = try #require(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0,
+                                                  context: nil, characters: " ", charactersIgnoringModifiers: " ", isARepeat: false, keyCode: 49))
+        swatch.keyDown(with: space)
+        #expect(pressed == 2)
+    }
 }

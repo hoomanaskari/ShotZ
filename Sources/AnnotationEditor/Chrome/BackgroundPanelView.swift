@@ -124,7 +124,7 @@ import AppKit
         section(String(localized: "Shadow"))
         let shadows = AnnotationKit.BackgroundStyle.Shadow.allCases
         stack.addArrangedSubview(controls.segmented(titles: [String(localized: "Off"), String(localized: "Soft"), String(localized: "Strong")],
-                                                    selected: shadows.firstIndex(of: s.shadow)) { [weak self] i in
+                                                    selected: shadows.firstIndex(of: s.shadow), label: String(localized: "Shadow")) { [weak self] i in
             self?.update { $0.shadow = shadows[i] }
         })
         section(String(localized: "Alignment"))
@@ -132,7 +132,7 @@ import AppKit
         section(String(localized: "Aspect"))
         let aspects = AnnotationKit.BackgroundStyle.Aspect.allCases
         stack.addArrangedSubview(controls.segmented(titles: aspects.map { $0 == .auto ? String(localized: "Auto") : $0.rawValue },
-                                                    selected: aspects.firstIndex(of: s.aspect)) { [weak self] i in
+                                                    selected: aspects.firstIndex(of: s.aspect), label: String(localized: "Aspect")) { [weak self] i in
             self?.update { $0.aspect = aspects[i] }
         })
         section(String(localized: "Presets"))
@@ -149,7 +149,7 @@ import AppKit
         case .gradient: 2
         }
         stack.addArrangedSubview(controls.segmented(titles: [String(localized: "None"), String(localized: "Solid"), String(localized: "Gradient")],
-                                                    selected: kind) { [weak self] i in
+                                                    selected: kind, label: String(localized: "Fill")) { [weak self] i in
             self?.update {
                 switch i {
                 case 0: $0.fill = .none
@@ -200,8 +200,10 @@ import AppKit
         let buttons: [NSButton] = all.map { a in
             let on = a == s.alignment
             let image = NSImage(systemSymbolName: on ? "circle.fill" : "circle", accessibilityDescription: nil) ?? NSImage()
-            let b = controls.imageButton(image, label: a.rawValue) { [weak self] in self?.update { $0.alignment = a } }
+            let b = controls.imageButton(image, label: Self.alignmentName(a)) { [weak self] in self?.update { $0.alignment = a } }
             b.contentTintColor = on ? .controlAccentColor : .tertiaryLabelColor
+            b.setAccessibilityRole(.radioButton)
+            b.setAccessibilityValue(on ? 1 : 0)
             return b
         }
         let grid = NSGridView(views: [Array(buttons[0..<3]), Array(buttons[3..<6]), Array(buttons[6..<9])])
@@ -266,6 +268,20 @@ import AppKit
         let v = NSView()
         v.setContentHuggingPriority(.init(1), for: .horizontal)
         return v
+    }
+
+    static func alignmentName(_ a: AnnotationKit.BackgroundStyle.Alignment) -> String {
+        switch a {
+        case .topLeft: String(localized: "Align top left")
+        case .top: String(localized: "Align top")
+        case .topRight: String(localized: "Align top right")
+        case .left: String(localized: "Align left")
+        case .center: String(localized: "Align centre")
+        case .right: String(localized: "Align right")
+        case .bottomLeft: String(localized: "Align bottom left")
+        case .bottom: String(localized: "Align bottom")
+        case .bottomRight: String(localized: "Align bottom right")
+        }
     }
 
     static func rgba(_ color: NSColor) -> RGBAColor {

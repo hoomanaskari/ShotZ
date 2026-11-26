@@ -8,6 +8,8 @@ extension EditorWindowController {
         keyHandler.onToggleBackground = { [weak self] in self?.toggleBackgroundPanelVisibility() }
         canvas.onLayoutChange = { [weak self] in self?.layoutChanged() }
         canvas.onInteractionEnded = { [weak self] in self?.interactionEnded() }
+        optionsBar.onFocusCanvas = { [weak self] in self?.focusCanvas() }
+        (window as? EditorWindow)?.onCancel = { [weak self] in self?.focusCanvas() }
 
         toolbarController.onSelectTool = { [weak self] kind in
             self?.model.setTool(kind)

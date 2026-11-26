@@ -95,6 +95,7 @@ import ShotzCore
         window.toolbar = toolbarController.toolbar
         window.commandMenu = commandMenu
         window.undoTarget = self
+        window.autorecalculatesKeyViewLoop = true
         window.delegate = self
         window.tabbingMode = .disallowed
         window.setFrameAutosaveName("")
