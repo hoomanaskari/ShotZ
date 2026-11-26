@@ -70,3 +70,16 @@ extension AnnotationObject.Shape {
         }
     }
 }
+
+extension AnnotationObject {
+    /// Tolerant decoding: the shape is required; a missing id gets a fresh one and a missing
+    /// or damaged style falls back to the default.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: (try? c.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID(),
+            shape: try c.decode(Shape.self, forKey: .shape),
+            style: (try? c.decodeIfPresent(ObjectStyle.self, forKey: .style)) ?? .default
+        )
+    }
+}
