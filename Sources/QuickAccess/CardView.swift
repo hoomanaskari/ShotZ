@@ -31,6 +31,7 @@ import ShotzCore
     /// Blurred aspect-fill of the thumbnail behind letterboxed images.
     private let backdropLayer = CALayer()
     private let backdropTint = CALayer()
+    private let contactShadow = CALayer()
     private let borderLayer = CALayer()
     let overlay: CardOverlayView
     private var thumbnail: CGImage?
@@ -46,9 +47,15 @@ import ShotzCore
         wantsLayer = true
         layerContentsRedrawPolicy = .never
         layer?.masksToBounds = false
+        // Two shadows: a large soft ambient one on the card layer, and a tight
+        // contact shadow that keeps the edge defined on any background.
         layer?.shadowColor = .black
-        layer?.shadowOffset = CGSize(width: 0, height: -3)
-        layer?.shadowRadius = 9
+        layer?.shadowOffset = CGSize(width: 0, height: -4)
+        layer?.shadowRadius = 12
+        contactShadow.shadowColor = .black
+        contactShadow.shadowOffset = CGSize(width: 0, height: -0.5)
+        contactShadow.shadowRadius = 1.5
+        layer?.addSublayer(contactShadow)
 
         clip.wantsLayer = true
         clip.layerContentsRedrawPolicy = .never
@@ -134,7 +141,10 @@ import ShotzCore
         borderLayer.frame = clip.bounds
         let scale = window?.backingScaleFactor ?? 2
         borderLayer.borderWidth = 1 / scale
-        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: style.cornerRadius, cornerHeight: style.cornerRadius, transform: nil)
+        let path = CGPath(roundedRect: bounds, cornerWidth: style.cornerRadius, cornerHeight: style.cornerRadius, transform: nil)
+        layer?.shadowPath = path
+        contactShadow.frame = bounds
+        contactShadow.shadowPath = path
         CATransaction.commit()
     }
 
@@ -155,13 +165,14 @@ import ShotzCore
         clip.layer?.backgroundColor = palette.backdrop
         backdropTint.backgroundColor = palette.backdropTint
         borderLayer.borderColor = palette.border
-        layer?.shadowOpacity = palette.shadowOpacity
+        layer?.shadowOpacity = palette.ambientShadowOpacity
+        contactShadow.shadowOpacity = palette.contactShadowOpacity
         overlay.apply(palette)
         CATransaction.commit()
     }
 
-    func flash(_ text: String, symbol: String, success: Bool) {
-        overlay.showFlash(text, symbol: symbol, success: success)
+    func flash(_ text: String, success: Bool) {
+        overlay.showFlash(text, success: success)
     }
 
     func markExiting() {
@@ -249,7 +260,7 @@ import ShotzCore
                 let item = NSMenuItem(title: action.title, action: #selector(menuAction(_:)), keyEquivalent: "")
                 item.target = self
                 item.representedObject = action
-                item.image = NSImage(systemSymbolName: action.symbolName, accessibilityDescription: nil)
+                item.image = CardIcon.action(action).image(pointSize: 13)
                 menu.addItem(item)
             }
         }

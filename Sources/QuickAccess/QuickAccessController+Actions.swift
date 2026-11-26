@@ -34,7 +34,7 @@ extension QuickAccessController: CardViewDelegate {
             let pb = NSPasteboard.general
             pb.clearContents()
             pb.setString(card.source.fileURL.path(percentEncoded: false), forType: .string)
-            card.flash(String(localized: "Path Copied"), symbol: "checkmark.circle.fill", success: true)
+            card.flash(String(localized: "Path Copied"), success: true)
         case .closeAll:
             for other in model.order.compactMap({ cards[$0] }) { close(other, deleteFile: false) }
         }
@@ -49,11 +49,11 @@ extension QuickAccessController: CardViewDelegate {
     private func copy(_ card: CardView) async {
         do {
             try await exporter.copyToPasteboard(imageAt: card.source.fileURL)
-            card.flash(String(localized: "Copied"), symbol: "checkmark.circle.fill", success: true)
+            card.flash(String(localized: "Copied"), success: true)
             if settings.quickAccessCloseAfterCopy { await closeAfterFlash(card) }
         } catch {
             log.error("Copy failed: \(String(describing: error), privacy: .public)")
-            card.flash(String(localized: "Couldn’t Copy"), symbol: "exclamationmark.triangle.fill", success: false)
+            card.flash(String(localized: "Couldn’t Copy"), success: false)
         }
     }
 
@@ -68,12 +68,12 @@ extension QuickAccessController: CardViewDelegate {
             guard let url = try await exporter.saveToExportFolder(
                 imageAt: card.source.fileURL, suggestedName: card.source.exportName, askDestination: ask
             ) else { return }
-            card.flash(String(localized: "Saved"), symbol: "checkmark.circle.fill", success: true)
+            card.flash(String(localized: "Saved"), success: true)
             delegate?.quickAccess(didExport: card.capture, to: url)
             if settings.quickAccessCloseAfterSave { await closeAfterFlash(card) }
         } catch {
             log.error("Save failed: \(String(describing: error), privacy: .public)")
-            card.flash(String(localized: "Couldn’t Save"), symbol: "exclamationmark.triangle.fill", success: false)
+            card.flash(String(localized: "Couldn’t Save"), success: false)
         }
     }
 
@@ -113,7 +113,10 @@ extension QuickAccessController: CardViewDelegate {
             return false
         }
         focus.handle(.keyDown(isCardShortcut: true))
-        if !isRepeat { perform(action, on: card) }
+        if !isRepeat {
+            card.overlay.showPressed(action)
+            perform(action, on: card)
+        }
         return true
     }
 
@@ -149,7 +152,7 @@ extension QuickAccessController: CardViewDelegate {
             return DragFileWriter(fileURL: url)
         } catch {
             log.error("Drag export failed: \(String(describing: error), privacy: .public)")
-            card.flash(String(localized: "Couldn’t Prepare File"), symbol: "exclamationmark.triangle.fill", success: false)
+            card.flash(String(localized: "Couldn’t Prepare File"), success: false)
             return nil
         }
     }

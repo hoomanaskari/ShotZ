@@ -39,12 +39,12 @@ import ShotzCore
         qa.log.info("SELFTEST \(line, privacy: .public)")
     }
 
-    private func note(_ text: String) {
+    func note(_ text: String) {
         lines.append("NOTE \(text)")
         qa.log.info("SELFTEST NOTE \(text, privacy: .public)")
     }
 
-    private func snapshot(_ name: String) {
+    func snapshot(_ name: String) {
         for (display, panel) in qa.panels {
             _ = StackDebugSnapshot.render(panel, to: dir.appending(path: "\(name)-\(display).png"))
         }
@@ -76,6 +76,7 @@ import ShotzCore
         let withBackdrop = qa.cards.values.filter(\.hasBackdrop).count
         check("blurred backdrop on letterboxed cards only", !backdrops.isEmpty && backdrops.allSatisfy { $0 }, "\(withBackdrop) of \(backdrops.count) cards")
         snapshot("01-initial")
+        if DevProfile.defaults.bool(forKey: "QuickAccessSelfTestGallery") { await gallery(qa: qa) }
         await captureExclusion()
         await hoverAndStyle()
         await focusRules()
@@ -136,7 +137,7 @@ import ShotzCore
         await wait(250)
         check("unhover hides controls", !card.overlay.isRevealed && qa.hoveredCard == nil)
 
-        card.flash(String(localized: "Copied"), symbol: "checkmark.circle.fill", success: true)
+        card.flash(String(localized: "Copied"), success: true)
         await wait(200)
         snapshot("05-flash")
 
