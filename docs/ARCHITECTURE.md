@@ -278,6 +278,13 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
     folder, builds a `CaptureResult` (kind area, real pixel size, scale 2, main
     display), adds it to history and presents it in the stack.
   - `--debug-edit <png>`: opens the image in the editor (`openEditor(imageAt:)`).
+  - `--debug-edit-capture <png> [--debug-capture-id <uuid>]`: imports the image
+    into history as `--debug-present` does and opens it with
+    `openEditor(for:)`. The history id is a name-based UUID of the source
+    path (`DebugCaptureIdentity`), or the forced id, so a second launch reuses
+    the existing entry (`FileHistoryStore.reusableCapture(id:)`) and the
+    editor document and recorded export carry over. Re-imported under the same
+    id only when the captured file is gone.
   - `--debug-snapshot-ui <dir>`: renders every Settings tab and onboarding
     step to PNGs in `<dir>` off screen (no window is shown and Shotz is not
     activated), plus the status item when visible and the status menu as text,

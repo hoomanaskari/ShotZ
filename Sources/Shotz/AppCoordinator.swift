@@ -197,6 +197,9 @@ import ShotzCore
                 log.info("Debug edit \(edit.lastPathComponent, privacy: .public)")
                 editor.openEditor(imageAt: edit)
             }
+            if let source = debug.editCapture {
+                await debugEditCapture(source, forcedID: debug.captureID, options: options)
+            }
             if let dir = debug.snapshotUI {
                 await DebugUISnapshot.run(self, into: dir)
             }

@@ -60,6 +60,12 @@ scripts/run.sh --dev-profile --dev-hotkeys --debug-edit build/sample-5k.png
 - `--debug-present <png> [<png>…]` copies each image into the captures folder,
   adds it to history (kind area, scale 2) and shows it in the quick-access stack.
 - `--debug-edit <png>` opens the image in the editor.
+- `--debug-edit-capture <png>` imports the image into history like
+  `--debug-present`, then opens it as a capture (`openEditor(for:)`), so edits
+  and Save's export overwrite persist. The same source path always maps to the
+  same history entry, so a second launch reopens that capture instead of
+  importing again (it is re-imported, under the same id, only if its file is
+  gone). `--debug-capture-id <uuid>` forces the id.
 
 ### Dev profile (required for every engineer and test launch)
 
