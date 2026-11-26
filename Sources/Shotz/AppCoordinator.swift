@@ -62,6 +62,11 @@ import ShotzCore
     }
 
     func start() {
+        if DevProfile.isActive {
+            log.notice("Profile: dev (preferences \(DevProfile.suiteName, privacy: .public), data \(self.paths.root.path(percentEncoded: false), privacy: .public))")
+        } else {
+            log.notice("Profile: standard (preferences app.shotz.Shotz, data \(self.paths.root.path(percentEncoded: false), privacy: .public))")
+        }
         do { try paths.createDirectories() } catch {
             log.error("Cannot create app folders: \(error.localizedDescription, privacy: .public)")
         }

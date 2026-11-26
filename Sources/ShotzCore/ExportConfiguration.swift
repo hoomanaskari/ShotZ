@@ -22,7 +22,7 @@ public struct ExportConfiguration: Sendable, Equatable {
 
     /// Reads the current values straight from `defaults` (thread-safe), using
     /// the same keys and defaults as `SettingsStore`.
-    public static func current(defaults: UserDefaults = .standard) -> ExportConfiguration {
+    public static func current(defaults: UserDefaults = DevProfile.defaults) -> ExportConfiguration {
         let folder = defaults.string(forKey: SettingsKey.exportFolder).flatMap { $0.isEmpty ? nil : $0 }
         return ExportConfiguration(
             exportFolder: folder.map { URL(filePath: $0, directoryHint: .isDirectory) } ?? ShotzPaths.defaultExportFolder,
