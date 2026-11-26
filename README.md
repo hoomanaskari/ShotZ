@@ -121,16 +121,16 @@ restored if the swap fails) and relaunches ShotZ if it was running.
 
 ### App icon
 
-Drop the icon master (a square PNG of at least 1024×1024, or an SVG or PDF) anywhere and run:
+The app icon is the owner's artwork (`Resources/icon-master/owner-artwork-clean.png`) on a generated
+macOS tile, set up in `Resources/icon-master/icon.json`. To rebuild it, run:
 
 ```bash
-scripts/make-icons.sh path/to/AppIcon.png [--glyph path/to/MenuBarGlyph.svg]
+scripts/make-icons.sh
 ```
 
-This rebuilds `Resources/AppIcon.icns` and `Resources/AppIcon-Dev.icns` (with the amber DEV band),
-and keeps the master in `Resources/icon-master/`. With no master there, the placeholder icon
-from `Resources/make-app-icon.swift` is used. Then rebuild with `scripts/bundle.sh release`.
-See [docs/ICON.md](docs/ICON.md).
+This writes `Resources/AppIcon.icns` and `Resources/AppIcon-Dev.icns` (with the amber DEV band).
+A finished tile master can be used instead: `scripts/make-icons.sh path/to/AppIcon.png`.
+Then rebuild the app with `scripts/bundle.sh release`. See [docs/ICON.md](docs/ICON.md).
 
 ## Installing
 
