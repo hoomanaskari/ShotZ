@@ -7,3 +7,5 @@ DerivedData/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 *.xcworkspace/xcuserdata/
 xcuserdata/
+# Claude Code session files and worktrees (local only)
+.claude/

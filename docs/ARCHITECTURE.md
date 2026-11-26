@@ -273,6 +273,14 @@ public enum DocumentExport {
 - `StatusItemController`, `SettingsWindow` (SwiftUI), `OnboardingWindow`
   (SwiftUI), `LoginItem` (`SMAppService.mainApp`), `FileHistoryStore`
   (JSON index + captures folder under Application Support).
+- Storage permissions (`ShotzCore/PrivateStorage.swift`): the data folder and
+  everything in it (Captures, Documents, rendered images, `history.json`,
+  `.incoming`) are owner-only, folders 0700 and files 0600, set at creation and
+  after every atomic write or replace. The temp folders under the per-user temp
+  dir are 0700. Files the user exports to a folder they chose, and the temp
+  copies handed out by drag, keep normal permissions. At launch (after the
+  migration, off the main thread) one bounded pass tightens existing installs;
+  it never follows or changes a symbolic link and never leaves the folder.
 - `CaptureEditingFlow`: the stack ↔ editor rules of SPEC §4.6 (see §2).
 - `AppCoordinator` (in `Shotz`) builds the concrete objects and wires the flow
   in section 2. It is the only file that names concrete types from several modules.
@@ -368,6 +376,22 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   onboarding writes, no menu-bar icon, and one launch log line saying so.
   Argument-domain overrides still apply. Carbon lets two processes register
   the same combo, so test copies never hold shortcuts.
+- **Debug hooks are ShotZ Dev only** (`ShotzCore/DebugHooks.swift`, the one
+  gate): `--debug-present`, `--debug-edit`, `--debug-edit-capture`,
+  `--debug-capture-id`, `--debug-snapshot-ui`, `--no-hotkeys`, the
+  `-QuickAccessSelfTest[Capture|Gallery|KeepRunning]` and
+  `-QuickAccessDebug[Appearance]` preferences, argument-domain overrides of any
+  setting (`-general.exportFolder …`), `SHOTZ_EDITOR_SCRIPT`,
+  `SHOTZ_EDITOR_DOCUMENT`, `SHOTZ_EDITOR_PERF`, and the stack snapshot
+  distributed notification (registered only with `-QuickAccessDebug`). The
+  production app reads arguments and environment only through the gate (which
+  hands it neither), empties the argument domain at launch (`main.swift`) and
+  logs one public line naming the ignored hooks (names, never values). So a
+  production bundle is never a test run and is not steerable from outside;
+  `--no-hotkeys` is ignored there too (one rule, and a production launch must
+  never silently run against the owner's data without shortcuts). Hermetic
+  checks of release code use `scripts/bundle.sh release-check`: release
+  configuration, stripped and universal, under the ShotZ Dev identity.
 - **Screen Recording observations:** a bundle exec'd directly from a shell
   inherits the launcher's TCC responsibility, so its preflight result says
   nothing about ShotZ's own grant. Check grants by launching through Launch
@@ -394,6 +418,16 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   Downloader.xpc, Autoupdate, Updater.app, the framework, then the app.
   Release builds are universal (`--arch arm64 --arch x86_64`, every binary
   checked with `lipo`); dev builds are host-only (`SHOTZ_UNIVERSAL` overrides).
+  Release executables are stripped before signing (`strip -S -x`): no debug
+  symbols, local symbols or absolute build paths ship (Swift 6's `#file` is
+  already module-relative, so no prefix map is needed). The dSYM is written to
+  `build/dSYMs/` (git-ignored) for symbolication; `release.sh` fails if any
+  shipped Mach-O contains `/Users/` or the build user's name.
+  Both apps carry `LICENSE` and `THIRD-PARTY-NOTICES` in `Contents/Resources`
+  (`release.sh` checks they match the repository); Settings ▸ Advanced ▸
+  Acknowledgements shows them in a read-only ShotZ window
+  (`AcknowledgementsWindowController`). The DMG holds only the app and an
+  Applications link, as in the owner's other apps.
   A fully signed release for distribution:
   `SHOTZ_SIGN_IDENTITY="Developer ID Application: … (TEAMID)" scripts/bundle.sh release`.
   Notarisation and upload belong to `scripts/release.sh` (engineer C).
@@ -435,6 +469,14 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
 
 ## 9. Test strategy
 
+- Tests leave nothing behind. Preferences come from `MemoryDefaults`
+  (`Tests/ShotzTestSupport`, a test-only target): an in-memory `UserDefaults`,
+  because a real `UserDefaults(suiteName:)` suite keeps its plist in
+  ~/Library/Preferences even after `removePersistentDomain` and deleting the file
+  (cfprefsd writes it again). Temporary folders are removed by the test that
+  makes them (`TemporaryFolder` removes itself). The only real suite a test
+  touches is `com.pixelforty.shotz.dev.testrun`, the fixed suite ShotZ Dev's
+  hermetic runs use.
 - Unit tests (Swift Testing) for everything pure: `StackLayout`, file naming,
   settings defaults, history index, document mutations and undo/redo,
   hit-testing, renderer geometry, Codable round-trips.

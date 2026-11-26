@@ -1,3 +1,4 @@
+import ShotzCore
 import CoreGraphics
 import Foundation
 
@@ -88,7 +89,8 @@ public struct AnnotationDocument: Codable, Sendable, Equatable {
         try JSONDecoder().decode(AnnotationDocument.self, from: Data(contentsOf: url))
     }
 
+    /// Writes atomically and owner-only (0600): documents live in ShotZ's private data folder.
     public func save(to url: URL) throws {
-        try jsonData().write(to: url, options: .atomic)
+        try PrivateStorage.write(jsonData(), to: url)
     }
 }

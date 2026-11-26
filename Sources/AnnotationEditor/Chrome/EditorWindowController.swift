@@ -94,7 +94,7 @@ import ShotzUI
         // being created) must only reach a fully built controller.
         window.delegate = self
         isSetUp = true
-        if ProcessInfo.processInfo.environment["SHOTZ_EDITOR_PERF"] == "1" { perf = PerfProbe(view: canvas, log: log) }
+        if DebugHooks.environment["SHOTZ_EDITOR_PERF"] == "1" { perf = PerfProbe(view: canvas, log: log) }
     }
 
     @available(*, unavailable)

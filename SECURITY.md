@@ -13,4 +13,4 @@ I'll reply as soon as I can. Once a fix is released, you'll be credited in the r
 
 ## Scope
 
-ShotZ has no accounts and no server of its own. Its only network access is the update check against this repository's releases. Captures stay in ShotZ's own folder on your Mac ([docs/UNINSTALL.md](docs/UNINSTALL.md) lists where) until you export them. Problems in those areas, in how updates are verified, or anything that exposes captures to other apps or users are in scope.
+ShotZ has no accounts and no server of its own. Its only network access is Sparkle's update check: an https request for ShotZ's update feed (`appcast.xml` in this repository) and, when you choose to install an update, the signed download from this repository's releases. There is no telemetry. Captures stay in ShotZ's own folder on your Mac ([docs/UNINSTALL.md](docs/UNINSTALL.md) lists where) until you export them. Problems in those areas, in how updates are verified, or anything that exposes captures to other apps or users are in scope.

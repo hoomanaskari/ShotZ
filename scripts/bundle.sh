@@ -2,6 +2,9 @@
 # Builds one of the two Shotz apps (ARCHITECTURE §8):
 #   scripts/bundle.sh dev       → build/ShotZ Dev.app  (<id>.dev, debug build)
 #   scripts/bundle.sh release   → build/ShotZ.app      (<id>, release build)
+#   scripts/bundle.sh release-check → build/ShotZ Dev.app (<id>.dev, release build): release code
+#                                 under the ShotZ Dev identity, for hermetic checks (the production
+#                                 app ignores every launch argument and debug hook)
 # <id> is CFBundleIdentifier in Resources/Info.plist (com.pixelforty.shotz), the one
 # place scripts read it from; Swift has the same value in AppVariant (a test checks).
 # `debug` is accepted as an alias for `dev`. The two apps are separate: own
@@ -26,6 +29,9 @@
 # @executable_path/../Frameworks rpath and signed inside-out with the same identity:
 # the XPC services, Autoupdate, Updater.app, the framework, then the app.
 #
+# Release executables are stripped (strip -S -x, before signing): no debug symbols or absolute
+# build paths ship; the dSYM goes to build/dSYMs/ (git-ignored). Dev builds keep their symbols.
+#
 # Hardened runtime on release builds (verified after signing). Secure timestamp
 # (--timestamp, needed for notarization) when the identity is a Developer ID;
 # otherwise --timestamp=none so Apple Development and ad-hoc builds sign offline.
@@ -47,7 +53,10 @@ VARIANT="${1:-dev}"
 case "$VARIANT" in
   dev|debug) VARIANT=dev; CONFIG=debug; APP_NAME="ShotZ Dev"; OLD_NAME="Shotz Dev"; ID_SUFFIX=".dev"; ICON="AppIcon-Dev.icns" ;;
   release) CONFIG=release; APP_NAME="ShotZ"; OLD_NAME="Shotz"; ID_SUFFIX=""; ICON="AppIcon.icns" ;;
-  *) echo "usage: $0 [dev|release]" >&2; exit 64 ;;
+  # Release code (optimized, stripped, universal) under the ShotZ Dev identity, for hermetic checks:
+  # the production app ignores every launch argument, so release code is exercised as ShotZ Dev.
+  release-check) VARIANT=dev; CONFIG=release; APP_NAME="ShotZ Dev"; OLD_NAME="Shotz Dev"; ID_SUFFIX=".dev"; ICON="AppIcon-Dev.icns" ;;
+  *) echo "usage: $0 [dev|release|release-check]" >&2; exit 64 ;;
 esac
 
 PLIST="$ROOT/Resources/Info.plist"
@@ -98,6 +107,25 @@ edit_rpath -add_rpath "@executable_path/../Frameworks" "$EXE"
 while IFS= read -r rpath; do
   if [[ "$rpath" == "$ROOT"/* ]]; then edit_rpath -delete_rpath "$rpath" "$EXE"; fi
 done < <(otool -l "$EXE" | awk '/LC_RPATH/ { getline; getline; print $2 }' | sort -u)   # fat binaries list each rpath once per slice
+
+if [[ "$CONFIG" == "release" ]]; then
+  # Release binaries carry no debug symbols: the unstripped executable holds ~930 absolute
+  # source and build paths (/Users/<name>/…) in its symbol table, plus every local symbol.
+  # The dSYM is kept for crash symbolication in build/dSYMs/ (git-ignored, never shipped).
+  DSYM_DIR="$ROOT/build/dSYMs"
+  mkdir -p "$DSYM_DIR"
+  rm -rf "$DSYM_DIR/$APP_NAME-$VERSION-$BUILD.dSYM"
+  dsymutil "$EXE" -o "$DSYM_DIR/$APP_NAME-$VERSION-$BUILD.dSYM" 2>/dev/null \
+    || echo "Note: no dSYM written (dsymutil failed); the build continues"
+  strip_err="$(strip -S -x "$EXE" 2>&1)" || { echo "$strip_err" >&2; exit 71; }
+  strip_err="$(grep -v "will invalidate the code signature" <<<"$strip_err" || true)"
+  [[ -z "$strip_err" ]] || echo "$strip_err" >&2
+  if LC_ALL=C grep -a -q "/Users/" "$EXE"; then
+    echo "The stripped executable still contains /Users/ paths" >&2
+    exit 72
+  fi
+  echo "Stripped: no debug symbols or build paths in the executable (dSYM in build/dSYMs/)"
+fi
 ditto "$SPARKLE_SRC" "$APP/Contents/Frameworks/Sparkle.framework"
 
 INFO="$APP/Contents/Info.plist"
@@ -132,6 +160,12 @@ if [[ "$UNIVERSAL" == "1" ]]; then
   echo "Universal: app and Sparkle binaries contain arm64 and x86_64"
 fi
 cp "$ROOT/Resources/$ICON" "$APP/Contents/Resources/AppIcon.icns"
+# The licences ship inside the app (MIT asks for the notices "in all copies"): ShotZ's own licence
+# and the third-party notices (Phosphor Icons, Sparkle). Settings ▸ Advanced ▸ Acknowledgements shows them.
+for notice in LICENSE THIRD-PARTY-NOTICES; do
+  [[ -s "$ROOT/$notice" ]] || { echo "$notice is missing or empty" >&2; exit 73; }
+  cp "$ROOT/$notice" "$APP/Contents/Resources/$notice"
+done
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 IDENTITY="${SHOTZ_SIGN_IDENTITY:-}"

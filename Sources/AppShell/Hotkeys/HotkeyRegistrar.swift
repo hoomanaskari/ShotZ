@@ -25,10 +25,14 @@ enum TestProcess {
     static let isUnitTestRunner: Bool = detect(
         processName: ProcessInfo.processInfo.processName,
         environment: ProcessInfo.processInfo.environment,
-        bundlePaths: Bundle.allBundles.map(\.bundlePath)
+        bundlePaths: Bundle.allBundles.map(\.bundlePath),
+        mainBundlePath: Bundle.main.bundlePath
     )
 
-    static func detect(processName: String, environment: [String: String], bundlePaths: [String]) -> Bool {
+    static func detect(processName: String, environment: [String: String], bundlePaths: [String], mainBundlePath: String = "") -> Bool {
+        // A real app bundle is never a unit-test runner, whatever its environment says
+        // (the production app must not be steerable by environment variables).
+        if mainBundlePath.hasSuffix(".app") { return false }
         let name = processName.lowercased()
         return name == "xctest" || name.hasPrefix("swiftpm-testing-helper")
             || environment["XCTestConfigurationFilePath"] != nil

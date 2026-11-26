@@ -44,7 +44,7 @@ struct ExportRecord: Sendable {
     /// Renders a lossless PNG of the flattened document into a fresh temp folder.
     func renderTemporaryPNG(_ document: AnnotationDocument, name: String, scale: CGFloat = 1) throws -> URL {
         let dir = ShotzPaths.default.temporary.appending(path: "Editor/\(UUID().uuidString)", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try PrivateStorage.makeDirectory(dir)
         let url = dir.appending(path: FileNaming.sanitize(name) + ".png", directoryHint: .notDirectory)
         let start = ContinuousClock.now
         do {

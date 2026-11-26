@@ -27,7 +27,11 @@ Units are points unless stated. "Capture" means one still image plus metadata.
   Open Last Capture in Editor, separator, Settings…, Quit ShotZ. Each item
   shows its current shortcut.
 - Launch at login (setting, default on after onboarding asks).
-- No telemetry, no network access at all.
+- No telemetry and no analytics. The only network access is Sparkle's update
+  check in the production app: an https request for ShotZ's update feed
+  (`appcast.xml` on GitHub), once a day by default and switchable in
+  Settings ▸ Advanced, plus the update download when the user chooses to install
+  it. Sparkle's system profile is off. ShotZ Dev and test runs never use the network.
 
 ## 2. Global shortcuts
 

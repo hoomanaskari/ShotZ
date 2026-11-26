@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import ShotzCore
 
 @MainActor
@@ -7,7 +8,7 @@ struct SettingsStoreTests {
     let suiteName = "ShotzTests-\(UUID().uuidString)"
 
     func makeStore() throws -> SettingsStore {
-        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        let defaults = MemoryDefaults()
         defaults.removePersistentDomain(forName: suiteName)
         return SettingsStore(defaults: defaults)
     }

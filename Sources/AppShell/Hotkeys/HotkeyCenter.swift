@@ -53,8 +53,8 @@ import ShotzCore
     /// or any debug, self-test or script launch (they run next to a real
     /// Shotz and must never take its key presses).
     public nonisolated static func hotkeysDisabledRequested(
-        arguments: [String] = ProcessInfo.processInfo.arguments,
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        arguments: [String] = DebugHooks.arguments,
+        environment: [String: String] = DebugHooks.environment
     ) -> Bool {
         AppVariant.isTestRun(arguments: arguments, environment: environment)
     }

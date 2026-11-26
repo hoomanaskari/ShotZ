@@ -16,12 +16,13 @@ enum DebugCaptureImporter {
         else { throw ImportError.unreadable(source.path(percentEncoded: false)) }
 
         let fm = FileManager.default
-        try fm.createDirectory(at: options.destinationDirectory, withIntermediateDirectories: true)
+        try PrivateStorage.makeDirectory(options.destinationDirectory)
         let now = Date()
         let name = FileNaming.format(options.fileNamePattern, date: now)
         let ext = source.pathExtension.isEmpty ? "png" : source.pathExtension.lowercased()
         let destination = FileNaming.uniqueURL(in: options.destinationDirectory, base: name, ext: ext)
         try fm.copyItem(at: source, to: destination)
+        PrivateStorage.protectFile(destination)
         return CaptureResult(
             id: id,
             fileURL: destination,

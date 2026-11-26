@@ -22,7 +22,7 @@ import ShotzCore
             do {
                 value = try JSONDecoder().decode(ToolSettings.self, from: data)
             } catch {
-                log.error("Ignoring unreadable tool settings for \(kind.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                log.error("Ignoring unreadable tool settings for \(kind.rawValue, privacy: .public): \(error.localizedDescription, privacy: .private)")
             }
         }
         cache[kind] = value
@@ -35,7 +35,7 @@ import ShotzCore
         do {
             defaults.set(try JSONEncoder().encode(value), forKey: Self.key(for: kind))
         } catch {
-            log.error("Cannot store tool settings: \(error.localizedDescription, privacy: .public)")
+            log.error("Cannot store tool settings: \(error.localizedDescription, privacy: .private)")
         }
     }
 

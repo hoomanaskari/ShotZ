@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -86,7 +87,7 @@ struct SoftwareUpdatesTests {
     }
 
     @Test func statusMenuShowsCheckForUpdatesOnlyWhenAvailable() {
-        let settings = SettingsStore(defaults: UserDefaults(suiteName: "ShotzUpdatesMenu-\(UUID().uuidString)")!, variant: .production)
+        let settings = SettingsStore(defaults: MemoryDefaults(), variant: .production)
         let menu = StatusItemController(hotkeys: HotkeyCenter(settings: settings, hotkeysEnabled: false, registrar: FakeRegistrar()))
         #expect(!menu.debugMenuDescription.contains("Check for Updates"))
         menu.updates = .preview(.unavailable(.noPublicKey))

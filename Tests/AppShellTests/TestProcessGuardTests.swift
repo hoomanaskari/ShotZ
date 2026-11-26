@@ -1,6 +1,7 @@
 import Carbon.HIToolbox
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -28,9 +29,7 @@ struct TestProcessGuardTests {
     }
 
     @Test func aStartedCenterWithTheRealRegistrarRegistersNothing() throws {
-        let suite = "ShotzGuard-\(UUID().uuidString)"
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
-        let settings = SettingsStore(defaults: try #require(UserDefaults(suiteName: suite)), variant: .production)
+        let settings = SettingsStore(defaults: MemoryDefaults(), variant: .production)
         let center = HotkeyCenter(settings: settings, hotkeysEnabled: true)   // the app's convenience init
         center.start()
         defer { center.shutdown() }
@@ -57,5 +56,15 @@ struct TestProcessGuardTests {
                 #expect(line.contains("registrar:"), "\(file.lastPathComponent): \(line.trimmingCharacters(in: .whitespaces))")
             }
         }
+    }
+}
+
+struct TestProcessAppBundleTests {
+    /// A real app bundle is never treated as a unit-test runner, whatever its environment says.
+    @Test func appBundlesIgnoreTestEnvironment() {
+        #expect(!TestProcess.detect(processName: "ShotZ", environment: ["XCTestConfigurationFilePath": "/x"],
+                                    bundlePaths: ["/x/Foo.xctest"], mainBundlePath: "/Applications/ShotZ.app"))
+        #expect(TestProcess.detect(processName: "x", environment: ["XCTestConfigurationFilePath": "/x"], bundlePaths: [],
+                                   mainBundlePath: "/usr/bin"))
     }
 }

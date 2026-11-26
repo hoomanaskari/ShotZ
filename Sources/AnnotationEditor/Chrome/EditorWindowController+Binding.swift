@@ -1,3 +1,4 @@
+import ShotzCore
 import AnnotationKit
 import AppKit
 
@@ -236,11 +237,11 @@ extension EditorWindowController {
         saveWork?.cancel()
         guard let url = documentURL, store.document != lastSavedDocument else { return }
         do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try PrivateStorage.makeDirectory(url.deletingLastPathComponent())
             try store.document.save(to: url)
             lastSavedDocument = store.document
         } catch {
-            log.error("Cannot save editor document: \(error.localizedDescription, privacy: .public)")
+            log.error("Cannot save editor document: \(error.localizedDescription, privacy: .private)")
         }
     }
 }

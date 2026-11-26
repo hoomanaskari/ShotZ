@@ -406,3 +406,20 @@ struct FileHistoryStoreTests {
         #expect(!store.hasDocument(for: id))
     }
 }
+
+struct FileHistoryPermissionTests {
+    @Test func historyFolderAndIndexAreOwnerOnly() async throws {
+        let paths = ShotzPaths(root: FileManager.default.temporaryDirectory.appending(path: "ShotzHistoryPerm-\(UUID().uuidString)", directoryHint: .isDirectory))
+        defer { try? FileManager.default.removeItem(at: paths.root) }
+        try paths.createDirectories()
+        let url = paths.captures.appending(path: "a.png")
+        try FakeCaptureEngine.writePNG(width: 4, height: 3, to: url)
+        let store = FileHistoryStore(paths: paths)
+        await store.add(CaptureResult(fileURL: url, displayName: "a", kind: .area, pixelSize: CGSize(width: 4, height: 3), scale: 1, displayID: 1))
+        #expect(PrivateStorage.mode(of: paths.root) == 0o700)
+        #expect(PrivateStorage.mode(of: paths.captures) == 0o700)
+        #expect(PrivateStorage.mode(of: paths.historyIndex) == 0o600)
+        await store.add(CaptureResult(fileURL: url, displayName: "b", kind: .area, pixelSize: CGSize(width: 4, height: 3), scale: 1, displayID: 1))
+        #expect(PrivateStorage.mode(of: paths.historyIndex) == 0o600)   // after a second atomic write
+    }
+}

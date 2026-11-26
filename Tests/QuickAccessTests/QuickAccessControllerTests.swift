@@ -1,12 +1,13 @@
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import QuickAccess
 import ShotzCore
 
 @MainActor
 struct QuickAccessControllerTests {
     @Test func conformsToPresenting() throws {
-        let defaults = try #require(UserDefaults(suiteName: "ShotzQATests-\(UUID().uuidString)"))
+        let defaults = MemoryDefaults()
         let controller: QuickAccessPresenting = QuickAccessController(settings: SettingsStore(defaults: defaults), exporter: DefaultExportService())
         controller.dismissAll()
         #expect(controller.delegate == nil)

@@ -10,7 +10,7 @@ import ShotzCore
     static func run(_ coordinator: AppCoordinator, into dir: URL) async {
         let log = ShotzLog.logger("App")
         do { try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true) } catch {
-            log.error("Snapshot dir: \(error.localizedDescription, privacy: .public)")
+            log.error("Snapshot dir: \(error.localizedDescription, privacy: .private)")
             return
         }
         // The menu as the installed app shows it (with "Check for Updates…"); never contacts the network.
@@ -36,6 +36,8 @@ import ShotzCore
                                                                        updates: .preview(.unavailable(.noPublicKey))),
                           to: dir.appending(path: "settings-advanced-nokey-\(suffix).png"))
                 }
+                write(await coordinator.acknowledgements.debugRender(appearance: appearance, scale: scale),
+                      to: dir.appending(path: "acknowledgements-\(suffix).png"))
                 write(await coordinator.statusItem.debugMenuSnapshot(appearance: appearance, scale: scale),
                       to: dir.appending(path: "status-menu-\(suffix).png"))
             }
@@ -55,15 +57,15 @@ import ShotzCore
         do {
             try coordinator.statusItem.debugMenuDescription.write(to: dir.appending(path: "status-menu.txt"), atomically: true, encoding: .utf8)
         } catch {
-            log.error("Menu dump: \(error.localizedDescription, privacy: .public)")
+            log.error("Menu dump: \(error.localizedDescription, privacy: .private)")
         }
-        log.info("UI snapshots written to \(dir.path(percentEncoded: false), privacy: .public)")
+        log.info("UI snapshots written to \(dir.path(percentEncoded: false), privacy: .private)")
     }
 
     private static func write(_ data: Data?, to url: URL) {
         guard let data else { return }
         do { try data.write(to: url) } catch {
-            ShotzLog.logger("App").error("Snapshot write: \(error.localizedDescription, privacy: .public)")
+            ShotzLog.logger("App").error("Snapshot write: \(error.localizedDescription, privacy: .private)")
         }
     }
 

@@ -17,6 +17,7 @@ import ShotzCore
     let settings = SettingsStore()
     /// Sparkle in the production app; nothing (no network) in ShotZ Dev and test runs.
     let updates = SoftwareUpdates.forThisApp()
+    let acknowledgements = AcknowledgementsWindowController()
     let engine: CaptureEngine = SystemCaptureEngine()
     let history: FileHistoryStore
     let exporter: ExportService
@@ -78,18 +79,19 @@ import ShotzCore
             showOnboarding: { [weak self] permissionStep in
                 self?.onboarding.show(step: permissionStep ? .screenRecording : .welcome)
             },
-            updates: updates
+            updates: updates,
+            showAcknowledgements: { [weak self] in self?.acknowledgements.show() }
         ))
     }
 
     func start() {
         let variant = AppVariant.current
-        log.notice("Variant: \(variant.rawValue, privacy: .public) (\(variant.displayName, privacy: .public), \(variant.bundleIdentifier, privacy: .public), data \(self.paths.root.path(percentEncoded: false), privacy: .public))")
+        log.notice("Variant: \(variant.rawValue, privacy: .public) (\(variant.displayName, privacy: .public), \(variant.bundleIdentifier, privacy: .public), data \(self.paths.root.path(percentEncoded: false), privacy: .private))")
         if AppVariant.isTestRun {
             log.notice("Test run (--no-hotkeys): preferences \(variant.testRunSuiteName, privacy: .public), data \(self.paths.root.lastPathComponent, privacy: .public); no shortcuts, no login item, no onboarding writes, menu-bar icon hidden")
         }
         do { try paths.createDirectories() } catch {
-            log.error("Cannot create app folders: \(error.localizedDescription, privacy: .public)")
+            log.error("Cannot create app folders: \(error.localizedDescription, privacy: .private)")
         }
         quickAccess.delegate = self
         editingFlow.attach(to: editor)
@@ -206,14 +208,14 @@ import ShotzCore
                     let result = try DebugCaptureImporter.importImage(at: url, options: options)
                     await history.add(result)
                     editingFlow.presentInStack(result)
-                    log.info("Debug present \(url.lastPathComponent, privacy: .public)")
+                    log.info("Debug present \(url.lastPathComponent, privacy: .private)")
                 } catch {
-                    log.error("Debug present failed for \(url.path(percentEncoded: false), privacy: .public): \(String(describing: error), privacy: .public)")
+                    log.error("Debug present failed for \(url.path(percentEncoded: false), privacy: .private): \(String(describing: error), privacy: .private)")
                 }
             }
             if !debug.present.isEmpty { refreshHistoryMenu() }
             if let edit = debug.edit {
-                log.info("Debug edit \(edit.lastPathComponent, privacy: .public)")
+                log.info("Debug edit \(edit.lastPathComponent, privacy: .private)")
                 editor.openEditor(imageAt: edit)
             }
             if let source = debug.editCapture {

@@ -82,10 +82,8 @@ public enum AppVariant: String, Sendable, CaseIterable {
     // MARK: Test runs
 
     /// True for engineer/test launches (see the type comment). Decided once.
-    public static let isTestRun: Bool = isTestRun(
-        arguments: ProcessInfo.processInfo.arguments,
-        environment: ProcessInfo.processInfo.environment
-    )
+    /// Read through `DebugHooks`: the production app never sees the arguments, so it is never a test run.
+    public static let isTestRun: Bool = isTestRun(arguments: DebugHooks.arguments, environment: DebugHooks.environment)
 
     public static func isTestRun(arguments: [String], environment: [String: String]) -> Bool {
         let args = arguments.dropFirst()

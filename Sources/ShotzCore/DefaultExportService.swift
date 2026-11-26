@@ -60,7 +60,7 @@ public struct DefaultExportService: ExportService {
             destination = FileNaming.uniqueURL(in: config.exportFolder, base: suggestedName, ext: config.format.fileExtension)
         }
         try ImageTranscoder.write(source: url, to: destination, config: config)
-        log.info("Saved export \(destination.lastPathComponent, privacy: .public)")
+        log.info("Saved export \(destination.lastPathComponent, privacy: .private)")
         return destination
     }
 
@@ -85,7 +85,7 @@ public struct DefaultExportService: ExportService {
     public func exportFileURLForDrag(imageAt url: URL, suggestedName: String) throws -> URL {
         let config = configuration()
         let dir = paths.dragExports.appending(path: UUID().uuidString, directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try PrivateStorage.makeDirectory(dir)   // 0700; the file itself keeps normal permissions (it is the user's export)
         let destination = FileNaming.uniqueURL(in: dir, base: suggestedName, ext: config.format.fileExtension)
         try ImageTranscoder.write(source: url, to: destination, config: config)
         return destination

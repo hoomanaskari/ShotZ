@@ -108,7 +108,7 @@ import ShotzCore
             refresh()
             if state == (on ? .enabled : .disabled) { return }
             state = .failed(error.localizedDescription)
-            log.error("Launch at login change failed: \(error.localizedDescription, privacy: .public)")
+            log.error("Launch at login change failed: \(error.localizedDescription, privacy: .private)")
         }
     }
 

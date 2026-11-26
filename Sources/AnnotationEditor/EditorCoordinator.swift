@@ -71,7 +71,7 @@ import ShotzCore
                 saved.baseImageURL = capture.fileURL
                 document = saved
             } catch {
-                log.error("Ignoring unreadable editor document for \(capture.displayName, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                log.error("Ignoring unreadable editor document for \(capture.displayName, privacy: .private): \(error.localizedDescription, privacy: .private)")
             }
         }
         let record = ExportRecord(captureID: capture.id, previous: previousExport, record: recordExport)
@@ -82,13 +82,13 @@ import ShotzCore
         let key = Key.file(url.standardizedFileURL)
         if bringToFront(key) { return }
         guard let info = Self.imageInfo(url) else {
-            log.error("Cannot open image \(url.lastPathComponent, privacy: .public)")
+            log.error("Cannot open image \(url.lastPathComponent, privacy: .private)")
             NSSound.beep()
             return
         }
         var document = AnnotationDocument(baseImageURL: url, pixelSize: info.pixelSize, scale: info.scale)
         // Development only: persist a file-opened image's document to test reopening.
-        let debugDocument = ProcessInfo.processInfo.environment["SHOTZ_EDITOR_DOCUMENT"].map { URL(filePath: $0) }
+        let debugDocument = DebugHooks.environment["SHOTZ_EDITOR_DOCUMENT"].map { URL(filePath: $0) }
         if let debugDocument, let saved = try? AnnotationDocument.load(from: debugDocument) { // absent on first run
             document = saved
         }
@@ -108,11 +108,11 @@ import ShotzCore
         let name = FileNaming.sanitize(String(localized: "Clipboard Image"))
         let url = dir.appending(path: "\(name) \(UUID().uuidString.prefix(8)).png", directoryHint: .notDirectory)
         do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try PrivateStorage.makeDirectory(dir)
             try png.write(to: url, options: .atomic)
             openEditor(imageAt: url)
         } catch {
-            log.error("Cannot keep clipboard image: \(error.localizedDescription, privacy: .public)")
+            log.error("Cannot keep clipboard image: \(error.localizedDescription, privacy: .private)")
             NSSound.beep()
         }
     }
@@ -136,7 +136,7 @@ import ShotzCore
         let base = BaseImageProvider(url: document.baseImageURL)
         let image: CGImage
         do { image = try base.image() } catch {
-            log.error("Cannot decode \(document.baseImageURL.lastPathComponent, privacy: .public): \(String(describing: error), privacy: .public)")
+            log.error("Cannot decode \(document.baseImageURL.lastPathComponent, privacy: .private): \(String(describing: error), privacy: .private)")
             NSSound.beep()
             return nil
         }
@@ -169,7 +169,7 @@ import ShotzCore
         }
         controller.zoomFit()
         EditorScriptRunner.startIfRequested(for: controller, coordinator: self)
-        log.notice("Opened editor for \(title, privacy: .public) in \(ContinuousClock.now - start, privacy: .public)")
+        log.notice("Opened editor for \(title, privacy: .private) in \(ContinuousClock.now - start, privacy: .public)")
         return controller
     }
 

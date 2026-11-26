@@ -112,7 +112,7 @@ The update feed is `appcast.xml` on this repository's `main` branch. Updates com
 
 - **No accounts, no analytics, no telemetry.**
 - **Your captures stay on your Mac**, in ShotZ's own folder (listed in [docs/UNINSTALL.md](docs/UNINSTALL.md)), until you save, copy or drag them somewhere. Old captures are removed after the time you choose in Settings ▸ Advanced.
-- **The only network access is the update check**, which reads ShotZ's update feed from GitHub. The request carries ShotZ's version and nothing about you, your Mac or your captures (Sparkle's optional system profile is off). Turn automatic checks off and ShotZ makes no network requests on its own.
+- **The only network access is the update check**, which reads ShotZ's update feed from GitHub. The request carries ShotZ's version and nothing about you, your Mac or your captures (Sparkle's optional system profile is off). An update is downloaded only when you choose to install it. Turn automatic checks off and ShotZ makes no network requests on its own.
 
 ## Building from source
 

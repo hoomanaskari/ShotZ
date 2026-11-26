@@ -19,6 +19,11 @@ struct AdvancedSettingsView: View {
                 ShotzSettingsRow(name, help: AppVersion.displayString(.current()), icon: .info) {
                     EmptyView()
                 }
+                ShotzSettingsRow(String(localized: "Acknowledgements"),
+                                 help: String(localized: "Licences for ShotZ and the open-source software it includes.")) {
+                    Button(String(localized: "Show…")) { context.showAcknowledgements() }
+                        .buttonStyle(.shotz(.secondary, size: .compact))
+                }
             }
 
             UpdatesSection(updates: updates)

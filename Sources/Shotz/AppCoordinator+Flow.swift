@@ -41,7 +41,7 @@ extension AppCoordinator {
             } catch is CancellationError {
                 log.info("Capture cancelled by shutdown")
             } catch {
-                log.error("Capture failed: \(String(describing: error), privacy: .public)")
+                log.error("Capture failed: \(String(describing: error), privacy: .private)")
             }
         }
     }
@@ -53,7 +53,7 @@ extension AppCoordinator {
         refreshHistoryMenu()
         if actions.copyToClipboard {
             do { try await exporter.copyToPasteboard(imageAt: result.fileURL) } catch {
-                log.error("Auto-copy failed: \(String(describing: error), privacy: .public)")
+                log.error("Auto-copy failed: \(String(describing: error), privacy: .private)")
             }
         }
         if actions.saveToExportFolder {
@@ -64,7 +64,7 @@ extension AppCoordinator {
                     await history.markExported(id: result.id, url: url)
                 }
             } catch {
-                log.error("Auto-save failed: \(String(describing: error), privacy: .public)")
+                log.error("Auto-save failed: \(String(describing: error), privacy: .private)")
             }
         }
     }
@@ -121,7 +121,7 @@ extension AppCoordinator {
     }
 
     func quickAccess(didExport capture: CaptureResult, to url: URL) {
-        log.info("Exported \(capture.displayName, privacy: .public) to \(url.lastPathComponent, privacy: .public)")
+        log.info("Exported \(capture.displayName, privacy: .private) to \(url.lastPathComponent, privacy: .private)")
         Task { await history.markExported(id: capture.id, url: url) }
     }
 
@@ -140,12 +140,12 @@ extension AppCoordinator {
             do {
                 capture = try DebugCaptureImporter.importImage(at: source, options: options, id: id)
             } catch {
-                log.error("Debug edit capture failed for \(source.path(percentEncoded: false), privacy: .public): \(String(describing: error), privacy: .public)")
+                log.error("Debug edit capture failed for \(source.path(percentEncoded: false), privacy: .private): \(String(describing: error), privacy: .private)")
                 return
             }
             await history.add(capture)
             refreshHistoryMenu()
-            log.info("Debug edit capture: imported \(source.lastPathComponent, privacy: .public) as \(id.uuidString, privacy: .public)")
+            log.info("Debug edit capture: imported \(source.lastPathComponent, privacy: .private) as \(id.uuidString, privacy: .public)")
         }
         editingFlow.openInEditor(capture)
     }

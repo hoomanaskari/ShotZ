@@ -154,7 +154,7 @@ extension EditorWindowController: EditorCommands, NSMenuItemValidation {
     }
 
     func present(_ error: Error) {
-        log.error("Editor command failed: \(String(describing: error), privacy: .public)")
+        log.error("Editor command failed: \(String(describing: error), privacy: .private)")
         guard let window else { return }
         NSAlert(error: error).beginSheetModal(for: window)
     }

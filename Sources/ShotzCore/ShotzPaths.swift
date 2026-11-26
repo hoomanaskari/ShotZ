@@ -37,11 +37,16 @@ public struct ShotzPaths: Sendable, Equatable {
     /// Default export folder (`~/Desktop`).
     public static var defaultExportFolder: URL { URL.desktopDirectory }
 
-    /// Creates `root`, `captures` and `documents` if missing.
+    /// Creates `root`, `captures` and `documents` if missing, owner-only (0700; see `PrivateStorage`).
     public func createDirectories() throws {
-        let fm = FileManager.default
         for dir in [root, captures, documents] {
-            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try PrivateStorage.makeDirectory(dir)
         }
+    }
+
+    /// Once at launch, off the main thread: tightens an existing data folder to 0700 folders and
+    /// 0600 files (installs from before 0.1.2 were 0755/0644), and the temp folders to 0700.
+    public func repairPermissions() -> Int {
+        PrivateStorage.repair(root: root) + PrivateStorage.repair(root: temporary, files: false)
     }
 }

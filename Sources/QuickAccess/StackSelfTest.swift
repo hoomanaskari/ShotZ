@@ -18,7 +18,7 @@ import ShotzUI
     private let focusRecorder = RecordingFocusHost()
 
     static func makeIfRequested(controller: QuickAccessController) -> StackSelfTest? {
-        guard let path = UserDefaults.standard.string(forKey: "QuickAccessSelfTest"), !path.isEmpty else { return nil }
+        guard let path = DebugHooks.string("QuickAccessSelfTest"), !path.isEmpty else { return nil }
         return StackSelfTest(controller: controller, dir: URL(filePath: path, directoryHint: .isDirectory))
     }
 
@@ -37,12 +37,12 @@ import ShotzUI
         if !ok { failures += 1 }
         let line = "\(ok ? "PASS" : "FAIL") \(name)\(detail.isEmpty ? "" : " — \(detail)")"
         lines.append(line)
-        qa.log.info("SELFTEST \(line, privacy: .public)")
+        qa.log.info("SELFTEST \(line, privacy: .private)")
     }
 
     func note(_ text: String) {
         lines.append("NOTE \(text)")
-        qa.log.info("SELFTEST NOTE \(text, privacy: .public)")
+        qa.log.info("SELFTEST NOTE \(text, privacy: .private)")
     }
 
     func snapshot(_ name: String) {
@@ -77,7 +77,7 @@ import ShotzUI
         let withBackdrop = qa.cards.values.filter(\.hasBackdrop).count
         check("blurred backdrop on letterboxed cards only", !backdrops.isEmpty && backdrops.allSatisfy { $0 }, "\(withBackdrop) of \(backdrops.count) cards")
         snapshot("01-initial")
-        if UserDefaults.standard.bool(forKey: "QuickAccessSelfTestGallery") { await gallery(qa: qa) }
+        if DebugHooks.bool("QuickAccessSelfTestGallery") { await gallery(qa: qa) }
         await captureExclusion()
         await hoverAndStyle()
         await focusRules()
@@ -90,18 +90,18 @@ import ShotzUI
 
         let summary = "Self-test finished in \(Int(Date().timeIntervalSince(start)))s: \(failures) failure(s)"
         lines.append(summary)
-        qa.log.info("SELFTEST \(summary, privacy: .public)")
+        qa.log.info("SELFTEST \(summary, privacy: .private)")
         let text = lines.joined(separator: "\n") + "\n"
         do {
             try text.write(to: dir.appending(path: "selftest.txt"), atomically: true, encoding: .utf8)
         } catch {
-            qa.log.error("SELFTEST cannot write summary: \(error.localizedDescription, privacy: .public)")
+            qa.log.error("SELFTEST cannot write summary: \(error.localizedDescription, privacy: .private)")
         }
         qa.focus.host = qa
         CardView.ignoresRealPointer = false
         // A self-test run is a test run: quit so no instance is left behind
         // (`-QuickAccessSelfTestKeepRunning YES` keeps it for inspection).
-        if !UserDefaults.standard.bool(forKey: "QuickAccessSelfTestKeepRunning") {
+        if !DebugHooks.bool("QuickAccessSelfTestKeepRunning") {
             qa.log.info("SELFTEST quitting")
             qa.dismissAll()
             try? await Task.sleep(for: .milliseconds(300)) // let the log line flush

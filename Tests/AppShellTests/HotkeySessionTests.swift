@@ -1,6 +1,7 @@
 import Carbon.HIToolbox
 import Foundation
 import Testing
+import ShotzTestSupport
 @testable import AppShell
 import ShotzCore
 
@@ -69,8 +70,7 @@ struct HotkeySessionTests {
     // MARK: Carbon failure surfaces in Settings and onboarding
 
     @Test func registrationFailureSurfacesAsWarningInSettingsAndOnboarding() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         let fake = FakeRegistrar()
         fake.failing[.defaultArea] = OSStatus(eventHotKeyExistsErr)
         let center = HotkeyCenter(settings: settings, hotkeysEnabled: true, registrar: fake)
@@ -95,8 +95,7 @@ struct HotkeySessionTests {
     }
 
     @Test func suspendAndResumeGoThroughTheRegistrar() {
-        let (settings, suite) = makeSettings()
-        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        let (settings, _) = makeSettings()
         let fake = FakeRegistrar()
         let center = HotkeyCenter(settings: settings, hotkeysEnabled: true, registrar: fake)
         center.apply()

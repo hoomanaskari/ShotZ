@@ -25,7 +25,7 @@ enum DragExportJanitor {
                 try fm.removeItem(at: entry)
                 removed += 1
             } catch {
-                ShotzLog.logger("QuickAccess").error("Cannot remove drag export \(entry.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                ShotzLog.logger("QuickAccess").error("Cannot remove drag export \(entry.lastPathComponent, privacy: .private): \(error.localizedDescription, privacy: .private)")
             }
         }
         return removed
@@ -48,7 +48,7 @@ enum DragExportJanitor {
             } catch CocoaError.fileNoSuchFile {
                 // already swept
             } catch {
-                ShotzLog.logger("QuickAccess").error("Cannot remove cancelled drag folder: \(error.localizedDescription, privacy: .public)")
+                ShotzLog.logger("QuickAccess").error("Cannot remove cancelled drag folder: \(error.localizedDescription, privacy: .private)")
             }
         }
     }

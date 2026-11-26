@@ -19,3 +19,12 @@ Rebuild the icons after changing anything here:
 ```bash
 scripts/make-icons.sh
 ```
+
+## Provenance
+
+Both versions of the icon artwork (`owner-artwork.webp`, the camera in capture corners used in
+0.1.0, and `owner-artwork-2.webp`, the photo cards with a magnifier and marker used from 0.1.1)
+were supplied by the owner. ShotZ's own files here are derived from them: the cleaned cut-outs
+(see [MATTE.md](MATTE.md)) and the generated tiles.
+
+**Origin and licence: to be confirmed by the owner.**
