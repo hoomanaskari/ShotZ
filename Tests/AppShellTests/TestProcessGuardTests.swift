@@ -59,3 +59,13 @@ struct TestProcessGuardTests {
         }
     }
 }
+
+struct TestProcessAppBundleTests {
+    /// A real app bundle is never treated as a unit-test runner, whatever its environment says.
+    @Test func appBundlesIgnoreTestEnvironment() {
+        #expect(!TestProcess.detect(processName: "ShotZ", environment: ["XCTestConfigurationFilePath": "/x"],
+                                    bundlePaths: ["/x/Foo.xctest"], mainBundlePath: "/Applications/ShotZ.app"))
+        #expect(TestProcess.detect(processName: "x", environment: ["XCTestConfigurationFilePath": "/x"], bundlePaths: [],
+                                   mainBundlePath: "/usr/bin"))
+    }
+}

@@ -368,6 +368,22 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   onboarding writes, no menu-bar icon, and one launch log line saying so.
   Argument-domain overrides still apply. Carbon lets two processes register
   the same combo, so test copies never hold shortcuts.
+- **Debug hooks are ShotZ Dev only** (`ShotzCore/DebugHooks.swift`, the one
+  gate): `--debug-present`, `--debug-edit`, `--debug-edit-capture`,
+  `--debug-capture-id`, `--debug-snapshot-ui`, `--no-hotkeys`, the
+  `-QuickAccessSelfTest[Capture|Gallery|KeepRunning]` and
+  `-QuickAccessDebug[Appearance]` preferences, argument-domain overrides of any
+  setting (`-general.exportFolder …`), `SHOTZ_EDITOR_SCRIPT`,
+  `SHOTZ_EDITOR_DOCUMENT`, `SHOTZ_EDITOR_PERF`, and the stack snapshot
+  distributed notification (registered only with `-QuickAccessDebug`). The
+  production app reads arguments and environment only through the gate (which
+  hands it neither), empties the argument domain at launch (`main.swift`) and
+  logs one public line naming the ignored hooks (names, never values). So a
+  production bundle is never a test run and is not steerable from outside;
+  `--no-hotkeys` is ignored there too (one rule, and a production launch must
+  never silently run against the owner's data without shortcuts). Hermetic
+  checks of release code use `scripts/bundle.sh release-check`: release
+  configuration, stripped and universal, under the ShotZ Dev identity.
 - **Screen Recording observations:** a bundle exec'd directly from a shell
   inherits the launcher's TCC responsibility, so its preflight result says
   nothing about ShotZ's own grant. Check grants by launching through Launch

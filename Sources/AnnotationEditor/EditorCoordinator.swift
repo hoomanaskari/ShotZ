@@ -88,7 +88,7 @@ import ShotzCore
         }
         var document = AnnotationDocument(baseImageURL: url, pixelSize: info.pixelSize, scale: info.scale)
         // Development only: persist a file-opened image's document to test reopening.
-        let debugDocument = ProcessInfo.processInfo.environment["SHOTZ_EDITOR_DOCUMENT"].map { URL(filePath: $0) }
+        let debugDocument = DebugHooks.environment["SHOTZ_EDITOR_DOCUMENT"].map { URL(filePath: $0) }
         if let debugDocument, let saved = try? AnnotationDocument.load(from: debugDocument) { // absent on first run
             document = saved
         }

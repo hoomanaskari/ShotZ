@@ -49,7 +49,7 @@ public enum Permissions {
     /// Quits and reopens this same bundle (macOS often applies a new Screen
     /// Recording grant only to a fresh process).
     @MainActor public static func relaunch(bundleURL: URL = Bundle.main.bundleURL) {
-        let args = relaunchArguments(from: ProcessInfo.processInfo.arguments)
+        let args = relaunchArguments(from: DebugHooks.arguments)   // the production app relaunches with none
         let process = Process()
         process.executableURL = URL(filePath: "/bin/sh")
         // Wait for this process to exit, then open a new instance of the bundle.

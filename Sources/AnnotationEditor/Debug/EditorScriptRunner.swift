@@ -41,12 +41,12 @@ import ShotzCore
     private var lines: [String]
     private let log = ShotzLog.logger("AnnotationEditor")
 
-    static var isScripted: Bool { ProcessInfo.processInfo.environment["SHOTZ_EDITOR_SCRIPT"] != nil }
+    static var isScripted: Bool { DebugHooks.environment["SHOTZ_EDITOR_SCRIPT"] != nil }
 
     /// Starts once per process, on the first editor window.
     static func startIfRequested(for controller: EditorWindowController, coordinator: EditorCoordinator) {
         guard !started else { return }
-        guard let path = ProcessInfo.processInfo.environment["SHOTZ_EDITOR_SCRIPT"],
+        guard let path = DebugHooks.environment["SHOTZ_EDITOR_SCRIPT"],   // ShotZ Dev only
               let text = try? String(contentsOfFile: path, encoding: .utf8) else { return } // no readable script: normal run
         let runner = EditorScriptRunner(controller: controller, script: text)
         runner.coordinator = coordinator

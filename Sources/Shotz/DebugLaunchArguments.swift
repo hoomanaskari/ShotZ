@@ -1,3 +1,4 @@
+import ShotzCore
 import Foundation
 
 /// Debug-only launch arguments for exercising features without Screen Recording:
@@ -15,7 +16,7 @@ struct DebugLaunchArguments: Equatable {
     var isEmpty: Bool { present.isEmpty && edit == nil && snapshotUI == nil && editCapture == nil }
 
     init(
-        arguments: [String] = Array(ProcessInfo.processInfo.arguments.dropFirst()),
+        arguments: [String] = Array(DebugHooks.arguments.dropFirst()),   // empty in the production app
         currentDirectory: URL = URL(filePath: FileManager.default.currentDirectoryPath, directoryHint: .isDirectory)
     ) {
         func url(_ path: String) -> URL {

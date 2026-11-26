@@ -2,6 +2,9 @@
 # Builds one of the two Shotz apps (ARCHITECTURE §8):
 #   scripts/bundle.sh dev       → build/ShotZ Dev.app  (<id>.dev, debug build)
 #   scripts/bundle.sh release   → build/ShotZ.app      (<id>, release build)
+#   scripts/bundle.sh release-check → build/ShotZ Dev.app (<id>.dev, release build): release code
+#                                 under the ShotZ Dev identity, for hermetic checks (the production
+#                                 app ignores every launch argument and debug hook)
 # <id> is CFBundleIdentifier in Resources/Info.plist (com.pixelforty.shotz), the one
 # place scripts read it from; Swift has the same value in AppVariant (a test checks).
 # `debug` is accepted as an alias for `dev`. The two apps are separate: own
@@ -50,7 +53,10 @@ VARIANT="${1:-dev}"
 case "$VARIANT" in
   dev|debug) VARIANT=dev; CONFIG=debug; APP_NAME="ShotZ Dev"; OLD_NAME="Shotz Dev"; ID_SUFFIX=".dev"; ICON="AppIcon-Dev.icns" ;;
   release) CONFIG=release; APP_NAME="ShotZ"; OLD_NAME="Shotz"; ID_SUFFIX=""; ICON="AppIcon.icns" ;;
-  *) echo "usage: $0 [dev|release]" >&2; exit 64 ;;
+  # Release code (optimized, stripped, universal) under the ShotZ Dev identity, for hermetic checks:
+  # the production app ignores every launch argument, so release code is exercised as ShotZ Dev.
+  release-check) VARIANT=dev; CONFIG=release; APP_NAME="ShotZ Dev"; OLD_NAME="Shotz Dev"; ID_SUFFIX=".dev"; ICON="AppIcon-Dev.icns" ;;
+  *) echo "usage: $0 [dev|release|release-check]" >&2; exit 64 ;;
 esac
 
 PLIST="$ROOT/Resources/Info.plist"

@@ -18,7 +18,7 @@ import ShotzUI
     private let focusRecorder = RecordingFocusHost()
 
     static func makeIfRequested(controller: QuickAccessController) -> StackSelfTest? {
-        guard let path = UserDefaults.standard.string(forKey: "QuickAccessSelfTest"), !path.isEmpty else { return nil }
+        guard let path = DebugHooks.string("QuickAccessSelfTest"), !path.isEmpty else { return nil }
         return StackSelfTest(controller: controller, dir: URL(filePath: path, directoryHint: .isDirectory))
     }
 
@@ -77,7 +77,7 @@ import ShotzUI
         let withBackdrop = qa.cards.values.filter(\.hasBackdrop).count
         check("blurred backdrop on letterboxed cards only", !backdrops.isEmpty && backdrops.allSatisfy { $0 }, "\(withBackdrop) of \(backdrops.count) cards")
         snapshot("01-initial")
-        if UserDefaults.standard.bool(forKey: "QuickAccessSelfTestGallery") { await gallery(qa: qa) }
+        if DebugHooks.bool("QuickAccessSelfTestGallery") { await gallery(qa: qa) }
         await captureExclusion()
         await hoverAndStyle()
         await focusRules()
@@ -101,7 +101,7 @@ import ShotzUI
         CardView.ignoresRealPointer = false
         // A self-test run is a test run: quit so no instance is left behind
         // (`-QuickAccessSelfTestKeepRunning YES` keeps it for inspection).
-        if !UserDefaults.standard.bool(forKey: "QuickAccessSelfTestKeepRunning") {
+        if !DebugHooks.bool("QuickAccessSelfTestKeepRunning") {
             qa.log.info("SELFTEST quitting")
             qa.dismissAll()
             try? await Task.sleep(for: .milliseconds(300)) // let the log line flush

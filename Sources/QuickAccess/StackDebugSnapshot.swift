@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 /// renders each stack panel's own layer tree to `<folder>/stack-<display>.png`
 /// (no screen content is captured), and logs the card state.
 @MainActor final class StackDebugSnapshot {
-    static let enabled = UserDefaults.standard.bool(forKey: "QuickAccessDebug")
+    static let enabled = DebugHooks.bool("QuickAccessDebug")   // ShotZ Dev only; never in the production app
     private var observer: NSObjectProtocol?
 
     init(panels: @escaping @MainActor () -> [UInt32: NSPanel], log: @escaping @MainActor (String) -> Void) {
