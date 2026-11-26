@@ -278,7 +278,23 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
     and the status item to PNGs in `<dir>` (plus the status menu as text),
     for reviewing the shell UI without clicking through it.
   - Example: `swift scripts/make-sample.swift 5120 2880 build/sample-5k.png &&
-    scripts/run.sh --dev-hotkeys --debug-present build/sample-5k.png`.
+    scripts/run.sh --dev-profile --dev-hotkeys --debug-present build/sample-5k.png`.
+
+- **Dev profile** (`ShotzCore/DevProfile.swift`). Active with `--dev-profile`,
+  `SHOTZ_DEV_PROFILE=1`, any `--debug-*` argument, `SHOTZ_EDITOR_SCRIPT` or
+  `-QuickAccessSelfTest`. It switches `DevProfile.defaults` to the suite
+  `app.shotz.Shotz.dev` (used by `SettingsStore()` and
+  `ExportConfiguration.current()`) and `ShotzPaths.default` to
+  `~/Library/Application Support/Shotz-Dev` plus temp `Shotz-Dev`. AppKit
+  window-frame autosave is off in the dev profile, and the status item uses its
+  own autosave name. The bundle id is unchanged, so the Screen Recording grant
+  applies, and argument-domain overrides still work (suites include the
+  argument domain). The launch log says `Profile: dev` or `Profile: standard`.
+  - Code reads preferences through `DevProfile.defaults` (or an injected
+    `SettingsStore.defaults`), never `UserDefaults.standard`.
+  - **Rule:** every engineer and test launch uses `--dev-profile` and runs the
+    bundle from its own worktree. Nobody bundles, launches or kills the main
+    checkout's `build/Shotz.app`: that is the owner's instance.
 
 - Bundle id `app.shotz.Shotz`, `LSUIElement = true`, `LSMinimumSystemVersion = 15.0`.
 - Signing: `bundle.sh` signs with `$SHOTZ_SIGN_IDENTITY` if set, otherwise the

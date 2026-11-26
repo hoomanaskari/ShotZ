@@ -50,16 +50,34 @@ swift scripts/make-sample.swift 5120 2880 build/sample-5k.png
 ```
 
 ```bash
-scripts/run.sh --dev-hotkeys --debug-present build/sample-5k.png
+scripts/run.sh --dev-profile --dev-hotkeys --debug-present build/sample-5k.png
 ```
 
 ```bash
-scripts/run.sh --dev-hotkeys --debug-edit build/sample-5k.png
+scripts/run.sh --dev-profile --dev-hotkeys --debug-edit build/sample-5k.png
 ```
 
 - `--debug-present <png> [<png>…]` copies each image into the captures folder,
   adds it to history (kind area, scale 2) and shows it in the quick-access stack.
 - `--debug-edit <png>` opens the image in the editor.
+
+### Dev profile (required for every engineer and test launch)
+
+`--dev-profile` (or `SHOTZ_DEV_PROFILE=1`) runs Shotz with its own
+preferences (`UserDefaults` suite `app.shotz.Shotz.dev`) and its own data
+(`~/Library/Application Support/Shotz-Dev`, temp folder `Shotz-Dev`), so a
+test run never touches the owner's settings, onboarding state, history or
+captures. Any `--debug-*` argument, `SHOTZ_EDITOR_SCRIPT` or
+`-QuickAccessSelfTest` switches it on as well. The bundle id stays
+`app.shotz.Shotz`, so the Screen Recording grant still applies, and
+argument-domain overrides such as `-quickAccess.side right` keep working. The
+first log line after launch says which profile is active.
+
+Rules for engineers and test runs:
+
+- Always launch with `--dev-profile`.
+- Only run the bundle built in your own worktree. Never bundle, launch or quit
+  `build/Shotz.app` in the main checkout: that is the owner's instance.
 
 `--dev-hotkeys` (or `SHOTZ_DEV_HOTKEYS=1`) uses ⌃⌥⌘3/4/5 for the run instead
 of the stored shortcuts, so Shotz can run next to another screenshot app that
