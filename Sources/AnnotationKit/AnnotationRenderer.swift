@@ -102,7 +102,7 @@ public enum AnnotationRenderer {
             ctx.setFillColor(opaqueMatte.cgColor)
             ctx.fill(canvas)
         }
-        drawBackground(document, base: base, image: image, layout: layout, in: ctx)
+        drawBackground(document, base: base, image: image, layout: layout, skipUnderImage: true, in: ctx)
 
         // Image group: base image, redactions, objects; clipped to the visible image with the
         // background's inner corner radius (`imageCornerRadius`).
@@ -155,13 +155,38 @@ public enum AnnotationRenderer {
         return max(min(document.background?.cornerRadius ?? 0, min(rect.width, rect.height) / 2), 0)
     }
 
+    /// `skipUnderImage`: export passes true (see `backgroundRegions`).
     static func drawBackground(_ document: AnnotationDocument, base: BaseImageProvider, image: CGImage,
-                               layout: BackgroundLayout, in ctx: CGContext) {
+                               layout: BackgroundLayout, skipUnderImage: Bool = false, in ctx: CGContext) {
         guard let bg = document.background else { return }
-        drawBackgroundFill(bg.fill, in: CGRect(origin: .zero, size: layout.canvasSize), ctx: ctx)
-        if let shadow = shadowParameters(bg.shadow, imageSize: document.imageRect.size) {
-            drawShadow(shadow, image: image, document: document, layout: layout, radius: imageCornerRadius(document), in: ctx)
+        let canvas = CGRect(origin: .zero, size: layout.canvasSize)
+        let shadow = shadowParameters(bg.shadow, imageSize: document.imageRect.size)
+        let shadowImage = shadow.flatMap { renderShadow($0, image: image, document: document, layout: layout, radius: imageCornerRadius(document), base: base) }
+        // Each region is drawn under its own rectangular clip: Core Graphics rasterises a
+        // gradient over the clip's bounding box, so one band at a time is what saves the work.
+        for region in backgroundRegions(document, layout: layout, canvas: canvas, skipUnderImage: skipUnderImage, base: base) {
+            ctx.saveGState()
+            ctx.clip(to: region)
+            drawBackgroundFill(bg.fill, in: canvas, ctx: ctx)
+            if let shadowImage { drawShadowImage(shadowImage, in: ctx) }
+            ctx.restoreGState()
         }
+    }
+
+    /// The whole canvas, or, for an opaque image during export, four bands around the image's
+    /// inner rect (inset past its corner radius so rounded corners still get fill and shadow);
+    /// nothing under an opaque image can show.
+    static func backgroundRegions(_ document: AnnotationDocument, layout: BackgroundLayout, canvas: CGRect,
+                                  skipUnderImage: Bool, base: BaseImageProvider) -> [CGRect] {
+        let r = imageCornerRadius(document)
+        let inner = layout.imageFrame.insetBy(dx: r + 1, dy: r + 1).intersection(canvas)
+        guard skipUnderImage, !inner.isEmpty, base.isOpaque() else { return [canvas] }
+        return [
+            CGRect(x: canvas.minX, y: canvas.minY, width: canvas.width, height: inner.minY - canvas.minY),
+            CGRect(x: canvas.minX, y: inner.maxY, width: canvas.width, height: canvas.maxY - inner.maxY),
+            CGRect(x: canvas.minX, y: inner.minY, width: inner.minX - canvas.minX, height: inner.height),
+            CGRect(x: inner.maxX, y: inner.minY, width: canvas.maxX - inner.maxX, height: inner.height),
+        ].filter { $0.width > 0 && $0.height > 0 }
     }
 
     /// The visible-content rect used for auto-balance, relative to the crop's origin.

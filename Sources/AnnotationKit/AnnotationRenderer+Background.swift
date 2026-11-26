@@ -53,14 +53,20 @@ extension AnnotationRenderer {
     /// scaled up; a soft shadow loses nothing. The casting shape is drawn far off-canvas with the
     /// offset compensated, so only the shadow lands. Images with alpha (window captures) cast
     /// their real silhouette; opaque images cast the rounded rect.
-    static func drawShadow(_ shadow: ShadowParameters, image: CGImage, document: AnnotationDocument, layout: BackgroundLayout,
-                           radius: CGFloat, in ctx: CGContext) {
+    struct ShadowImage {
+        var image: CGImage
+        /// Where it goes on the canvas (canvas units).
+        var rect: CGRect
+    }
+
+    static func renderShadow(_ shadow: ShadowParameters, image: CGImage, document: AnnotationDocument, layout: BackgroundLayout,
+                             radius: CGFloat, base: BaseImageProvider) -> ShadowImage? {
         let canvas = layout.canvasSize
         // Fixed ≈12 px of blur in the small bitmap whatever the output scale: Core Graphics'
         // blur is not linear at small radii, so scaling it would change the shadow's look.
         let k = min(1, max(12 / max(shadow.blur, 1), 1 / 32))
         let w = max(Int((canvas.width * k).rounded(.up)), 1), h = max(Int((canvas.height * k).rounded(.up)), 1)
-        guard let small = Redactor.bitmap(width: w, height: h, space: Redactor.workingSpace(of: image)) else { return }
+        guard let small = Redactor.bitmap(width: w, height: h, space: Redactor.workingSpace(of: image)) else { return nil }
         small.interpolationQuality = .medium
         small.translateBy(x: 0, y: CGFloat(h))
         small.scaleBy(x: k, y: -k)
@@ -72,12 +78,11 @@ extension AnnotationRenderer {
         let shape = radius > 0
             ? CGPath(roundedRect: frame, cornerWidth: radius, cornerHeight: radius, transform: nil)
             : CGPath(rect: frame, transform: nil)
-        switch image.alphaInfo {
-        case .none, .noneSkipFirst, .noneSkipLast:
+        if base.isOpaque() {
             small.addPath(shape)
             small.setFillColor(CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1))
             small.fillPath()
-        default:
+        } else {
             small.beginTransparencyLayer(auxiliaryInfo: nil)
             small.addPath(shape)
             small.clip()
@@ -86,10 +91,13 @@ extension AnnotationRenderer {
                                                 width: document.pixelSize.width, height: document.pixelSize.height))
             small.endTransparencyLayer()
         }
-        guard let shadowImage = small.makeImage() else { return }
+        return small.makeImage().map { ShadowImage(image: $0, rect: CGRect(x: 0, y: 0, width: CGFloat(w) / k, height: CGFloat(h) / k)) }
+    }
+
+    static func drawShadowImage(_ shadow: ShadowImage, in ctx: CGContext) {
         ctx.saveGState()
         ctx.interpolationQuality = .high
-        ctx.drawFlipped(shadowImage, in: CGRect(x: 0, y: 0, width: CGFloat(w) / k, height: CGFloat(h) / k))
+        ctx.drawFlipped(shadow.image, in: shadow.rect)
         ctx.restoreGState()
     }
 }

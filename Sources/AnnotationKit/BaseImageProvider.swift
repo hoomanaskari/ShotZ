@@ -25,6 +25,7 @@ public final class BaseImageProvider: Sendable {
         /// Insertion order for a simple LRU bound on the cache.
         var order: [RedactionKey] = []
         var opaqueBounds: CGRect??
+        var isOpaque: Bool?
     }
 
     /// Cached redaction bitmaps kept at most (each is at most the redact rect's size).
@@ -125,6 +126,32 @@ public final class BaseImageProvider: Sendable {
         let bounds = (try? image()).flatMap(Self.computeVisibleBounds) // unreadable base: no bounds
         state.withLock { $0.opaqueBounds = .some(bounds) }
         return bounds
+    }
+
+    /// True when every pixel is fully opaque (cached). Scans a downsampled alpha plane: any
+    /// transparency, even a few pixels such as a window's rounded corner, lowers a sample below 255.
+    public func isOpaque() -> Bool {
+        if let cached = state.withLock({ $0.isOpaque }) { return cached }
+        let result = (try? image()).map(Self.computeIsOpaque) ?? false // unreadable base: assume not opaque
+        state.withLock { $0.isOpaque = result }
+        return result
+    }
+
+    private static func computeIsOpaque(_ image: CGImage) -> Bool {
+        switch image.alphaInfo {
+        case .none, .noneSkipFirst, .noneSkipLast: return true
+        default: break
+        }
+        let k = min(1, 512 / CGFloat(max(image.width, image.height)))
+        let w = max(Int(CGFloat(image.width) * k), 1), h = max(Int(CGFloat(image.height) * k), 1)
+        guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let data = ctx.data else { return false }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        let bytes = data.bindMemory(to: UInt8.self, capacity: w * h * 4)
+        for i in 0..<(w * h) where bytes[i * 4 + 3] < 255 { return false }
+        return true
     }
 
     private static func computeVisibleBounds(_ image: CGImage) -> CGRect? {

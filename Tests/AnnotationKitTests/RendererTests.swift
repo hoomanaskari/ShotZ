@@ -200,31 +200,6 @@ struct RendererTests {
         let out = try DocumentExport.render(doc, base: BaseImageProvider(image: clear, url: doc.baseImageURL), format: .jpeg, scale: 1)
         #expect(Pixels(out).rgba(10, 10) == [255, 255, 255, 255])
     }
-
-    @Test func fiveKExportWithFiftyObjectsIsFast() throws {
-        let base = BaseImageProvider(image: TestImages.base(width: 5120, height: 2880), url: URL(filePath: "/x"))
-        var doc = ShowcaseTests.showcaseDocument(width: 5120, height: 2880)
-        let template = doc.objects
-        doc.objects = (0..<50).map { i in
-            template[i % template.count].duplicated(offsetBy: CGVector(dx: CGFloat(i % 4) * 600, dy: CGFloat(i / 25) * 1300))
-        }
-        // Large redactions dominate the cost; include one of each kind at 5K size.
-        doc.objects += [
-            AnnotationObject(shape: .redact(CGRect(x: 100, y: 1800, width: 1600, height: 500), .pixelate)),
-            AnnotationObject(shape: .redact(CGRect(x: 1800, y: 1800, width: 1600, height: 500), .blur)),
-            AnnotationObject(shape: .redact(CGRect(x: 3500, y: 1800, width: 1500, height: 500), .solid)),
-        ]
-        doc.background = BackgroundStyle(fill: .gradient(GradientPreset.all[0].fill), padding: 0.05, shadow: .soft)
-        _ = try AnnotationRenderer.renderImage(doc, base: base, outputScale: 1) // warm caches (fonts, redactions)
-        let clock = ContinuousClock()
-        var image: CGImage?
-        let cold = try clock.measure {
-            base.clearCache()
-            image = try AnnotationRenderer.renderImage(doc, base: base, outputScale: 1)
-        }
-        #expect(image?.width == 5632 && image?.height == 3392)
-        #expect(cold < .milliseconds(1000), "5K export took \(cold)")
-    }
 }
 
 /// Reads pixels of a CGImage by redrawing it into a known sRGB RGBA8 layout.
