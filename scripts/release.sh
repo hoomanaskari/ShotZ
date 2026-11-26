@@ -20,7 +20,9 @@
 #   ShotZ.app                 the signed (and, when notarized, stapled) app
 #   ShotZ-<version>.zip       the Sparkle update archive
 #   ShotZ-<version>.dmg       the manual download, with an Applications link
-#   SHA256SUMS.txt            checksums of the zip and the DMG
+#   ShotZ<build>-<old>.delta  Sparkle deltas from earlier archives in sparkle-releases/ (second and
+#                             later releases)
+#   SHA256SUMS.txt            checksums of everything to upload (DMG, zip, deltas)
 # and the appcast (appcast.xml, or <dir>/appcast.xml) from sparkle-releases/ (archives, deltas).
 #
 # This script never pushes, tags, publishes or uploads anything: it prints the go-live steps.
@@ -119,7 +121,7 @@ if in_worktree && [[ -z "$DRY_RUN_DIR" ]]; then
   stop "this checkout is a git worktree. Release from the main checkout, or rehearse with --dry-run-dir <dir>."
 fi
 
-for cmd in git swift codesign spctl hdiutil ditto shasum plutil openssl create-dmg security; do
+for cmd in git swift codesign spctl hdiutil ditto shasum plutil openssl create-dmg security xmllint; do
   command -v "$cmd" >/dev/null 2>&1 || stop "missing command: $cmd$([[ $cmd == create-dmg ]] && echo ' (install: brew install create-dmg)')"
 done
 for tool in notarytool stapler lipo; do
@@ -241,6 +243,35 @@ elif security find-generic-password -s "https://sparkle-project.org" -a "${SPARK
   ok "Sparkle EdDSA signing key present in the keychain (account: $KEY_ACCOUNT_LABEL)"
 else
   stop "no Sparkle EdDSA key in the keychain (account: $KEY_ACCOUNT_LABEL). See docs/RELEASE.md (one-time setup, Sparkle key)."
+fi
+
+# Second and later releases: the feed already has items. They are kept unchanged and the new build
+# must be newer than all of them. A rehearsal works on a copy: <dir>/appcast.xml if a previous
+# rehearsal left one there, else the committed appcast.xml (copied in the appcast step).
+FEED_SOURCE="$ROOT/appcast.xml"
+[[ -n "$DRY_RUN_DIR" && -f "$APPCAST" ]] && FEED_SOURCE="$APPCAST"
+PREV_BUILDS=()
+PREV_VERSIONS=()
+if [[ "$HAVE_SPARKLE" == 1 && -s "$FEED_SOURCE" ]]; then
+  xmllint --noout "$FEED_SOURCE" 2>/dev/null || stop "$FEED_SOURCE is not well-formed XML."
+  feed_xp() { xmllint --xpath "$1" "$FEED_SOURCE" 2>/dev/null || true; }
+  n_items="$(feed_xp "count(//*[local-name()='item'])")"
+  for ((i = 1; i <= n_items; i++)); do
+    b="$(feed_xp "string((//*[local-name()='item'])[$i]/*[local-name()='version'])")"
+    v="$(feed_xp "string((//*[local-name()='item'])[$i]/*[local-name()='shortVersionString'])")"
+    [[ "$b" =~ ^[0-9]+$ ]] || stop "item $i of the feed has no whole-number sparkle:version ('$b')."
+    [[ "$b" -lt "$BUILD" ]] || stop "the feed already has build $b ($v): build $BUILD must be higher than every build in it (scripts/bump-version.sh)."
+    [[ "$v" != "$VERSION" ]] || stop "the feed already has version $VERSION (build $b)."
+    PREV_BUILDS+=("$b")
+    PREV_VERSIONS+=("$v")
+  done
+  if [[ "$n_items" -gt 0 ]]; then
+    ok "the feed has $n_items earlier item(s) (${PREV_VERSIONS[*]}): build $BUILD is newer than all of them"
+    for v in "${PREV_VERSIONS[@]}"; do
+      [[ -f "$ROOT/sparkle-releases/$APP_NAME-$v.zip" || -f "$RELEASES_DIR/$APP_NAME-$v.zip" ]] \
+        || warn "no delta from $v: sparkle-releases/$APP_NAME-$v.zip is missing (installed $v copies download the full ZIP)"
+    done
+  fi
 fi
 
 # ---------------------------------------------------------------------------------------------
@@ -424,14 +455,29 @@ if [[ "$HAVE_SPARKLE" == 1 ]]; then
   for pattern in '*.zip' '*.delta' '*.dmg' '*.md'; do
     grep -qxF "$pattern" "$RELEASES_DIR/.gitignore" || printf '%s\n' "$pattern" >> "$RELEASES_DIR/.gitignore"
   done
-  if [[ -n "$DRY_RUN_DIR" && -d "$ROOT/sparkle-releases" ]]; then
-    # Rehearse deltas against the real previous archives without changing them.
-    find "$ROOT/sparkle-releases" -maxdepth 1 \( -name '*.zip' -o -name '*.md' \) -exec cp -n {} "$RELEASES_DIR/" \;
+  if [[ -n "$DRY_RUN_DIR" ]]; then
+    # A rehearsal works on copies of the real previous archives, notes and feed (never changed in
+    # place), so it exercises the real case: older items kept, deltas from the previous archives.
+    [[ -d "$ROOT/sparkle-releases" ]] && find "$ROOT/sparkle-releases" -maxdepth 1 \( -name '*.zip' -o -name '*.md' \) -exec cp -n {} "$RELEASES_DIR/" \;
+    [[ -f "$APPCAST" || ! -f "$ROOT/appcast.xml" ]] || cp "$ROOT/appcast.xml" "$APPCAST"
   fi
   cp "$ZIP" "$RELEASES_DIR/"
   # Sparkle pairs release notes with the archive of the same name.
   [[ -s "$NOTES" ]] && cp "$NOTES" "$RELEASES_DIR/$APP_NAME-$VERSION.md"
-  [[ -f "$APPCAST" ]] || cp "$ROOT/appcast.xml" "$APPCAST" 2>/dev/null || true
+  # Snapshot the earlier items, and note which earlier versions have their archive here (Sparkle
+  # makes a delta from each of the newest 5).
+  xp() { xmllint --xpath "$1" "$APPCAST" 2>/dev/null || true; }
+  item_of() { printf "//*[local-name()='item'][*[local-name()='version']='%s']" "$1"; }
+  EXPECTED_DELTAS=()
+  for ((i = 0; i < ${#PREV_BUILDS[@]}; i++)); do
+    b="${PREV_BUILDS[$i]}"
+    xp "$(item_of "$b")" > "$STAGE/item-$b.before.xml"
+    [[ -s "$STAGE/item-$b.before.xml" ]] || stop "could not read the feed's item for build $b."
+    if [[ -f "$RELEASES_DIR/$APP_NAME-${PREV_VERSIONS[$i]}.zip" && ${#EXPECTED_DELTAS[@]} -lt 5 ]]; then
+      EXPECTED_DELTAS+=("$b")
+    fi
+  done
+  [[ ${#PREV_BUILDS[@]} -gt 0 ]] && cp "$APPCAST" "$STAGE/feed-before.xml"
   # Reached in a real run, or in a rehearsal with --rehearse-appcast (all inside the dry-run dir).
   account_args=()
   [[ -n "$SPARKLE_KEY_ACCOUNT" ]] && account_args=(--account "$SPARKLE_KEY_ACCOUNT")
@@ -443,6 +489,8 @@ if [[ "$HAVE_SPARKLE" == 1 ]]; then
     --download-url-prefix "https://github.com/$SHOTZ_GITHUB_REPO/releases/download/$TAG/" \
     --embed-release-notes \
     --link "https://github.com/$SHOTZ_GITHUB_REPO" \
+    --versions "$BUILD" \
+    --maximum-versions 0 \
     -o "$APPCAST" \
     "$RELEASES_DIR" > "$STAGE/generate_appcast.log" 2>&1
   status=$?
@@ -453,10 +501,52 @@ if [[ "$HAVE_SPARKLE" == 1 ]]; then
   elif [[ $status -ne 0 ]]; then
     stop "generate_appcast failed (exit $status, output above). Not retried."
   fi
+  # generate_appcast rewrites the enclosure (and delta) URLs of every earlier item whose archive is
+  # in sparkle-releases/ to this release's --download-url-prefix, where those files don't exist.
+  # Put each earlier <item> block back exactly as it was (the appcast itself is not signed); the
+  # byte-for-byte check below confirms it.
+  if [[ ${#PREV_BUILDS[@]} -gt 0 ]]; then
+    cat > "$STAGE/restore-items.swift" <<'SWIFT'
+import Foundation
+// restore-items <before.xml> <appcast.xml> <build>...: replaces each build's <item> block in the
+// appcast with the block from before.xml, line for line. Prints how many blocks changed.
+let a = CommandLine.arguments
+func blocks(_ lines: [String]) -> [String: Range<Int>] {
+    var out: [String: Range<Int>] = [:], start: Int?
+    for (i, l) in lines.enumerated() {
+        let t = l.trimmingCharacters(in: .whitespaces)
+        if t == "<item>" { start = i }
+        else if t == "</item>", let s = start {
+            if let v = lines[s...i].first(where: { $0.contains("<sparkle:version>") }) {
+                out[v.trimmingCharacters(in: .whitespaces)] = s..<(i + 1)
+            }
+            start = nil
+        }
+    }
+    return out
+}
+guard a.count >= 4, let before = try? String(contentsOfFile: a[1], encoding: .utf8),
+      let after = try? String(contentsOfFile: a[2], encoding: .utf8) else { print("unreadable"); exit(2) }
+let old = before.components(separatedBy: "\n")
+var new = after.components(separatedBy: "\n")
+var changed = 0
+for build in a[3...] {
+    let key = "<sparkle:version>\(build)</sparkle:version>"
+    guard let o = blocks(old)[key], let n = blocks(new)[key] else { print("no item block for build \(build)"); exit(1) }
+    let original = Array(old[o])
+    if Array(new[n]) != original { new.replaceSubrange(n, with: original); changed += 1 }
+}
+do { try new.joined(separator: "\n").write(toFile: a[2], atomically: true, encoding: .utf8) } catch { print("write failed"); exit(1) }
+print(changed)
+SWIFT
+    restored="$(swift "$STAGE/restore-items.swift" "$STAGE/feed-before.xml" "$APPCAST" "${PREV_BUILDS[@]}" 2>&1)" \
+      || stop "could not restore the earlier appcast items ($restored)."
+    [[ "$restored" =~ ^[0-9]+$ ]] || stop "could not restore the earlier appcast items ($restored)."
+    [[ "$restored" == 0 ]] || ok "restored $restored earlier item(s) that generate_appcast had pointed at the $TAG release"
+  fi
   # Verify the new item: version, build, enclosure URL, length and the EdDSA signature against
   # the committed public key (checked here with CryptoKit, without the private key).
-  xp() { xmllint --xpath "$1" "$APPCAST" 2>/dev/null || true; }
-  item="//*[local-name()='item'][*[local-name()='version']='$BUILD']"
+  item="$(item_of "$BUILD")"
   [[ -n "$(xp "string($item/*[local-name()='version'])")" ]] || stop "the appcast has no item for build $BUILD."
   [[ "$(xp "string($item/*[local-name()='shortVersionString'])")" == "$VERSION" ]] || stop "the appcast item for build $BUILD is not version $VERSION."
   enc_url="$(xp "string($item/*[local-name()='enclosure']/@url)")"
@@ -482,12 +572,45 @@ SWIFT
   tampered="$(swift "$STAGE/verify-ed25519.swift" "$PUBLIC_KEY" "$enc_sig" "$STAGE/tampered.zip" 2>/dev/null || true)"
   [[ "$tampered" == invalid ]] || stop "signature check is not discriminating (a changed archive gave '$tampered')."
   ok "appcast item $VERSION ($BUILD): enclosure $enc_url, length matches, EdDSA signature verifies against the committed public key (a changed archive fails)"
+
+  # The new item is the newest, and every earlier item is still there, byte for byte.
+  [[ "$(xp "count(//*[local-name()='item'])")" == "$(( ${#PREV_BUILDS[@]} + 1 ))" ]] \
+    || stop "the appcast should have $(( ${#PREV_BUILDS[@]} + 1 )) items (${#PREV_BUILDS[@]} earlier + $VERSION)."
+  [[ "$(xp "string((//*[local-name()='item'])[1]/*[local-name()='version'])")" == "$BUILD" ]] \
+    || stop "the first appcast item is not build $BUILD."
+  for b in ${PREV_BUILDS[@]+"${PREV_BUILDS[@]}"}; do
+    xp "$(item_of "$b")" > "$STAGE/item-$b.after.xml"
+    cmp -s "$STAGE/item-$b.before.xml" "$STAGE/item-$b.after.xml" \
+      || { diff "$STAGE/item-$b.before.xml" "$STAGE/item-$b.after.xml" | head -n 20 | sed 's/^/    /'; stop "generate_appcast changed the earlier item for build $b."; }
+  done
+  [[ ${#PREV_BUILDS[@]} -gt 0 ]] && ok "newest item is $VERSION ($BUILD); the ${#PREV_BUILDS[@]} earlier item(s) (${PREV_VERSIONS[*]}) are unchanged"
+
+  # Deltas: one from each earlier archive found here (newest 5), each listed in the new item with
+  # the right URL, length and a valid EdDSA signature. They are uploaded with the release.
+  for b in ${EXPECTED_DELTAS[@]+"${EXPECTED_DELTAS[@]}"}; do
+    [[ -f "$RELEASES_DIR/$APP_NAME$BUILD-$b.delta" ]] || stop "no delta from build $b ($APP_NAME$BUILD-$b.delta) although its archive is in sparkle-releases/."
+  done
   while IFS= read -r d; do DELTAS+=("$d"); done < <(find "$RELEASES_DIR" -maxdepth 1 -name "${APP_NAME}${BUILD}-*.delta" | sort)
+  for d in ${DELTAS[@]+"${DELTAS[@]}"}; do
+    name="$(basename "$d")"
+    from="${name#"$APP_NAME$BUILD-"}"; from="${from%.delta}"
+    delta="$item/*[local-name()='deltas']/*[local-name()='enclosure'][@*[local-name()='deltaFrom']='$from']"
+    [[ "$(xp "string($delta/@url)")" == "https://github.com/$SHOTZ_GITHUB_REPO/releases/download/$TAG/$name" ]] \
+      || stop "the appcast has no delta enclosure for $name at the $TAG release URL."
+    [[ "$(xp "string($delta/@length)")" == "$(stat -f %z "$d")" ]] || stop "the delta enclosure length for $name doesn't match the file."
+    dsig="$(xp "string($delta/@*[local-name()='edSignature'])")"
+    [[ "$(swift "$STAGE/verify-ed25519.swift" "$PUBLIC_KEY" "$dsig" "$d" 2>/dev/null || true)" == valid ]] \
+      || stop "the EdDSA signature of $name does not verify against Resources/SparklePublicKey.txt."
+    cp "$d" "$DIST/"
+    ok "delta $name (from build $from): URL, length and EdDSA signature verify; copied to dist/ for upload"
+  done
 fi
 
 # ---------------------------------------------------------------------------------------------
 step "Checksums"
-(cd "$DIST" && shasum -a 256 "$(basename "$ZIP")" "$(basename "$DMG")" > SHA256SUMS.txt && sed 's/^/    /' SHA256SUMS.txt)
+UPLOADS=("$(basename "$DMG")" "$(basename "$ZIP")")
+for d in ${DELTAS[@]+"${DELTAS[@]}"}; do UPLOADS+=("$(basename "$d")"); done
+(cd "$DIST" && shasum -a 256 "${UPLOADS[@]}" > SHA256SUMS.txt && sed 's/^/    /' SHA256SUMS.txt)
 
 printf '\n==================================================================\n'
 if [[ ${#NOT_RELEASABLE[@]} -gt 0 ]]; then
@@ -500,8 +623,9 @@ printf '==================================================================\n'
 printf ' App:      %s\n ZIP:      %s\n DMG:      %s\n Sums:     %s\n' "$APP" "$ZIP" "$DMG" "$DIST/SHA256SUMS.txt"
 [[ "$HAVE_SPARKLE" == 1 ]] && printf ' Appcast:  %s\n' "$APPCAST"
 if [[ "$HAVE_SPARKLE" == 1 && ${#DELTAS[@]} -gt 0 ]]; then
-  printf ' Deltas:\n'; for d in "${DELTAS[@]}"; do printf '   %s\n' "$d"; done
+  printf ' Deltas:\n'; for d in "${DELTAS[@]}"; do printf '   %s\n' "$DIST/$(basename "$d")"; done
 fi
+printf ' Upload:   %s (from %s, as listed in SHA256SUMS.txt)\n' "${UPLOADS[*]}" "$DIST"
 if [[ ${#WARNINGS[@]} -gt 0 ]]; then
   printf ' Warnings:\n'; for w in "${WARNINGS[@]}"; do printf '   - %s\n' "$w"; done
 fi
@@ -515,8 +639,9 @@ Go-live steps (this script does none of them; see docs/RELEASE.md):
        git add appcast.xml release-notes/$VERSION.md sparkle-releases/.gitignore && git commit -m "Release $TAG"
   2. Tag:                              git tag $TAG
   3. Push the tag only:                git push origin refs/tags/$TAG
-  4. Create the GitHub release $TAG from release-notes/$VERSION.md and upload:
-       $(basename "$DMG"), $(basename "$ZIP")$([[ ${#DELTAS[@]} -gt 0 ]] && printf ' and every delta listed above')
+  4. Create the GitHub release $TAG from release-notes/$VERSION.md and upload these files from dist/
+     (exactly the files in SHA256SUMS.txt):
+$(for u in "${UPLOADS[@]}"; do printf '       %s\n' "$u"; done)
      Check each asset is public and matches SHA256SUMS.txt.
   5. Only then expose the update feed:  git push origin main
      and check the public appcast matches the local file.

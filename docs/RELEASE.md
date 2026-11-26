@@ -121,8 +121,9 @@ overrides it only if it matches.)
    3. makes the Sparkle zip and the DMG (signed), notarizes and staples the DMG, and validates it;
    4. mounts the DMG and verifies the app inside and the Applications link;
    5. regenerates `appcast.xml` from `sparkle-releases/` (making deltas from the previous archives
-      kept there), with the release notes embedded;
-   6. writes `dist/SHA256SUMS.txt` and prints the go-live steps.
+      kept there), with the release notes embedded, and verifies it (see "Second and later
+      releases");
+   6. writes `dist/SHA256SUMS.txt` (every file to upload) and prints the go-live steps.
 
 ### Rehearsing
 
@@ -137,15 +138,52 @@ rehearsal never touches the notary profile, and doesn't use the Sparkle key unle
 scripts/release.sh --skip-notarize --dry-run-dir /tmp/shotz-rehearsal --rehearse-appcast
 ```
 
-also signs an appcast with the Sparkle key, entirely inside the given folder (its own
-`sparkle-releases/` and `appcast.xml`; the repository's are never touched), and verifies it: the new
+also signs an appcast with the Sparkle key, entirely inside the given folder, and verifies it: the new
 item's version and build, the enclosure URL (the GitHub release asset), its length, and its EdDSA
 signature against the committed public key (a deliberately changed copy of the archive must fail).
+The folder gets copies of the repository's `sparkle-releases/` archives and notes and of the
+committed `appcast.xml` (unless it already has its own `appcast.xml` from an earlier rehearsal), so a
+rehearsal of a second release exercises the real case: earlier items kept, deltas made. The
+repository's files are never changed.
 Its summary then lists only "notarization skipped".
 The git checks only warn, so it runs from a worktree or with uncommitted changes. The summary says
 **NOT RELEASABLE** and lists why. `--skip-appcast` also skips the appcast step in a normal run. Never upload a
 rehearsal's files: Gatekeeper rejects them on other Macs. Rehearsals skip `create-dmg`'s Finder
 window layout (it needs Automation permission); the Applications link is still there.
+
+## Second and later releases
+
+The same steps as above:
+1. Bump the version: `scripts/bump-version.sh 0.1.1` (the build goes up by one).
+2. Write `release-notes/0.1.1.md`.
+3. Commit, then run `scripts/release.sh` from the main checkout.
+
+Before the build, it checks that the new build is higher than every build already in
+`appcast.xml`, and that the version isn't in the feed yet.
+
+**Keep `sparkle-releases/`.** It holds `ShotZ-<version>.zip` for each earlier release. Sparkle makes
+a delta from each of the newest five, for example `ShotZ2-1.delta` (build 2 from build 1). A copy
+that has 0.1.0 then downloads only the difference. When an earlier archive is missing, the run warns
+and copies of that version download the full ZIP.
+
+**The appcast** gets one new item, first in the feed. Its enclosure is
+`.../releases/download/v0.1.1/ShotZ-0.1.1.zip` and it has a `sparkle:deltas` list, one enclosure per
+delta with `sparkle:deltaFrom` (the old build), its URL in the same release and its own EdDSA
+signature. Earlier items stay exactly as they were, and their downloads stay in their own GitHub
+releases. `generate_appcast` would point every earlier item whose archive is in `sparkle-releases/`
+at the new release's URL, so `release.sh` puts those item blocks back from the feed as it was before
+the run, and then stops if any byte of them differs. This is safe because the appcast itself is not
+signed: each enclosure carries its own signature. No item is ever pruned (`--maximum-versions 0`),
+and only the new build gets an item (`--versions`).
+
+**Upload** to the new GitHub release exactly the files in `dist/SHA256SUMS.txt`, which the go-live
+steps list by name: the DMG, the ZIP and every delta. The deltas are copied into `dist/`. Without a
+delta's asset, Sparkle falls back to the full ZIP, but the appcast would point to a missing file.
+Commit the same three files as for the first release (step 1 of "Going live").
+
+To rehearse it, run `scripts/release.sh --skip-notarize --dry-run-dir <dir> --rehearse-appcast` in
+the main checkout. That checkout has the earlier archives, so the delta is made from the real
+`ShotZ-0.1.0.zip`.
 
 ## Verifying before you publish
 
@@ -186,8 +224,9 @@ In this order, so the feed never points to downloads that aren't public yet:
 
 2. Tag and push the tag only: `git tag v$VERSION && git push origin refs/tags/v$VERSION`
 3. Create the GitHub release `v$VERSION` with `release-notes/$VERSION.md` as its description and
-   upload `ShotZ-$VERSION.dmg`, `ShotZ-$VERSION.zip` and every `.delta` the new appcast item
-   references (listed in the summary). Check each asset is public and matches `SHA256SUMS.txt`.
+   upload from `dist/` exactly the files in `SHA256SUMS.txt`: `ShotZ-$VERSION.dmg`,
+   `ShotZ-$VERSION.zip` and, from the second release on, every `.delta` (the go-live steps list them
+   by name). Check each asset is public and matches `SHA256SUMS.txt`.
 4. Expose the feed: `git push origin main`.
 5. Check the public appcast (`SUFeedURL`) matches your local `appcast.xml`, and that an installed
    older ShotZ offers the update.
