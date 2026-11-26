@@ -78,7 +78,9 @@ import AppKit
         let s = model.displayedSettings
         let hasSelection = !model.selection.isEmpty
 
-        if model.toolKind == .crop {
+        if model.editingCounterID != nil {
+            stack.addArrangedSubview(OptionControls.caption(String(localized: "Type the number. Return finishes, Esc cancels.")))
+        } else if model.toolKind == .crop {
             addCropControls()
         } else if let kind = hasSelection ? model.optionsKind : model.toolKind {
             if kind == .select {

@@ -11,12 +11,8 @@ import CoreGraphics
 
     func mouseDown(_ event: ToolEvent) {
         guard let model else { return }
-        if event.clickCount >= 2, let hit = model.hitObject(at: event.point),
-           let object = model.document[id: hit], case .text = object.shape {
-            model.select([hit])
-            model.textHost?.beginEditing(object, isNew: false)
-            return
-        }
+        // Double-click edits a text in place, or a counter's value.
+        if event.clickCount >= 2, let hit = model.hitObject(at: event.point), model.beginEditing(hit) { return }
         if manipulator.begin(event, allowMove: !event.modifiers.contains(.shift)) { return }
         if let hit = model.hitObject(at: event.point) {
             if event.modifiers.contains(.shift) {

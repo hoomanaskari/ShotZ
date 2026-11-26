@@ -2,15 +2,17 @@ import AnnotationKit
 import CoreGraphics
 import Foundation
 
-/// T: click to place and type, drag to set a wrap width; click an existing
-/// text to edit it. Editing itself happens in the canvas (`TextEditingHost`);
-/// the commit/cancel rules live in `EditorModel.commitText`.
+/// T: click to place and type, drag to set a wrap width. A plain click on an
+/// existing object selects it (SPEC 5.2); a double-click on a text edits it.
+/// Editing itself happens in the canvas (`TextEditingHost`); the commit/cancel
+/// rules live in `EditorModel.commitText`.
 @MainActor final class TextTool: Tool, ModelBound {
     let kind = ToolKind.text
     weak var model: EditorModel? { didSet { manipulator = SelectionManipulator(model: model) } }
     private var manipulator = SelectionManipulator(model: nil)
     private var start: CGPoint?
     private var current: CGPoint?
+    private var clickedObject: AnnotationObject.ID?
     /// A click that ended a running edit does not place a new text.
     private var endedEdit = false
 
@@ -22,12 +24,9 @@ import Foundation
             endedEdit = true
             return
         }
+        if event.clickCount >= 2, let hit = model.hitObject(at: event.point), model.beginEditing(hit) { return }
         if manipulator.begin(event) { return }
-        if let hit = model.hitObject(at: event.point), let object = model.document[id: hit], case .text = object.shape {
-            model.select([hit])
-            model.textHost?.beginEditing(object, isNew: false)
-            return
-        }
+        clickedObject = model.hitObject(at: event.point)
         start = event.point
         current = event.point
     }
@@ -44,11 +43,16 @@ import Foundation
 
     func mouseUp(_ event: ToolEvent) {
         if manipulator.isActive { manipulator.end(event); return }
-        defer { start = nil; current = nil; model?.marquee = nil }
+        defer { start = nil; current = nil; clickedObject = nil; model?.marquee = nil }
         guard let model, let start, !endedEdit else { return }
         let end = current ?? start
+        let dragged = hypot(end.x - start.x, end.y - start.y) >= model.dragThreshold
+        if !dragged, let hit = clickedObject {
+            model.select([hit])
+            return
+        }
         let width = abs(end.x - start.x)
-        let origin = CGPoint(x: min(start.x, end.x), y: min(start.y, end.y))
+        let origin = dragged ? CGPoint(x: min(start.x, end.x), y: min(start.y, end.y)) : start
         let object = model.newTextObject(at: origin, wrapWidth: width >= model.dragThreshold * 4 ? width : nil)
         model.clearSelection()
         model.textHost?.beginEditing(object, isNew: true)

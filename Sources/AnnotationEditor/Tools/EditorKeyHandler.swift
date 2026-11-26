@@ -12,10 +12,6 @@ import Foundation
 
     private let model: EditorModel
     var onToggleBackground: (() -> Void)?
-    /// Typed digits over a selected counter accumulate briefly ("1", "2" → 12).
-    private var counterDigits = ""
-    private var lastDigitTime = Date.distantPast
-    var now: () -> Date = Date.init
 
     init(model: EditorModel) {
         self.model = model
@@ -23,6 +19,24 @@ import Foundation
 
     /// Returns true when handled. `shift` applies to arrows (10 px).
     func handle(_ key: Key, shift: Bool = false) -> Bool {
+        if model.editingCounterID != nil {
+            switch key {
+            case .character(let c) where c.wholeNumberValue != nil:
+                model.typeCounterDigit(c.wholeNumberValue ?? 0)
+                return true
+            case .delete:
+                model.deleteCounterDigit()
+                return true
+            case .returnKey:
+                model.endCounterValueEditing(commit: true)
+                return true
+            case .escape:
+                model.endCounterValueEditing(commit: false)
+                return true
+            default:
+                model.endCounterValueEditing(commit: true)
+            }
+        }
         switch key {
         case .escape:
             if model.tool.keyDown(.escape) { return true }
@@ -31,10 +45,7 @@ import Foundation
             return true // Esc never closes the window.
         case .returnKey:
             if model.tool.keyDown(.returnKey) { return true }
-            if model.selection.count == 1, let object = model.selectedObjects.first, case .text = object.shape {
-                model.textHost?.beginEditing(object, isNew: false)
-                return true
-            }
+            if model.selection.count == 1, let id = model.selection.first, model.beginEditing(id) { return true }
             return false
         case .delete:
             guard !model.selection.isEmpty else { return false }
@@ -53,12 +64,10 @@ import Foundation
     private func character(_ c: Character) -> Bool {
         if model.tool.keyDown(.character(c)) { return true }
         if let digit = c.wholeNumberValue {
-            if typeCounterDigit(digit) { return true }
             guard (1...8).contains(digit) else { return false }
             model.changeOption(String(localized: "Colour")) { $0.color = RGBAColor.presets[digit - 1] }
             return true
         }
-        counterDigits = ""
         if c == "g" {
             onToggleBackground?()
             return true
@@ -71,22 +80,6 @@ import Foundation
             return true
         }
         model.setTool(kind)
-        return true
-    }
-
-    /// A selected counter's value can be typed over.
-    private func typeCounterDigit(_ digit: Int) -> Bool {
-        guard model.selection.count == 1, let object = model.selectedObjects.first, case .counter = object.shape else {
-            counterDigits = ""
-            return false
-        }
-        let t = now()
-        if t.timeIntervalSince(lastDigitTime) > 1 { counterDigits = "" }
-        lastDigitTime = t
-        counterDigits.append(String(digit))
-        if counterDigits.count > 3 { counterDigits = String(digit) }
-        guard let value = Int(counterDigits), value > 0 else { return true }
-        model.setCounterValue(value, for: object.id)
         return true
     }
 }

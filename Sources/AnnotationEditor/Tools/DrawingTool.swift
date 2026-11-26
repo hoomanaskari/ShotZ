@@ -38,6 +38,7 @@ import Foundation
     func mouseDown(_ event: ToolEvent) {
         guard let model else { return }
         if model.textHost?.isEditingText == true { model.textHost?.endEditing() }
+        if event.clickCount >= 2, let hit = model.hitObject(at: event.point), model.beginEditing(hit) { return }
         if manipulator.begin(event) { return }
         start = event.point
         clickedObject = model.hitObject(at: event.point).flatMap { id in

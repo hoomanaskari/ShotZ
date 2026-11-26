@@ -2,16 +2,11 @@ import AnnotationKit
 import CoreGraphics
 
 /// N: each click drops the next number; dragging while placing pulls out a
-/// pointer tail. A plain click on an existing counter selects it.
+/// pointer tail. A plain click on any existing object selects it (SPEC 5.2).
 @MainActor final class CounterTool: DrawingTool {
     init() { super.init(kind: .counter) }
 
     override func createsOnMouseDown() -> Bool { true }
-
-    override func selectsOnClick(_ object: AnnotationObject) -> Bool {
-        if case .counter = object.shape { return true }
-        return false
-    }
 
     override func makeShape(from start: CGPoint, to current: CGPoint, modifiers: ToolModifiers) -> AnnotationObject.Shape? {
         guard let model else { return nil }

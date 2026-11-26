@@ -170,3 +170,27 @@ struct BackgroundPreviewTests {
         #expect(pixel(preview, 2, preview.height - 3)[2] > 200)
     }
 }
+
+@MainActor
+struct ObjectLayerStoreTests {
+    @Test func hugeObjectsAreCappedWhileDraggingAndSharpAfter() throws {
+        let ctx = try #require(CGContext(data: nil, width: 64, height: 64, bitsPerComponent: 8, bytesPerRow: 0,
+                                         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        let image = try #require(ctx.makeImage())
+        let store = ObjectLayerStore(base: BaseImageProvider(image: image, url: URL(filePath: "/tmp/x.png")))
+        var doc = AnnotationDocument(baseImageURL: URL(filePath: "/tmp/x.png"), pixelSize: CGSize(width: 5120, height: 2880))
+        let box = AnnotationObject(shape: .rectangle(CGRect(x: 100, y: 100, width: 4000, height: 2000), cornerRadius: 0),
+                                   style: ObjectStyle(lineWidth: 12))
+        doc.objects = [box]
+        func pixels() -> Int {
+            let layer = store.world.sublayers?.compactMap(\.sublayers).joined().first
+            guard let img = layer?.contents as! CGImage? else { return 0 }
+            return img.width * img.height
+        }
+        store.sync(doc, interactive: true)
+        let dragging = pixels()
+        #expect(dragging > 0 && dragging <= 1_010_000)
+        store.finishInteraction(doc)
+        #expect(pixels() > 4 * dragging) // full raster scale (1 here) after the drag
+    }
+}
