@@ -48,6 +48,9 @@ struct OnboardingView: View {
         }
         .frame(width: Self.size.width, height: Self.size.height)
         .background(Color(nsColor: ShotzUI.Palette.windowBackground))
+        // Not a ShotzSettingsPane, so it needs ShotzUI's opening guard itself: the window opens
+        // with no keyboard focus, so Continue (or a switch) shows no ring until Tab.
+        .shotzOpensWithoutFocusRing()
     }
 }
 
