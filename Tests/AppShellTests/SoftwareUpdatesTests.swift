@@ -87,7 +87,7 @@ struct SoftwareUpdatesTests {
 
     @Test func statusMenuShowsCheckForUpdatesOnlyWhenAvailable() {
         let settings = SettingsStore(defaults: UserDefaults(suiteName: "ShotzUpdatesMenu-\(UUID().uuidString)")!, variant: .production)
-        let menu = StatusItemController(hotkeys: HotkeyCenter(settings: settings, hotkeysEnabled: false))
+        let menu = StatusItemController(hotkeys: HotkeyCenter(settings: settings, hotkeysEnabled: false, registrar: FakeRegistrar()))
         #expect(!menu.debugMenuDescription.contains("Check for Updates"))
         menu.updates = .preview(.unavailable(.noPublicKey))
         #expect(!menu.debugMenuDescription.contains("Check for Updates"))

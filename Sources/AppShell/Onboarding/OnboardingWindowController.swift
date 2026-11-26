@@ -39,7 +39,19 @@ public enum OnboardingStep: Int, CaseIterable, Sendable {
         return await OffscreenRenderer.capture(window, scale: scale)
     }
 
-    private func makeWindow(presentsAsNormalRun: Bool = false) -> ShellWindow {
+    /// For `--debug-snapshot-ui`: the Screen Recording step as it looks after the identity
+    /// change with permission still missing (the look-alike entries note).
+    public func debugRenderDuplicateEntryNote(appearance: NSAppearance.Name = .aqua, scale: CGFloat = 2) async -> Data? {
+        let shown = OnboardingModel(settings: model.settings, hotkeys: model.hotkeys, loginItem: model.loginItem,
+                                    screenRecording: ScreenRecordingStatus(check: { false }), previousIdentityMigrated: true)
+        shown.step = .screenRecording
+        let window = makeWindow(model: shown, presentsAsNormalRun: true)
+        window.appearance = NSAppearance(named: appearance)
+        return await OffscreenRenderer.capture(window, scale: scale)
+    }
+
+    private func makeWindow(model: OnboardingModel? = nil, presentsAsNormalRun: Bool = false) -> ShellWindow {
+        let model = model ?? self.model
         let window = ShellWindow(contentRect: NSRect(origin: .zero, size: OnboardingView.size),
                                  styleMask: [.titled, .closable, .fullSizeContentView], backing: .buffered, defer: false)
         window.contentViewController = NSHostingController(rootView: OnboardingView(model: model).environment(\.presentsAsNormalRun, presentsAsNormalRun))

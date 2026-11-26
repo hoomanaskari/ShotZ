@@ -71,9 +71,11 @@ over. Check it after installing:
   1. Click **Set Up…** next to Screen Recording, then **Open System
      Settings**. This opens Privacy & Security ▸ Screen & System Audio
      Recording.
-  2. Turn **ShotZ** on. If ShotZ is listed twice (the old identity's entry
-     stays in the list), remove both entries with **−**, then add
-     `/Applications/ShotZ.app` with **+**.
+  2. Turn **ShotZ** on. If ShotZ appears twice in the list, the older entry is
+     from a previous version: turn on the one for this copy, or remove both
+     with **−** and add ShotZ from Applications with **+**. The welcome
+     window's Screen Recording step shows the same note after an update from
+     the previous version.
   3. If macOS offers to quit and reopen ShotZ, choose **Later**. Then click
      **Relaunch ShotZ** in the ShotZ window.
 

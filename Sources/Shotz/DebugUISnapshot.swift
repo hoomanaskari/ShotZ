@@ -23,6 +23,8 @@ import ShotzCore
                     write(await coordinator.onboarding.debugRender(step: step, appearance: appearance, scale: scale),
                           to: dir.appending(path: "onboarding-\(step.rawValue)-\(step)-\(suffix).png"))
                 }
+                write(await coordinator.onboarding.debugRenderDuplicateEntryNote(appearance: appearance, scale: scale),
+                      to: dir.appending(path: "onboarding-1-screenRecording-duplicate-entries-\(suffix).png"))
                 for tab in SettingsTab.allCases {
                     write(await coordinator.settingsWindow.debugRender(tab: tab, appearance: appearance, scale: scale),
                           to: dir.appending(path: "settings-\(tab.rawValue)-\(suffix).png"))

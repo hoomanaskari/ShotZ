@@ -202,7 +202,9 @@ struct ScreenRecordingPage: View {
     private var name: String { AppVariant.current.displayName }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: ShotzUI.Space.l) {
+        // The look-alike entries note adds a banner; tighter spacing keeps the page in the window.
+        let note = model.showsDuplicateEntryNote(granted: status.isGranted)
+        VStack(alignment: .leading, spacing: note ? ShotzUI.Space.s : ShotzUI.Space.l) {
             ScreenRecordingIllustration(granted: status.isGranted)
             PageText(
                 title: model.reason == .permissionMissing
@@ -223,9 +225,15 @@ struct ScreenRecordingPage: View {
                     .buttonStyle(.shotz(.secondary, size: .regular))
                 }
             }
+            if note {
+                ShotzBanner(String(localized: "If ShotZ appears twice in the list, the older entry is from a previous version. Turn on the one for this copy, or remove both with − and add ShotZ from Applications with +."),
+                            tone: .info)
+            }
             Note(status.isGranted
                  ? String(localized: "If captures still fail, relaunch so macOS applies the permission.")
-                 : String(localized: "Turn on \(name) in the list. If macOS asks to quit and reopen it, choose Later, then relaunch here."))
+                 : note
+                    ? String(localized: "If macOS asks to quit and reopen it, choose Later, then relaunch here.")
+                    : String(localized: "Turn on \(name) in the list. If macOS asks to quit and reopen it, choose Later, then relaunch here."))
             Button(String(localized: "Relaunch \(name)")) { Permissions.relaunch() }
                 .buttonStyle(.shotz(.secondary, size: .regular))
         }
