@@ -63,6 +63,9 @@ import ShotzCore
 
     // MARK: QuickAccessPresenting
 
+    // TEMP (engineer A, M4 step 1 compile stub): imageURL is ignored until engineer B implements it.
+    public func present(_ capture: CaptureResult, imageURL: URL?) { present(capture) }
+
     public func present(_ capture: CaptureResult) {
         let start = CACurrentMediaTime()
         if let existing = cards[capture.id] { discard(existing, animation: .none) }

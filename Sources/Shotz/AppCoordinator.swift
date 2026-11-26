@@ -10,7 +10,8 @@ import ShotzCore
 
 /// Builds the concrete objects and wires the capture flow (ARCHITECTURE §2):
 /// hotkey → guard permission → engine.capture → history.add → quickAccess.present;
-/// quickAccess.requestAnnotate → editor.openEditor(for:).
+/// quickAccess.requestAnnotate → editor.openEditor(for:); editor close → card
+/// returns to the stack (SPEC §4.6, via `CaptureEditingFlow`).
 @MainActor final class AppCoordinator: QuickAccessDelegate {
     let paths = ShotzPaths.default
     let settings = SettingsStore()
@@ -23,6 +24,7 @@ import ShotzCore
     let statusItem: StatusItemController
     let loginItem: LoginItemController
     let screenRecording = ScreenRecordingStatus()
+    let editingFlow: CaptureEditingFlow
     private(set) var settingsWindow: SettingsWindowController!
     private(set) var onboarding: OnboardingWindowController!
     private var pruneScheduler: HistoryPruneScheduler?
@@ -51,6 +53,10 @@ import ShotzCore
             previousExport: { await history.exportURL(for: $0) },
             recordExport: { await history.markExported(id: $0, url: $1) }
         )
+        editingFlow = CaptureEditingFlow(quickAccess: quickAccess, editor: editor) { id in
+            let url = history.renderedURL(for: id)
+            return FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) ? url : nil
+        }
         hotkeys = HotkeyCenter(settings: settings, devHotkeys: HotkeyCenter.devHotkeysRequested())
         statusItem = StatusItemController(hotkeys: hotkeys)
         loginItem = LoginItemController(settings: settings)
@@ -79,6 +85,8 @@ import ShotzCore
             log.error("Cannot create app folders: \(error.localizedDescription, privacy: .public)")
         }
         quickAccess.delegate = self
+        editor.delegate = editingFlow
+        editingFlow.didPresent = { [weak self] capture in self?.closedCards.removeAll { $0.id == capture.id } }
 
         hotkeys.onAction = { [weak self] action in self?.handle(action) }
         hotkeys.start()
@@ -186,7 +194,7 @@ import ShotzCore
                 do {
                     let result = try DebugCaptureImporter.importImage(at: url, options: options)
                     await history.add(result)
-                    quickAccess.present(result)
+                    editingFlow.presentInStack(result)
                     log.info("Debug present \(url.lastPathComponent, privacy: .public)")
                 } catch {
                     log.error("Debug present failed for \(url.path(percentEncoded: false), privacy: .public): \(String(describing: error), privacy: .public)")
