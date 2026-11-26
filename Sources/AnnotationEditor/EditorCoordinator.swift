@@ -60,8 +60,13 @@ import ShotzCore
             NSSound.beep()
             return
         }
-        let document = AnnotationDocument(baseImageURL: url, pixelSize: info.pixelSize, scale: info.scale)
-        open(document, title: url.deletingPathExtension().lastPathComponent, key: key, documentURL: nil)
+        var document = AnnotationDocument(baseImageURL: url, pixelSize: info.pixelSize, scale: info.scale)
+        // Development only: persist a file-opened image's document to test reopening.
+        let debugDocument = ProcessInfo.processInfo.environment["SHOTZ_EDITOR_DOCUMENT"].map { URL(filePath: $0) }
+        if let debugDocument, let saved = try? AnnotationDocument.load(from: debugDocument) { // absent on first run
+            document = saved
+        }
+        open(document, title: url.deletingPathExtension().lastPathComponent, key: key, documentURL: debugDocument)
     }
 
     /// ⌘N: the image on the clipboard, in a new editor.
@@ -113,9 +118,14 @@ import ShotzCore
         )
         controller.onClose = { [weak self] in self?.windows[key] = nil }
         windows[key] = controller
-        NSApp.activate()
-        controller.showWindow(nil)
-        controller.window?.makeKeyAndOrderFront(nil)
+        if EditorScriptRunner.isScripted {
+            // Scripted development runs never take focus from the person using the Mac.
+            controller.window?.orderBack(nil)
+        } else {
+            NSApp.activate()
+            controller.showWindow(nil)
+            controller.window?.makeKeyAndOrderFront(nil)
+        }
         controller.zoomFit()
         EditorScriptRunner.startIfRequested(for: controller)
         log.notice("Opened editor for \(title, privacy: .public) in \(ContinuousClock.now - start, privacy: .public)")

@@ -22,15 +22,19 @@ import ShotzCore
 ///   dump <path.json>           write the document JSON
 ///   bench <x1> <y1> <x2> <y2> <frames>   drag at 60 Hz and log timings
 ///   background on [1:1|4:3|16:9|3:2] | off
+///   export <path.png>          render the flattened document
+///   dragfile                   log the drag-out file
 ///   wait <ms>
 @MainActor final class EditorScriptRunner {
     private let controller: EditorWindowController
     private var lines: [String]
     private let log = ShotzLog.logger("AnnotationEditor")
 
+    static var isScripted: Bool { ProcessInfo.processInfo.environment["SHOTZ_EDITOR_SCRIPT"] != nil }
+
     static func startIfRequested(for controller: EditorWindowController) {
         guard let path = ProcessInfo.processInfo.environment["SHOTZ_EDITOR_SCRIPT"],
-              let text = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+              let text = try? String(contentsOfFile: path, encoding: .utf8) else { return } // no readable script: normal run
         let runner = EditorScriptRunner(controller: controller, script: text)
         current = runner
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { runner.next() }
@@ -131,6 +135,18 @@ import ShotzCore
             } else {
                 controller.model.setBackground(nil, interactive: false)
             }
+        case "export":
+            // export <path.png>: the flattened document through DocumentExport (full resolution).
+            if let path = args.first {
+                do {
+                    let tmp = try controller.exporterOut.renderTemporaryPNG(controller.store.document, name: "export")
+                    try? FileManager.default.removeItem(atPath: path) // replacing a previous run's file
+                    try FileManager.default.copyItem(at: tmp, to: URL(filePath: path))
+                } catch { log.error("SCRIPT export failed: \(String(describing: error), privacy: .public)") }
+            }
+        case "dragfile":
+            // The file the drag handle / proxy icon would drag.
+            log.notice("SCRIPT dragfile \(self.controller.makeDragFile()?.path(percentEncoded: false) ?? "nil", privacy: .public)")
         case "close":
             window?.performClose(nil)
         default:
