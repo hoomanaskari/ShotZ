@@ -132,3 +132,41 @@ struct CoordinatorTests {
         #expect(info.scale == 2)
     }
 }
+
+struct BackgroundPreviewTests {
+    private func pixel(_ image: CGImage, _ x: Int, _ y: Int) -> [Int] {
+        let ctx = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                            space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        // Draw so that image pixel (x, y) (top-left origin) lands on the single output pixel.
+        ctx?.draw(image, in: CGRect(x: -x, y: -(image.height - 1 - y), width: image.width, height: image.height))
+        guard let data = ctx?.data?.bindMemory(to: UInt8.self, capacity: 4) else { return [] }
+        return (0..<3).map { Int(data[$0]) }
+    }
+
+    /// The preview bitmap (AnnotationKit's drawBackground) matches the export at its corners,
+    /// so it is neither flipped nor offset.
+    @Test func previewMatchesExportCorners() throws {
+        let ctx = try #require(CGContext(data: nil, width: 400, height: 200, bitsPerComponent: 8, bytesPerRow: 0,
+                                         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: 400, height: 200))
+        let image = try #require(ctx.makeImage())
+        let base = BaseImageProvider(image: image, url: URL(filePath: "/tmp/x.png"))
+        var doc = AnnotationDocument(baseImageURL: base.url, pixelSize: CGSize(width: 400, height: 200))
+        doc.background = BackgroundStyle(
+            fill: .gradient(.init(from: RGBAColor(red: 1, green: 0, blue: 0), to: RGBAColor(red: 0, green: 0, blue: 1), angle: 90)),
+            padding: 0.2, shadow: .off)
+        let layout = CanvasLayout.make(document: doc, editingCrop: false, backgroundLayout: AnnotationRenderer.backgroundLayout(doc, base: base))
+        let preview = try #require(BackgroundPreview.render(document: doc, layout: layout, base: base))
+        let export = try AnnotationRenderer.renderImage(doc, base: base, outputScale: 1)
+        #expect(export.width == Int(layout.extent.width))
+        // 90° runs top → bottom: red at the top, blue at the bottom, in both.
+        for (px, ex) in [(pixel(preview, 2, 2), pixel(export, 2, 2)),
+                         (pixel(preview, preview.width - 3, preview.height - 3), pixel(export, export.width - 3, export.height - 3))] {
+            for c in 0..<3 { #expect(abs(px[c] - ex[c]) <= 12) }
+        }
+        #expect(pixel(preview, 2, 2)[0] > 200)
+        #expect(pixel(preview, 2, preview.height - 3)[2] > 200)
+    }
+}

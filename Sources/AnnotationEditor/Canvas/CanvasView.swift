@@ -24,11 +24,9 @@ import AppKit
     /// Background fill and drop shadow, one small bitmap (GPU-scaled).
     private let backgroundLayer = CALayer()
     private let clipLayer = CALayer()
-    private let baseImage: CGImage
+    private let base: BaseImageProvider
     private var backgroundKey: (CanvasLayout, AnnotationDocument)?
     private(set) var canvasLayout: CanvasLayout
-    /// Opaque content bounds of window captures (transparent margins), for auto-balance.
-    let opaqueBounds: CGRect?
     private var spaceHeld = false
     private var panStart: (window: NSPoint, origin: NSPoint)?
     private var trackingArea: NSTrackingArea?
@@ -36,9 +34,9 @@ import AppKit
     init(model: EditorModel, base: BaseImageProvider, image: CGImage) {
         self.model = model
         layers = ObjectLayerStore(base: base)
-        baseImage = image
-        opaqueBounds = base.visibleContentBounds()
-        canvasLayout = CanvasLayout.make(document: model.document, editingCrop: false, opaqueBounds: opaqueBounds)
+        self.base = base
+        canvasLayout = CanvasLayout.make(document: model.document, editingCrop: false,
+                                         backgroundLayout: AnnotationRenderer.backgroundLayout(model.document, base: base))
         super.init(frame: NSRect(origin: .zero, size: canvasLayout.extent))
         wantsLayer = true
         layerContentsRedrawPolicy = .never
@@ -71,7 +69,8 @@ import AppKit
     /// Recomputes the extent, crop clip and background after document or tool changes.
     func relayout() {
         let newLayout = CanvasLayout.make(
-            document: model.document, editingCrop: model.toolKind == .crop, opaqueBounds: opaqueBounds
+            document: model.document, editingCrop: model.toolKind == .crop,
+            backgroundLayout: AnnotationRenderer.backgroundLayout(model.document, base: base)
         )
         let changed = newLayout != canvasLayout
         canvasLayout = newLayout
@@ -107,7 +106,7 @@ import AppKit
 
     private func applyBackground() {
         let doc = model.document
-        guard let bg = canvasLayout.background else {
+        guard canvasLayout.background != nil else {
             backgroundLayer.isHidden = true
             backgroundLayer.contents = nil
             backgroundKey = nil
@@ -117,11 +116,10 @@ import AppKit
         backgroundLayer.isHidden = false
         backgroundLayer.frame = CGRect(origin: .zero, size: canvasLayout.extent)
         // The image group is clipped with the corner radius, as in the export.
-        let visible = doc.imageRect
-        clipLayer.cornerRadius = min(bg.cornerRadius, min(visible.width, visible.height) / 2)
+        clipLayer.cornerRadius = AnnotationRenderer.imageCornerRadius(doc)
         if let key = backgroundKey, key.0 == canvasLayout, key.1.background == doc.background, key.1.imageRect == doc.imageRect { return }
         backgroundKey = (canvasLayout, doc)
-        backgroundLayer.contents = BackgroundPreview.render(document: doc, layout: canvasLayout, image: baseImage)
+        backgroundLayer.contents = BackgroundPreview.render(document: doc, layout: canvasLayout, base: base)
     }
 
     // MARK: Coordinates
