@@ -1,16 +1,32 @@
 import ShotzCore
 import SwiftUI
 
+/// Surfaces for the illustrations, chosen for luminance contrast in both
+/// appearances: light "paper" objects on a tinted stage (in dark mode the
+/// stage is a stronger tint and the paper stays light, never dark on dark).
+struct IllustrationPalette {
+    let scheme: ColorScheme
+    var paper: Color { scheme == .dark ? Color(white: 0.90) : .white }
+    var paperInset: Color { Color.accentColor.opacity(scheme == .dark ? 0.22 : 0.10) }
+    var shadow: Color { .black.opacity(scheme == .dark ? 0.45 : 0.18) }
+    var muted: Color { Color(white: scheme == .dark ? 0.55 : 0.70) }
+    func stage(_ tint: Color) -> LinearGradient {
+        LinearGradient(colors: scheme == .dark ? [tint.opacity(0.42), tint.opacity(0.20)] : [tint.opacity(0.16), tint.opacity(0.05)],
+                       startPoint: .top, endPoint: .bottom)
+    }
+}
+
 /// Original line-and-shape illustrations for the onboarding steps. Drawn with
 /// SwiftUI shapes so they adapt to light and dark and stay crisp.
 struct IllustrationStage<Content: View>: View {
     var tint: Color = .accentColor
     @ViewBuilder var content: Content
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(LinearGradient(colors: [tint.opacity(0.16), tint.opacity(0.05)], startPoint: .top, endPoint: .bottom))
+                .fill(IllustrationPalette(scheme: scheme).stage(tint))
             content
         }
         .frame(height: 150)
@@ -21,14 +37,16 @@ struct IllustrationStage<Content: View>: View {
 private struct Card: View {
     var width: CGFloat
     var showArrow = false
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
+        let palette = IllustrationPalette(scheme: scheme)
         ZStack {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color(nsColor: .textBackgroundColor))
-                .shadow(color: .black.opacity(0.18), radius: 6, y: 3)
+                .fill(palette.paper)
+                .shadow(color: palette.shadow, radius: 6, y: 3)
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.accentColor.opacity(0.10))
+                .fill(palette.paperInset)
                 .padding(6)
             if showArrow {
                 ArrowScribble()
@@ -69,13 +87,15 @@ struct WelcomeIllustration: View {
 
 struct ScreenRecordingIllustration: View {
     let granted: Bool
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
+        let palette = IllustrationPalette(scheme: scheme)
         IllustrationStage(tint: granted ? .green : .accentColor) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(nsColor: .textBackgroundColor))
-                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+                    .fill(palette.paper)
+                    .shadow(color: palette.shadow, radius: 6, y: 3)
                 HStack(spacing: 5) {
                     ForEach([Color.red, .orange, .green], id: \.self) { Circle().fill($0.opacity(0.8)).frame(width: 7, height: 7) }
                 }
@@ -107,6 +127,7 @@ struct ShortcutsIllustration: View {
             VStack(spacing: 12) {
                 ForEach(Array(combos.prefix(3).enumerated()), id: \.offset) { _, combo in
                     KeyCapsRow(combo: combo, size: 16)
+                        .environment(\.colorScheme, .light)   // light caps on the tinted stage in both appearances
                 }
             }
         }
@@ -115,23 +136,28 @@ struct ShortcutsIllustration: View {
 
 struct LaunchAtLoginIllustration: View {
     let on: Bool
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
+        let palette = IllustrationPalette(scheme: scheme)
         IllustrationStage(tint: on ? .accentColor : .gray) {
             VStack(spacing: 14) {
                 HStack(spacing: 12) {
                     Spacer()
                     ForEach(0..<2, id: \.self) { _ in
-                        Capsule().fill(Color.secondary.opacity(0.35)).frame(width: 16, height: 7)
+                        Capsule().fill(palette.muted).frame(width: 16, height: 7)
                     }
+                    // Template glyph on light paper: dark ink in both appearances.
                     Image(nsImage: StatusItemIcon.make(variant: AppVariant.current))
+                        .renderingMode(AppVariant.current == .production ? .template : .original)
+                        .foregroundStyle(Color(white: 0.2))
                         .padding(4)
                         .background(RoundedRectangle(cornerRadius: 5).fill(Color.accentColor.opacity(on ? 0.25 : 0.08)))
-                    Text("9:41").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    Text("9:41").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(white: 0.35))
                 }
                 .padding(.horizontal, 14)
                 .frame(width: 230, height: 28)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)).shadow(color: .black.opacity(0.12), radius: 4, y: 2))
+                .background(RoundedRectangle(cornerRadius: 8).fill(palette.paper).shadow(color: palette.shadow, radius: 4, y: 2))
                 ZStack {
                     Circle().fill(on ? Color.accentColor : Color.secondary.opacity(0.5))
                     ShellIcon.launchAtLogin.view(size: 20).foregroundStyle(.white)

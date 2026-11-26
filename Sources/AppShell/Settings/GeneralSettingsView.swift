@@ -94,24 +94,15 @@ struct ExportFolderPicker: View {
     }
 
     var body: some View {
-        Menu {
-            Button(String(localized: "Other…"), action: choose)
-            Button(String(localized: "Show in Finder")) { NSWorkspace.shared.activateFileViewerSelecting([folder]) }
-                .disabled(!exists)
-            if folder.standardizedFileURL != ShotzPaths.defaultExportFolder.standardizedFileURL {
-                Divider()
-                Button(String(localized: "Use Desktop")) { settings.exportFolder = ShotzPaths.defaultExportFolder }
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(nsImage: NSWorkspace.shared.icon(forFile: folder.path(percentEncoded: false)))
-                    .resizable()
-                    .frame(width: 16, height: 16)
-                Text(FileManager.default.displayName(atPath: folder.path(percentEncoded: false)))
-            }
-        }
+        FolderPopUp(
+            folder: folder,
+            canReveal: exists,
+            showsUseDesktop: folder.standardizedFileURL != ShotzPaths.defaultExportFolder.standardizedFileURL,
+            onChoose: choose,
+            onReveal: { NSWorkspace.shared.activateFileViewerSelecting([folder]) },
+            onUseDesktop: { settings.exportFolder = ShotzPaths.defaultExportFolder }
+        )
         .fixedSize()
-        .help(folder.path(percentEncoded: false))
         if !exists {
             PrefHelp(String(localized: "This folder doesn't exist yet. Saving will create it."), tone: .warning)
         } else {
