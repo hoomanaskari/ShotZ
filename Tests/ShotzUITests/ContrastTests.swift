@@ -32,7 +32,7 @@ struct ContrastTests {
         defer { P.increasedContrastOverride = false }
         for (name, a, hc) in Self.appearances {
             currentHC = hc
-            for (bgName, bg) in [("window", P.windowBackground), ("surface", P.surface), ("raised", P.raised)] {
+            for (bgName, bg) in [("window", P.windowBackground), ("surface", P.surface), ("raised", P.raised), ("secondary", P.secondaryFill)] {
                 #expect(on(P.textPrimary, bg, in: a) >= 7, "\(name) primary on \(bgName)")
                 #expect(on(P.textSecondary, bg, in: a) >= 4.5, "\(name) secondary on \(bgName): \(on(P.textSecondary, bg, in: a))")
                 #expect(on(P.danger, bg, in: a) >= 4.5, "\(name) danger on \(bgName): \(on(P.danger, bg, in: a))")

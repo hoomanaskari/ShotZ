@@ -1,3 +1,4 @@
+angle
 app-window
 arrow-counter-clockwise
 arrow-line-down
@@ -16,22 +17,21 @@ clock-counter-clockwise
 copy
 crop
 cursor
-dots-three
 download-simple
 drop-half
 export
 eye
+eyedropper
 floppy-disk
 folder
 folder-open
 frame-corners
+gauge
 gear
 gradient
 hand-grabbing
-highlighter
 info
 keyboard
-line-segment
 link-simple
 magnifying-glass-minus
 magnifying-glass-plus
@@ -46,7 +46,6 @@ power
 push-pin-slash
 rectangle
 rocket-launch
-scribble
 selection
 selection-all
 selection-background

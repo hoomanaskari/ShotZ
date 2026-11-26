@@ -34,11 +34,13 @@ first-mouse, Space/Return activation, VoiceOver role/label/value, `stateOverride
 
 | Control | Use it for |
 |---|---|
-| `ShotzButton` `.primary` | The one main action of a surface (editor Save, onboarding Continue) |
-| `ShotzButton` `.secondary` | Other labelled actions (Copy, Choose…) |
+| `ShotzButton` `.primary` | The one main action of a surface (editor Done, onboarding Continue) |
+| `ShotzButton` `.secondary` | Other labelled actions (editor Copy and Save, Choose…) |
 | `ShotzButton` `.quiet` (icon only) | Toolbar actions: zoom, more, undo; always with `setShotzToolTip(_:shortcut:)` |
 | `ShotzButton` `.destructive` | Delete, Clear history |
-| `ShotzButton` `.glass` | Controls over images (stack card hover) |
+| `ShotzButton.glass(_:icon:cardSize:)` | The labelled Copy / Save pair on a card (icon-only on small cards) |
+| `ShotzGlassIconButton` | Circular glass corner buttons on a card; 22 / 24 / 26 pt by `ShotzUI.CardSize` |
+| `ShotzCaptionPill` | The size caption on a card |
 | `ShotzToolButton` | Editor tools; selected = soft accent tint + accent edge + accent glyph |
 | `ShotzSegmentedControl` | Mutually exclusive styles (arrow style, fill mode, text style); text or icon segments |
 | `ShotzSegmentedControl.thicknessPicker` | The stepped thickness picker |
@@ -50,7 +52,12 @@ first-mouse, Space/Return activation, VoiceOver role/label/value, `stateOverride
 | `ShotzSeparator` | Between toolbar groups (vertical) or rows (horizontal) |
 | `ShotzToolbarStack` | Any bar: groups with 4-pt gaps, 12 pt + separator between groups |
 | `ShotzPanel` + `ShotzFormStack` | Popovers and side panels (background, crop): label column + controls |
-| `ShotzToast` | Confirmations: "Copied", "Saved", "Couldn't save" |
+| `ShotzToast` | Confirmations: "Copied", "Saved", "Couldn't save"; `compact: true` on cards |
+| `ShotzCheckbox`, `ShotzSwitch` | On/off settings inside editor panels |
+| `ShotzColorWell` | A single custom colour (gradient stops, background colour) |
+| `ShotzTileButton` | Image tiles: gradient presets, later wallpapers |
+| `ShotzToggleChip(icon:label:)` | Icon-only on/off chips in tight bars |
+| `ShotzUI.label(_:_:)` | Panel titles, form labels, notes, captions (never hand-styled `NSTextField`s) |
 | `ShotzKeyCaps` | Shortcuts shown in panels or help |
 
 SwiftUI (Settings and onboarding), drawn from the same tokens and the same state → fills mapping:
@@ -59,8 +66,29 @@ SwiftUI (Settings and onboarding), drawn from the same tokens and the same state
 `ShotzSliderView`, `ShotzSwatchPicker`, `ShotzSettingsPane`, `ShotzSettingsSection`, `ShotzCard`,
 `ShotzSettingsRow`, `ShotzSettingsTabBar`, `ShotzBanner`, `ShotzKeyCapsView`, `ShotzStatusBadge`.
 
-Reference compositions (built only from the above): `EditorActionArea`, `EditorOptionsBar`,
-`StackCardHover`, `SettingsPaneExample`.
+SwiftUI also has `ShotzFormRow` (label column), `ShotzHelpText(tone:)` and `ShotzShortcutField`
+(the recorder's look; key capture stays with the caller).
+
+Reference compositions (built only from the above): `EditorActionArea` (zoom │ drag, more │
+Copy · Save · **Done**), `EditorOptionsBar`, `StackCardHover(cardSize:)`, `SettingsPaneExample`.
+
+### Editor control factory → ShotzUI
+
+| `EditorControls` today | ShotzUI |
+|---|---|
+| `toolStrip`, `toolbarToggle` | `ShotzToolButton` (toggle = `isSelected`) in a `ShotzToolbarStack` |
+| `primaryButton`, `secondaryButton`, `iconButton`, `prominentButton`, `button` | `ShotzButton` `.primary` / `.secondary` / `.quiet` icon |
+| `segmented(glyphs:)`, `segmented(titles:)` | `ShotzSegmentedControl` (icon / text), `.thicknessPicker` |
+| `toggleChip(glyph)`, `toggleChip(title)` | `ShotzToggleChip(icon:label:)`, `ShotzToggleChip(title:)` |
+| `slider`, `sliderRow` | `ShotzSlider` (leading icon: `.opacity`, `.strength`, `.angle`, `.padding`) |
+| `swatch`, `colorWell`, `eyedropper` | `ShotzSwatchRow`, `ShotzColorWell`, `ShotzButton(icon: .eyedropper, role: .quiet)` |
+| `popup`, `zoomMenu` | `ShotzPopUpButton` (secondary choice / quiet with `titleFont = Typography.value`) |
+| `numberField` | `ShotzNumberField` |
+| `checkbox`, `panelSwitch` | `ShotzCheckbox`, `ShotzSwitch` |
+| `imageButton` | `ShotzTileButton` |
+| `panelTitle`, `formLabel`, `note`, `caption` | `ShotzUI.label(_, .panelTitle / .formLabel / .note / .caption)` |
+| `separator` | `ShotzSeparator` |
+| `toast` | `ShotzToast` |
 
 ## Rules
 
@@ -88,7 +116,8 @@ Don't
 Editor (AnnotationEditor)
 - [ ] Tool strip: `ShotzToolButton` per tool, groups select │ shapes │ text, counter │ redact, crop,
       background (2-pt gap, `Space.s` + separator between groups).
-- [ ] Trailing area: `EditorActionArea` (zoom │ drag, more │ Copy · Save); Save is the only primary.
+- [ ] Trailing area: `EditorActionArea` (zoom │ drag, more │ Copy · Save · Done); Done is the only
+      primary (closes the window, back to the stack), Copy and Save are equal-width secondaries.
 - [ ] Options bar: `EditorOptionsBar` layout in a `ShotzToolbarStack`, all compact.
 - [ ] Background and crop panels: `ShotzPanel` + `ShotzFormStack`; crop W × H with `ShotzNumberField`;
       aspect presets with `ShotzPopUpButton`.
@@ -96,21 +125,29 @@ Editor (AnnotationEditor)
 - [ ] Remove `EditorControls.swift` styling once every call site uses ShotzUI.
 
 Quick-access stack (QuickAccess)
-- [ ] Hover buttons: `ShotzButton(role: .glass)`, layout as `StackCardHover` (corner circles inset 8 pt,
-      Copy and Save centred, caption pill bottom-left).
-- [ ] Flashes: `ShotzToast` (`.success` / `.failure`); icons `.success`, `.failure`.
+- [ ] Hover controls: `StackCardHover(cardSize:)` layout: `ShotzGlassIconButton` corners (inset 6 / 8 / 8 pt),
+      `ShotzButton.glass` Copy / Save pair centred, `ShotzCaptionPill` bottom-left.
+- [ ] Flashes: `ShotzToast(_, tone:, compact: true)`; icons `.success`, `.failure`.
 - [ ] Context menu items use `ShotzIcon` images (`image(pointSize: 16)`).
 
-Settings and onboarding (AppShell), mapped onto the existing swap points
-- [ ] `PrefPane` → `ShotzSettingsPane`; `PrefSection` → `ShotzSettingsSection`; `PrefRow` + `PrefHelp`
-      → `ShotzSettingsRow(_, help:)`.
-- [ ] Window tabs → `ShotzSettingsTabBar` (icons `.general`, `.keyboard`, `.stack`, `.capture`,
-      `.editor`, `.advanced`).
-- [ ] `ShellSwitch` → `.toggleStyle(.shotzSwitch)`; `ShellCheckbox` → `.toggleStyle(.shotzCheckbox)`.
-- [ ] `ShellButton` → `.buttonStyle(.shotz(.secondary))`, `.prominent` → `.shotz(.primary)`,
-      `.link` → `.shotz(.quiet)`.
-- [ ] `ShellBanner` → `ShotzBanner`; `KeyCap` / `KeyCapsRow` → `ShotzKeyCapsView`; `StatusPill` →
-      `ShotzStatusBadge`.
+Settings and onboarding (AppShell): one ShotzUI part per existing wrapper
+
+| AppShell wrapper | ShotzUI |
+|---|---|
+| `PrefPane` | `ShotzSettingsPane` |
+| `PrefSection` | `ShotzSettingsSection` (header over a `ShotzCard`) |
+| `PrefRow` (label column) | `ShotzFormRow` (or `ShotzSettingsRow` for title + trailing control rows) |
+| `PrefHelp` (secondary / warning / error) | `ShotzHelpText(tone:)` |
+| `ShellCheckbox` | `.toggleStyle(.shotzCheckbox)` |
+| `ShellSwitch` | `.toggleStyle(.shotzSwitch)` |
+| `ShellButton` standard / prominent / link | `.buttonStyle(.shotz(.secondary))` / `.shotz(.primary)` / `.shotz(.quiet)` |
+| `ShellBanner` info / warning | `ShotzBanner(tone: .info / .warning)` |
+| `KeyCap`, `KeyCapsRow` | `ShotzKeyCapsView([…])` |
+| `ShortcutRecorderField` | `ShotzShortcutField` |
+| `StatusPill(text:positive:)` | `ShotzStatusBadge(_:positive:)` |
+| Window tabs | `ShotzSettingsTabBar` (icons `.general`, `.keyboard`, `.stack`, `.capture`, `.editor`, `.advanced`) |
+
+- [ ] Swap each wrapper body for its ShotzUI part (the panes don't change).
 - [ ] Format and similar choices: `ShotzSegmentedPicker` (≤ 4 options) or `ShotzMenuPicker`.
 - [ ] Onboarding primary action: `.shotz(.primary, size: .large)`, one per page.
 

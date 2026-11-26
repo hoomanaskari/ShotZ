@@ -1,23 +1,32 @@
 import AppKit
 import ShotzCore
 
-/// Reference composition for a quick-access card on hover, built from glass controls:
-/// close (top-left), annotate (top-right), Copy and Save centred, Quick Look (bottom-right) and the
-/// size caption (bottom-left). Corner buttons are 24-pt glass circles inset 8 pt; the centre pair are
-/// regular glass capsules with 8 pt between. The image dims by 25 % under the controls.
+/// Reference composition for a quick-access card on hover, built from the glass controls:
+/// close (top-left), annotate (top-right), the Copy / Save pair centred, Quick Look
+/// (bottom-right) and the size caption pill (bottom-left). Metrics come from `ShotzUI.CardSize`:
+/// corner circles 22 / 24 / 26 pt inset 6 / 8 / 8 pt; the centre pair is compact on small and
+/// medium cards (icon-only on small) and regular on large, 8 pt apart. The image dims by 25 %.
 @MainActor
 public final class StackCardHover: NSView {
-    public let closeButton = ShotzButton(icon: .close, role: .glass, size: .compact)
-    public let annotateButton = ShotzButton(icon: .annotate, role: .glass, size: .compact)
-    public let quickLookButton = ShotzButton(icon: .quickLook, role: .glass, size: .compact)
-    public let copyButton = ShotzButton(title: String(localized: "Copy"), role: .glass)
-    public let saveButton = ShotzButton(title: String(localized: "Save"), role: .glass)
-    public var caption = "1920 × 1080" { didSet { needsDisplay = true } }
+    public let cardSize: ShotzUI.CardSize
+    public let closeButton: ShotzGlassIconButton
+    public let annotateButton: ShotzGlassIconButton
+    public let quickLookButton: ShotzGlassIconButton
+    public let copyButton: ShotzButton
+    public let saveButton: ShotzButton
+    public let caption: ShotzCaptionPill
     /// Draws the card's image (the stack supplies the thumbnail).
     public var drawImage: ((CGContext, CGRect) -> Void)?
 
-    public override init(frame: NSRect) {
-        super.init(frame: frame)
+    public init(cardSize: ShotzUI.CardSize = .large, caption text: String = "1920 × 1080") {
+        self.cardSize = cardSize
+        closeButton = ShotzGlassIconButton(icon: .close, cardSize: cardSize)
+        annotateButton = ShotzGlassIconButton(icon: .annotate, cardSize: cardSize)
+        quickLookButton = ShotzGlassIconButton(icon: .quickLook, cardSize: cardSize)
+        copyButton = .glass(String(localized: "Copy"), icon: .copy, cardSize: cardSize)
+        saveButton = .glass(String(localized: "Save"), icon: .save, cardSize: cardSize)
+        caption = ShotzCaptionPill(text, cardSize: cardSize)
+        super.init(frame: CGRect(x: 0, y: 0, width: cardSize.width, height: cardSize.height))
         wantsLayer = true
         closeButton.setShotzToolTip(String(localized: "Close"), shortcut: "⌘W")
         annotateButton.setShotzToolTip(String(localized: "Annotate"), shortcut: "⌘E")
@@ -27,32 +36,35 @@ public final class StackCardHover: NSView {
         let pair = max(copyButton.intrinsicContentSize.width, saveButton.intrinsicContentSize.width)
         copyButton.minimumWidth = pair
         saveButton.minimumWidth = pair
-        for b in [closeButton, annotateButton, quickLookButton, copyButton, saveButton] { addSubview(b) }
+        for v in [closeButton, annotateButton, quickLookButton, copyButton, saveButton, caption] as [NSView] { addSubview(v) }
     }
 
     @available(*, unavailable)
     public required init?(coder: NSCoder) { fatalError("ShotzUI views are built in code") }
 
     public override var isFlipped: Bool { true }
-    public static let cornerRadius: CGFloat = 10
 
     public override func layout() {
         super.layout()
-        let inset: CGFloat = 6 // 28-pt hit areas → 24-pt glass circles land 8 pt from the edge
         let s = closeButton.intrinsicContentSize
-        closeButton.frame = CGRect(x: inset, y: inset, width: s.width, height: s.height)
-        annotateButton.frame = CGRect(x: bounds.maxX - inset - s.width, y: inset, width: s.width, height: s.height)
-        quickLookButton.frame = CGRect(x: bounds.maxX - inset - s.width, y: bounds.maxY - inset - s.height, width: s.width, height: s.height)
+        // Hit areas are ≥ 28 pt; offset so the visible circle sits `cornerInset` from the edge.
+        let o = cardSize.cornerInset - (s.width - cardSize.glassDiameter) / 2
+        closeButton.frame = CGRect(x: o, y: o, width: s.width, height: s.height)
+        annotateButton.frame = CGRect(x: bounds.maxX - o - s.width, y: o, width: s.width, height: s.height)
+        quickLookButton.frame = CGRect(x: bounds.maxX - o - s.width, y: bounds.maxY - o - s.height, width: s.width, height: s.height)
         let c = copyButton.intrinsicContentSize
         let total = 2 * c.width + ShotzUI.Space.s
         copyButton.frame = CGRect(x: (bounds.midX - total / 2).rounded(), y: (bounds.midY - c.height / 2).rounded(), width: c.width, height: c.height)
         saveButton.frame = copyButton.frame.offsetBy(dx: c.width + ShotzUI.Space.s, dy: 0)
+        let p = caption.intrinsicContentSize
+        caption.frame = CGRect(x: cardSize.cornerInset, y: (quickLookButton.frame.midY - p.height / 2).rounded(), width: p.width, height: p.height)
     }
 
     public override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            let card = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: Self.cornerRadius, yRadius: Self.cornerRadius)
+            let r = cardSize.cornerRadius
+            let card = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: r, yRadius: r)
             ctx.saveGState()
             card.addClip()
             ShotzUI.Palette.surfaceSunken.composited(over: ShotzUI.Palette.surface.resolved(in: effectiveAppearance)).setFill()
@@ -64,20 +76,6 @@ public final class StackCardHover: NSView {
             ShotzUI.Palette.border.setStroke()
             card.lineWidth = 1
             card.stroke()
-            // Caption on a small glass pill, bottom-left, aligned with the corner buttons.
-            let attrs: [NSAttributedString.Key: Any] = [.font: ShotzUI.Typography.caption.font.withMonospacedDigits, .foregroundColor: NSColor.white]
-            let size = (caption as NSString).size(withAttributes: attrs)
-            let pill = CGRect(x: 8, y: bounds.maxY - 8 - 20, width: ceil(size.width) + 14, height: 20)
-            let pillPath = NSBezierPath(roundedRect: pill, xRadius: 10, yRadius: 10)
-            ShotzUI.Palette.glassFill.setFill()
-            pillPath.fill()
-            (caption as NSString).draw(at: CGPoint(x: pill.minX + 7, y: (pill.midY - size.height / 2).rounded()), withAttributes: attrs)
         }
-    }
-}
-
-extension NSFont {
-    var withMonospacedDigits: NSFont {
-        NSFont.monospacedDigitSystemFont(ofSize: pointSize, weight: .regular)
     }
 }
