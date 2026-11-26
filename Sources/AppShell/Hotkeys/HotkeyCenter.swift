@@ -29,17 +29,24 @@ import ShotzCore
     }
 
     private let settings: SettingsStore
-    private var registered: [HotkeyAction: (combo: KeyCombo, ref: EventHotKeyRef)] = [:]
+    private let registrar: HotkeyRegistrar
+    private var registered: [HotkeyAction: KeyCombo] = [:]
+    private var hasLoggedOnce = false
     private var handler: EventHandlerRef?
     private var settingsObserver: AnyCancellable?
     private let log = ShotzLog.logger("AppShell")
     /// 'SHTZ'
     static let signature: OSType = 0x5348_545A
 
-    public init(settings: SettingsStore, devHotkeys: Bool, devProfile: Bool = DevProfile.isActive) {
+    public convenience init(settings: SettingsStore, devHotkeys: Bool, devProfile: Bool = DevProfile.isActive) {
+        self.init(settings: settings, devHotkeys: devHotkeys, devProfile: devProfile, registrar: CarbonHotkeyRegistrar())
+    }
+
+    init(settings: SettingsStore, devHotkeys: Bool, devProfile: Bool, registrar: HotkeyRegistrar) {
         self.settings = settings
         self.devHotkeys = devHotkeys
         self.mode = HotkeyMode.resolve(devProfile: devProfile, devHotkeys: devHotkeys)
+        self.registrar = registrar
     }
 
     /// True when launched with `--dev-hotkeys` or `SHOTZ_DEV_HOTKEYS=1`.
@@ -58,6 +65,20 @@ import ShotzCore
     /// True when this session's shortcut differs from the stored one.
     public func isDevOverridden(_ action: HotkeyAction) -> Bool {
         HotkeyBindings.isOverridden(action, mode: mode)
+    }
+
+    /// Whether the stored shortcut is the one in effect this session.
+    public func sessionStatus(for action: HotkeyAction) -> HotkeyBindings.SessionStatus {
+        HotkeyBindings.sessionStatus(for: action, stored: settings.hotkey(for: action), mode: mode)
+    }
+
+    /// Warning for the Settings row / onboarding when Carbon refused this
+    /// action's shortcut; nil when it registered (or nothing is bound).
+    public func registrationWarning(for action: HotkeyAction) -> String? {
+        guard let status = registrationFailures[action] else { return nil }
+        let combo = binding(for: action).map(KeyNames.display) ?? ""
+        let code = String(status)   // plain digits, matching the log (no locale grouping)
+        return String(localized: "Couldn't register \(combo) (error \(code)). Another app may be using it.")
     }
 
     /// True when this session registers no global shortcut at all.
@@ -85,43 +106,57 @@ import ShotzCore
         let desired = isSuspended
             ? [:]
             : HotkeyBindings.effectiveAll(stored: { settings.hotkey(for: $0) }, mode: mode)
-        let plan = HotkeyBindings.plan(
-            registered: registered.mapValues(\.combo),
-            desired: desired,
-            failed: Set(registrationFailures.keys)
-        )
+        let plan = HotkeyBindings.plan(registered: registered, desired: desired, failed: Set(registrationFailures.keys))
         // Failures for actions no longer bound are stale.
         var failures = registrationFailures.filter { desired[$0.key] != nil }
-        guard !plan.isEmpty || failures.count != registrationFailures.count else { return }
+        let changed = !plan.isEmpty || failures.count != registrationFailures.count
+        guard changed || !hasLoggedOnce else { return }
 
-        for action in plan.unregister {
-            if let entry = registered.removeValue(forKey: action) { UnregisterEventHotKey(entry.ref) }
+        for action in plan.unregister where registered.removeValue(forKey: action) != nil {
+            registrar.unregister(id: Self.carbonID(for: action))
         }
         for action in HotkeyAction.allCases where plan.register.contains(action) {
             guard let combo = desired[action] else { continue }
-            if let entry = registered.removeValue(forKey: action) { UnregisterEventHotKey(entry.ref) }
-            var ref: EventHotKeyRef?
-            let id = EventHotKeyID(signature: Self.signature, id: Self.carbonID(for: action))
-            let status = RegisterEventHotKey(
-                combo.keyCode, Self.carbonModifiers(combo.modifiers), id, GetApplicationEventTarget(), 0, &ref
-            )
-            if status == noErr, let ref {
-                registered[action] = (combo, ref)
+            registered[action] = nil
+            let status = registrar.register(combo, id: Self.carbonID(for: action))
+            if status == noErr {
+                registered[action] = combo
                 failures[action] = nil
-                log.info("Registered \(action.rawValue, privacy: .public) = \(KeyNames.display(combo), privacy: .public)")
             } else {
                 failures[action] = status
-                log.error("Could not register \(action.rawValue, privacy: .public) = \(KeyNames.display(combo), privacy: .public) (status \(status))")
             }
         }
         if failures != registrationFailures { registrationFailures = failures }
+        logState()
+    }
+
+    /// One notice line per action (launch and every re-registration), so a
+    /// "shortcut does nothing" report can be diagnosed from the log.
+    private func logState() {
+        hasLoggedOnce = true
+        if isSuspended {
+            log.notice("Hotkeys suspended while a shortcut is being recorded")
+            return
+        }
+        for action in HotkeyAction.allCases {
+            let stored = settings.hotkey(for: action)
+            let line = HotkeyBindings.logLine(
+                for: action, stored: stored, effective: binding(for: action), mode: mode,
+                failure: registrationFailures[action]
+            )
+            if registrationFailures[action] != nil {
+                log.error("\(line, privacy: .public)")
+            } else {
+                log.notice("\(line, privacy: .public)")
+            }
+        }
     }
 
     /// Actions currently registered with Carbon (tests and diagnostics).
     var registeredActions: Set<HotkeyAction> { Set(registered.keys) }
 
     public func unregisterAll() {
-        for entry in registered.values { UnregisterEventHotKey(entry.ref) }
+        for action in registered.keys { registrar.unregister(id: Self.carbonID(for: action)) }
         registered.removeAll()
     }
 

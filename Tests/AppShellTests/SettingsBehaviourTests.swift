@@ -70,7 +70,7 @@ struct SettingsBehaviourTests {
         settings.setHotkey(nil, for: .captureArea)
         settings.setHotkey(nil, for: .captureAllInOne)
         settings.setHotkey(KeyCombo(keyCode: 0x6F, modifiers: [.control, .option, .shift, .command]), for: .captureWindow)
-        let center = HotkeyCenter(settings: settings, devHotkeys: false, devProfile: false)
+        let center = HotkeyCenter(settings: settings, devHotkeys: false, devProfile: false, registrar: FakeRegistrar())
         center.isSuspended = true
         center.apply()
         #expect(center.registrationFailures.isEmpty)
@@ -84,7 +84,7 @@ struct SettingsBehaviourTests {
         let (settings, suite) = makeSettings()
         defer { UserDefaults().removePersistentDomain(forName: suite) }
         settings.setHotkey(KeyCombo(keyCode: 0x00, modifiers: [.command, .option]), for: .captureWindow)
-        let center = HotkeyCenter(settings: settings, devHotkeys: false, devProfile: true)
+        let center = HotkeyCenter(settings: settings, devHotkeys: false, devProfile: true, registrar: FakeRegistrar())
         #expect(center.mode == .devProfileOff)
         #expect(center.registersNothing)
         center.apply()                       // safe: nothing to register

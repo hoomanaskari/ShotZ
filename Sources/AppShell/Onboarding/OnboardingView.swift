@@ -202,13 +202,26 @@ struct SystemShortcutsPage: View {
                     .font(.callout).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
-            } else if !model.heldByAnotherApp.isEmpty {
+            }
+            if !model.heldByAnotherApp.isEmpty {
                 VStack(spacing: 8) {
-                    Text(String(localized: "Another app is already using \(model.heldByAnotherApp.compactMap { model.hotkeys.binding(for: $0).map(KeyNames.display) }.joined(separator: ", ")). Quit it or turn its shortcuts off, or use alternates."))
-                        .font(.callout).multilineTextAlignment(.center)
-                    Button(String(localized: "Use ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5")) { model.useAlternateShortcuts() }
+                    ForEach(model.heldByAnotherApp, id: \.self) { action in
+                        if let warning = model.hotkeys.registrationWarning(for: action) {
+                            Label("\(action.title): \(warning)", systemImage: "exclamationmark.triangle.fill")
+                                .font(.callout).foregroundStyle(.orange)
+                        }
+                    }
+                    if model.canOfferAlternates {
+                        Text(String(localized: "Quit the other app or turn its shortcuts off, or use alternates."))
+                            .font(.callout).multilineTextAlignment(.center)
+                        Button(String(localized: "Use ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5")) { model.useAlternateShortcuts() }
+                    }
                 }
             }
+            Text(String(localized: "If a shortcut does nothing, another app may be using it: macOS does not always tell Shotz."))
+                .font(.callout).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

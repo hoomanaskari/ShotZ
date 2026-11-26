@@ -59,6 +59,60 @@ public enum HotkeyBindings {
         effectiveAll(stored: stored, mode: .standard)
     }
 
+    /// Whether a stored (just recorded) shortcut is what this session uses.
+    public enum SessionStatus: Equatable, Sendable {
+        case active
+        /// Saved, but this session uses `effective` instead (nil = nothing).
+        case inactive(effective: KeyCombo?)
+    }
+
+    public static func sessionStatus(for action: HotkeyAction, stored: KeyCombo?, mode: HotkeyMode) -> SessionStatus {
+        let effective = effective(for: action, stored: stored, mode: mode)
+        return effective == stored ? .active : .inactive(effective: effective)
+    }
+
+    /// The plain-language warning shown under a recorder when what was just
+    /// saved cannot take effect in this session.
+    public static func inactiveMessage(for action: HotkeyAction, mode: HotkeyMode, effective: KeyCombo?) -> String {
+        let using = effective.map(KeyNames.display)
+        switch mode {
+        case .standard:
+            return ""
+        case .standardDevHotkeys:
+            if let using {
+                return String(localized: "Saved, but not active in this session: Shotz was started with --dev-hotkeys, so \(using) is used until you relaunch normally.")
+            }
+            return String(localized: "Saved, but not active in this session: Shotz was started with --dev-hotkeys. Relaunch normally to use it.")
+        case .devProfileOff:
+            return String(localized: "Saved to the dev profile, but not active: dev-profile runs register no shortcuts unless started with --dev-hotkeys.")
+        case .devProfileDevHotkeys:
+            if let using {
+                return String(localized: "Saved to the dev profile, but not active: this dev-profile run uses \(using) instead.")
+            }
+            return String(localized: "Saved to the dev profile, but not active: dev-profile runs register no shortcut for \(action.title).")
+        }
+    }
+
+    /// One log line describing an action's state this session.
+    public static func logLine(
+        for action: HotkeyAction, stored: KeyCombo?, effective: KeyCombo?, mode: HotkeyMode, failure: Int32?
+    ) -> String {
+        let name = action.rawValue
+        var line: String
+        switch (effective, failure) {
+        case (nil, _): line = "Hotkey \(name): not registered"
+        case (let combo?, nil): line = "Hotkey \(name) = \(KeyNames.display(combo)): registered"
+        case (let combo?, let status?): line = "Hotkey \(name) = \(KeyNames.display(combo)): FAILED (Carbon status \(status))"
+        }
+        if effective != stored {
+            let storedText = stored.map(KeyNames.display) ?? "none"
+            line += "; stored \(storedText) overridden this session (\(mode.logDescription))"
+        } else if stored == nil {
+            line += " (no stored shortcut)"
+        }
+        return line
+    }
+
     /// What to change to go from the registered set to the desired one.
     /// Everything in `unregister` must be removed before `register` is added,
     /// so two actions can swap shortcuts.

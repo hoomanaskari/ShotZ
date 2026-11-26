@@ -45,11 +45,14 @@ import ShotzCore
         systemShortcuts = SystemScreenshotShortcuts.read()
     }
 
-    /// Capture shortcuts Shotz failed to register (another app holds them).
+    /// Capture shortcuts Shotz failed to register this session (another app
+    /// may hold them), in any mode.
     var heldByAnotherApp: [HotkeyAction] {
-        guard hotkeys.mode == .standard else { return [] }
-        return [.captureFullscreen, .captureArea, .captureAllInOne].filter { hotkeys.registrationFailures[$0] != nil }
+        [.captureFullscreen, .captureArea, .captureAllInOne].filter { hotkeys.registrationFailures[$0] != nil }
     }
+
+    /// Alternates are offered only where they would take effect (standard profile).
+    var canOfferAlternates: Bool { hotkeys.mode == .standard && !heldByAnotherApp.isEmpty }
 
     func useAlternateShortcuts() {
         settings.setHotkey(.devFullscreen, for: .captureFullscreen)
