@@ -66,6 +66,17 @@ struct GalleryStep2Tests {
         sheet.row("Colour well", GalleryTests.states({ ShotzColorWell(color: NSColor(srgbRed: 0.1, green: 0.6, blue: 0.7, alpha: 1), label: "Custom") }, cbStates), columnWidth: 160)
         sheet.row("Tile", GalleryTests.states({ ShotzTileButton(image: Self.gradientTile(), label: "Lagoon") }, cbStates), columnWidth: 160)
         sheet.row("Icon chip", GalleryTests.states({ ShotzToggleChip(icon: .shadow, label: "Shadow") }, cbStates), columnWidth: 160)
+        // 3 × 3 position grid (background alignment): plain tiles with the centre selected.
+        let grid = NSView(frame: CGRect(x: 0, y: 0, width: 96, height: 96))
+        let empty = NSImage(size: NSSize(width: 22, height: 22), flipped: false) { _ in true }
+        for i in 0..<9 {
+            let t = ShotzTileButton(image: empty, size: CGSize(width: 22, height: 22), label: "Position \(i + 1)")
+            t.isSelected = i == 4
+            if i == 2 { t.stateOverride = .hover }
+            t.frame = CGRect(x: CGFloat(i % 3) * 32, y: CGFloat(i / 3) * 32, width: 30, height: 30)
+            grid.addSubview(t)
+        }
+        sheet.row("Position grid", [grid], height: 98)
         let labels = NSView(frame: CGRect(x: 0, y: 0, width: 700, height: 22))
         var lx: CGFloat = 0
         for (t, role) in [("Background", ShotzUI.LabelRole.panelTitle), ("Padding", .formLabel), ("Applies to the export only.", .note), ("1920 × 1080", .caption)] {

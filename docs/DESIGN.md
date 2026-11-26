@@ -81,7 +81,8 @@ Copy · Save · **Done**), `EditorOptionsBar`, `StackCardHover(cardSize:)`, `Set
 
 | `EditorControls` today | ShotzUI |
 |---|---|
-| `toolStrip`, `toolbarToggle` | `ShotzToolButton` (toggle = `isSelected`) in a `ShotzToolbarStack` |
+| `toolStrip` | `ShotzToolButton` per tool in a `ShotzToolbarStack` |
+| `toolbarToggle` (Background panel) | `ShotzToggleChip` (icon or icon + label): a panel toggle must never look like a second selected tool |
 | `primaryButton`, `secondaryButton`, `iconButton`, `prominentButton`, `button` | `ShotzButton` `.primary` / `.secondary` / `.quiet` icon |
 | `segmented(glyphs:)`, `segmented(titles:)` | `ShotzSegmentedControl` (icon / text), `.thicknessPicker` |
 | `toggleChip(glyph)`, `toggleChip(title)` | `ShotzToggleChip(icon:label:)`, `ShotzToggleChip(title:)` |
