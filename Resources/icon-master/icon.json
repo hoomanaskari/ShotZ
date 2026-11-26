@@ -1,7 +1,7 @@
 {
-  "artwork": "owner-artwork-clean.png",
-  "artworkScale": 0.74,
+  "artwork": "owner-artwork-2-clean.png",
+  "artworkScale": 0.82,
   "artworkOffset": [0, -0.01],
-  "gradientStrength": 0.45,
-  "contactShadow": 0.16
+  "tileGradient": ["#2F6FD6", "#0E2A6B"],
+  "contactShadow": 0.18
 }

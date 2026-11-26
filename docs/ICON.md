@@ -29,20 +29,26 @@ The script picks its source in this order:
 
 ```json
 {
-  "artwork": "owner-artwork-clean.png",
-  "artworkScale": 0.74,
+  "artwork": "owner-artwork-2-clean.png",
+  "artworkScale": 0.82,
   "artworkOffset": [0, -0.01],
-  "gradientStrength": 0.45,
-  "contactShadow": 0.16
+  "tileGradient": ["#2F6FD6", "#0E2A6B"],
+  "contactShadow": 0.18
 }
 ```
+
+This is the owner's second artwork on option B of the blue-tile sheet (mid blue → deep navy). It is
+proposed and awaiting the owner's pick; `main` still ships the first artwork on the white tile, whose
+settings are kept in `icon-artwork-1.json`. To go back to it, copy that file over `icon.json` and run
+`scripts/make-icons.sh`. Every key except `artwork` is optional.
 
 | Key | Meaning |
 |---|---|
 | `artwork` | Transparent PNG cut-out, relative to `icon.json`. |
 | `artworkScale` | Width of the artwork's visible bounds as a fraction of the tile width (0.3–0.95). The script warns when the art comes within 6 % of the tile edge. |
 | `artworkOffset` | Extra shift as fractions of the tile, `[x right, y down]`, applied after centring. `-0.01` lifts the art 1 % above the optical centre. |
-| `gradientStrength` | 0 is a flat white tile; 1 runs from white to light grey (`#DADDE2`), top left to bottom right. |
+| `gradientStrength` | 0 is a flat white tile; 1 runs from white to light grey (`#DADDE2`), top left to bottom right. Ignored when `tileGradient` is set. |
+| `tileGradient` | Optional coloured tile: two sRGB hex colours, top left → bottom right, e.g. `["#2F6FD6", "#0E2A6B"]`. |
 | `contactShadow` | Opacity of the soft neutral shadow under the artwork, drawn on the tile (0–1). |
 
 ### The generated tile
@@ -50,9 +56,10 @@ The script picks its source in this order:
 - 1024 canvas, macOS grid: an 824×824 tile with the system continuous-corner shape (radius 185.4,
   from SwiftUI's `RoundedRectangle(style: .continuous)`) and the standard 100 px margins.
 - The usual soft drop shadow under the tile (10 px down, 20 px blur, 28 % black).
-- A white → light-grey linear gradient from the top-left to the bottom-right corner.
-- A hairline inner edge (10 % black, 2 px at 1024, at least half a pixel at small sizes), so the
-  light tile reads on a light Dock; the drop shadow carries it in dark mode.
+- A linear gradient from the top-left to the bottom-right corner: white → light grey by default,
+  or the two `tileGradient` colours.
+- A hairline inner edge (2 px at 1024, at least half a pixel at small sizes): 10 % black on a light
+  tile, so it reads on a light Dock; 14 % white on a dark tile, so it reads on a dark Dock.
 - The artwork is centred on its **visual weight**, not its bounding box: each pixel counts by its
   opacity and its contrast with the light tile (darker and more saturated pixels weigh more).
   For the current artwork that puts the visible bounds 3 % right and 2 % lower than plain box

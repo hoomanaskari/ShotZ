@@ -333,8 +333,26 @@ struct TileConfig: Decodable {
     var artworkOffset: [Double] = [0, 0]
     /// 0 = flat white tile; 1 = white → TileIcon.gradientEnd (light grey).
     var gradientStrength: Double = 0.5
+    /// Optional coloured tile: two sRGB hex colours, top left → bottom right (e.g. ["#5AB4F5", "#1E5FC8"]).
+    /// When set it replaces the white → light-grey gradient and `gradientStrength` is ignored.
+    var tileGradient: [String]? = nil
     /// Opacity of the soft neutral contact shadow under the artwork (drawn on the tile).
     var contactShadow: Double = 0.16
+
+    private enum CodingKeys: String, CodingKey {
+        case artwork, artworkScale, artworkOffset, gradientStrength, tileGradient, contactShadow
+    }
+
+    /// Every key but `artwork` is optional and falls back to the defaults above.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        artwork = try c.decode(String.self, forKey: .artwork)
+        artworkScale = try c.decodeIfPresent(Double.self, forKey: .artworkScale) ?? artworkScale
+        artworkOffset = try c.decodeIfPresent([Double].self, forKey: .artworkOffset) ?? artworkOffset
+        gradientStrength = try c.decodeIfPresent(Double.self, forKey: .gradientStrength) ?? gradientStrength
+        tileGradient = try c.decodeIfPresent([String].self, forKey: .tileGradient)
+        contactShadow = try c.decodeIfPresent(Double.self, forKey: .contactShadow) ?? contactShadow
+    }
 }
 
 /// The owner's artwork on ShotZ's generated macOS tile.
@@ -359,6 +377,11 @@ struct TileIcon {
         guard config.artworkOffset.count == 2 else { fail("tile config: artworkOffset must be [x, y]") }
         guard (0...1).contains(config.gradientStrength) else { fail("tile config: gradientStrength must be between 0 and 1") }
         guard (0...1).contains(config.contactShadow) else { fail("tile config: contactShadow must be between 0 and 1") }
+        if let colours = config.tileGradient {
+            guard colours.count == 2, colours.allSatisfy({ Self.colour(hex: $0) != nil }) else {
+                fail("tile config: tileGradient must be two colours like [\"#5AB4F5\", \"#1E5FC8\"]")
+            }
+        }
         self.config = config
 
         let artPath = url.deletingLastPathComponent().appending(path: config.artwork).path
@@ -431,9 +454,7 @@ struct TileIcon {
                             space: srgb, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         let path = Self.tilePath(scale: k)
         let tile = path.boundingBoxOfPath
-        let s = config.gradientStrength
-        let end = CGColor(srgbRed: 1 - (1 - Self.gradientEnd.r) * s, green: 1 - (1 - Self.gradientEnd.g) * s,
-                          blue: 1 - (1 - Self.gradientEnd.b) * s, alpha: 1)
+        let (start, end) = tileColours
 
         // The usual soft drop shadow under the tile.
         ctx.saveGState()
@@ -446,7 +467,7 @@ struct TileIcon {
         ctx.saveGState()
         ctx.addPath(path)
         ctx.clip()
-        let gradient = CGGradient(colorsSpace: srgb, colors: [CGColor(gray: 1, alpha: 1), end] as CFArray, locations: [0, 1])!
+        let gradient = CGGradient(colorsSpace: srgb, colors: [start, end] as CFArray, locations: [0, 1])!
         ctx.drawLinearGradient(gradient, start: CGPoint(x: tile.minX, y: tile.maxY), end: CGPoint(x: tile.maxX, y: tile.minY), options: [])
 
         // Artwork with one soft neutral contact shadow, drawn on the tile (not baked into the art).
@@ -461,13 +482,43 @@ struct TileIcon {
 
         if dev { addDevBand(ctx, px: px, art: tile, clip: path) }
 
-        // Hairline inner edge (at least half a pixel), so the light tile reads on light backgrounds.
+        // Hairline inner edge (at least half a pixel): dark on a light tile so it reads on a light
+        // Dock, light on a dark tile so it reads on a dark Dock.
         ctx.addPath(path)
-        ctx.setStrokeColor(CGColor(gray: 0, alpha: 0.10))
+        ctx.setStrokeColor(tileIsDark ? CGColor(gray: 1, alpha: 0.14) : CGColor(gray: 0, alpha: 0.10))
         ctx.setLineWidth(max(4 * k, 1))   // the clip keeps the inner half
         ctx.strokePath()
         ctx.restoreGState()
         return ctx
+    }
+
+    /// The tile's two gradient colours (top left, bottom right).
+    var tileColours: (CGColor, CGColor) {
+        if let colours = config.tileGradient, let a = Self.colour(hex: colours[0]), let b = Self.colour(hex: colours[1]) {
+            return (a, b)
+        }
+        let s = config.gradientStrength
+        return (CGColor(gray: 1, alpha: 1),
+                CGColor(srgbRed: 1 - (1 - Self.gradientEnd.r) * s, green: 1 - (1 - Self.gradientEnd.g) * s,
+                        blue: 1 - (1 - Self.gradientEnd.b) * s, alpha: 1))
+    }
+
+    /// True when the tile's average luminance is below the middle.
+    var tileIsDark: Bool {
+        let (a, b) = tileColours
+        func luminance(_ c: CGColor) -> CGFloat {
+            let p = c.converted(to: srgb, intent: .defaultIntent, options: nil)?.components ?? [1, 1, 1, 1]
+            return p.count >= 3 ? 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2] : p[0]
+        }
+        return (luminance(a) + luminance(b)) / 2 < 0.5
+    }
+
+    static func colour(hex: String) -> CGColor? {
+        var text = hex.trimmingCharacters(in: .whitespaces)
+        if text.hasPrefix("#") { text.removeFirst() }
+        guard text.count == 6, let value = UInt32(text, radix: 16) else { return nil }
+        return CGColor(srgbRed: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
+                       blue: CGFloat(value & 0xFF) / 255, alpha: 1)
     }
 
     /// Notes on fit: the artwork should stay inside the tile's safe area.
