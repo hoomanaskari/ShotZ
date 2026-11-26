@@ -1,10 +1,10 @@
-# Shotz — Phase 1 behaviour spec
+# ShotZ — Phase 1 behaviour spec
 
-Shotz is an original macOS screenshot and annotation app. Phase 1 covers still
+ShotZ is an original macOS screenshot and annotation app. Phase 1 covers still
 screenshots, the quick-access thumbnail stack, and the annotation editor.
 Out of scope: video/GIF recording, scrolling capture, OCR, cloud upload, pinning.
 
-Shotz has its own name, icon, sounds, wording and visual design. It matches the
+ShotZ has its own name, icon, sounds, wording and visual design. It matches the
 *workflow and quality* of the tool the owner uses today, not its look.
 
 Sources for this spec: the owner's description of their workflow, the owner's
@@ -20,11 +20,11 @@ Units are points unless stated. "Capture" means one still image plus metadata.
 
 - Menu-bar agent app (`LSUIElement`), no Dock icon, no main window.
 - Status item in the menu bar, **hideable** (owner runs with it hidden). When
-  hidden, launching Shotz again (Finder/Spotlight) opens Settings, so the app
+  hidden, launching ShotZ again (Finder/Spotlight) opens Settings, so the app
   is always reachable.
 - Status menu: Capture Area, Capture Window, Capture Fullscreen, All-in-One,
   separator, Capture History ▸ (last 10, click re-opens in the stack),
-  Open Last Capture in Editor, separator, Settings…, Quit Shotz. Each item
+  Open Last Capture in Editor, separator, Settings…, Quit ShotZ. Each item
   shows its current shortcut.
 - Launch at login (setting, default on after onboarding asks).
 - No telemetry, no network access at all.
@@ -49,9 +49,9 @@ Units are points unless stated. "Capture" means one still image plus metadata.
   default shortcuts never collide with production. Engineer and automated
   test runs register no shortcuts at all (`--no-hotkeys`).
 - macOS's own screenshot shortcuts (System Settings ▸ Keyboard ▸ Keyboard
-  Shortcuts ▸ Screenshots) must be off for ⌘⇧3/4/5 to reach Shotz. On the
+  Shortcuts ▸ Screenshots) must be off for ⌘⇧3/4/5 to reach ShotZ. On the
   owner's machine they already are (symbolic hot keys 28–31 and 184 are
-  disabled). Onboarding checks this and shows the steps if they are on; Shotz
+  disabled). Onboarding checks this and shows the steps if they are on; ShotZ
   never changes system settings itself.
 - A shortcut pressed while a capture is already in progress is ignored.
 
@@ -81,9 +81,9 @@ system's `/usr/sbin/screencapture`, so selection feels exactly like macOS.
 
 - Phase 1: shows the system capture toolbar (selection / window / screen
   buttons, adjustable selection that remembers its last rectangle). The result
-  is routed into Shotz like any other capture. Recording buttons in that
-  toolbar are not handled by Shotz in Phase 1.
-- Later: a Shotz-native all-in-one overlay.
+  is routed into ShotZ like any other capture. Recording buttons in that
+  toolbar are not handled by ShotZ in Phase 1.
+- Later: a ShotZ-native all-in-one overlay.
 
 ### 3.4 Capture Window (menu only, no default shortcut)
 
@@ -91,9 +91,9 @@ system's `/usr/sbin/screencapture`, so selection feels exactly like macOS.
 
 ### 3.5 After any capture
 
-1. The image is written losslessly (PNG) to Shotz's private captures folder
+1. The image is written losslessly (PNG) to ShotZ's private captures folder
    `~/Library/Application Support/Shotz/Captures/` with the display name
-   `Shotz YYYY-MM-DD at HH.mm.ss.png` (a counter is appended on collision).
+   `ShotZ YYYY-MM-DD at HH.mm.ss.png` (a counter is appended on collision).
 2. Sound plays if sounds are on (setting, default on).
 3. The capture is appended to history and shown in the quick-access stack
    (section 4). Target: thumbnail visible **≤ 150 ms** after the pixels exist.
@@ -128,8 +128,8 @@ The owner's favourite part. It must feel instant and never get in the way.
   alternative: always the main display). If that display is disconnected the
   stack moves to the main display.
 - The stack floats above normal windows and full-screen apps, appears on all
-  Spaces, never takes keyboard focus, never activates Shotz, and is excluded
-  from Shotz's own later captures.
+  Spaces, never takes keyboard focus, never activates ShotZ, and is excluded
+  from ShotZ's own later captures.
 - Cards stay until the user acts. Setting "auto-close after N seconds"
   (default off; the timer pauses while the pointer is over the stack).
 
@@ -139,7 +139,7 @@ The owner's favourite part. It must feel instant and never get in the way.
   matching the owner's current size)**. Height follows a fixed
   16:10 card; the image is aspect-fit inside on a neutral backdrop, so very
   tall or wide captures stay recognisable.
-- Rounded corners (10), hairline border, soft shadow. Shotz's own styling.
+- Rounded corners (10), hairline border, soft shadow. ShotZ's own styling.
 - Entrance: slides in from the left edge with a short spring (~250 ms).
   Exit: fades and scales down (~180 ms); remaining cards settle with a spring.
 - Animations must not delay interaction: a card is draggable and clickable
@@ -202,7 +202,7 @@ captured while hovering):
   kept in memory by the stack.
 - Display connect/disconnect, resolution change, Dock move and Space switch
   all re-lay-out the stack without losing cards.
-- Quitting Shotz clears the stack; captures remain in history.
+- Quitting ShotZ clears the stack; captures remain in history.
 
 ### 4.6 Returning from the editor
 
@@ -226,7 +226,7 @@ such as remove-after-drag or close-after-save).
 - Copy or Save inside the editor do not close the editor or add a card
   (unless "close editor after copy/save" is on, in which case the close rule
   above applies and the card returns).
-- Quitting Shotz with editors open saves their documents; cards are not
+- Quitting ShotZ with editors open saves their documents; cards are not
   restored on next launch (history keeps everything).
 
 ## 5. Annotation editor
@@ -234,7 +234,7 @@ such as remove-after-drag or close-after-save).
 ### 5.1 Window
 
 - One standard resizable window per capture, titled with the capture name.
-  Several can be open. Opening the editor activates Shotz (it shows no Dock
+  Several can be open. Opening the editor activates ShotZ (it shows no Dock
   icon; the window is a normal key window).
 - Initial size fits the image at ≤ 100 % zoom within 80 % of the screen;
   minimum 720 × 480.
@@ -393,7 +393,7 @@ SwiftUI window with tabs. Defaults in **bold**; owner's values noted.
 - Format: **PNG** / JPEG / HEIC (affects export; private originals stay PNG)
 - Retina scale: **native** / downscale to 1×
 - Window capture shadow (**on**)
-- File name pattern (**Shotz %Y-%m-%d at %H.%M.%S**)
+- File name pattern (**ShotZ %Y-%m-%d at %H.%M.%S**)
 
 **Editor**
 - Return to Select tool after drawing (**off**)
@@ -407,19 +407,19 @@ SwiftUI window with tabs. Defaults in **bold**; owner's values noted.
 ## 8. Permissions and onboarding
 
 - **Screen Recording** is the only required permission (the system capture
-  tool runs on Shotz's behalf). Accessibility is *not* required.
+  tool runs on ShotZ's behalf). Accessibility is *not* required.
 - First launch shows a small onboarding window:
-  1. Welcome — what Shotz does, where it lives (menu bar), its shortcuts.
+  1. Welcome — what ShotZ does, where it lives (menu bar), its shortcuts.
   2. Screen Recording — explains why, "Open System Settings" button that
      deep-links to Privacy & Security ▸ Screen & System Audio Recording,
      live status that turns green when granted, and a note that macOS may ask
-     to quit and reopen Shotz (with a "Relaunch" button).
+     to quit and reopen ShotZ (with a "Relaunch" button).
   3. System shortcuts — detects whether macOS's own ⌘⇧3/4/5 are enabled; if
      so, shows the exact steps to turn them off and a button to open Keyboard
      settings; if another app already holds the shortcuts, says so and offers
      alternates.
   4. Launch at login toggle, done.
-- If a capture is attempted without permission, Shotz shows the permission
+- If a capture is attempted without permission, ShotZ shows the permission
   step instead of producing an empty or wallpaper-only image.
 - Onboarding can be reopened from Settings ▸ Advanced.
 
