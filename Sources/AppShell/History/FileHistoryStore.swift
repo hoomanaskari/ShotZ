@@ -13,25 +13,31 @@ import ShotzCore
 ///   the captures folder, so captures are never orphaned by a bad file.
 /// - Entries whose PNG has gone missing are skipped when read and dropped on
 ///   the next `prune`.
+/// - Safe across processes (the installed app and a build can share a
+///   folder): every mutation takes `HistoryIndexLock`, re-reads the index from
+///   disk, applies the change and writes it back atomically; reads reload
+///   whenever another process has replaced the file.
 public actor FileHistoryStore: HistoryStore {
     private let paths: ShotzPaths
+    private let lock: HistoryIndexLock
     private var entries: [HistoryEntry]?   // newest first; nil until loaded
+    private var stamp: HistoryIndexStamp?  // version of the file `entries` came from
     private let log = ShotzLog.logger("History")
 
     public init(paths: ShotzPaths = .default) {
         self.paths = paths
+        self.lock = HistoryIndexLock(url: paths.root.appending(path: "history.lock", directoryHint: .notDirectory))
     }
 
     // MARK: HistoryStore
 
     public func add(_ capture: CaptureResult) async {
-        var list = loaded()
-        let previous = list.first { $0.id == capture.id }
-        list.removeAll { $0.id == capture.id }
-        list.insert(HistoryEntry(capture: capture, exportURL: previous?.exportURL), at: 0)
-        list.sort { $0.capture.createdAt > $1.capture.createdAt }
-        entries = list
-        persist()
+        mutate { list in
+            let previous = list.first { $0.id == capture.id }
+            list.removeAll { $0.id == capture.id }
+            list.insert(HistoryEntry(capture: capture, exportURL: previous?.exportURL), at: 0)
+            list.sort { $0.capture.createdAt > $1.capture.createdAt }
+        }
     }
 
     /// Newest first, skipping entries whose image file no longer exists.
@@ -40,12 +46,11 @@ public actor FileHistoryStore: HistoryStore {
     }
 
     public func remove(id: CaptureResult.ID, deleteFile: Bool) async {
-        var list = loaded()
-        guard let index = list.firstIndex(where: { $0.id == id }) else { return }
-        let entry = list.remove(at: index)
-        entries = list
-        persist()
-        if deleteFile { deleteFiles(of: entry.capture) }
+        let removed: HistoryEntry? = mutate { list in
+            guard let index = list.firstIndex(where: { $0.id == id }) else { return nil }
+            return list.remove(at: index)
+        }
+        if deleteFile, let removed { deleteFiles(of: removed.capture) }
     }
 
     public nonisolated func documentURL(for id: CaptureResult.ID) -> URL {
@@ -79,11 +84,10 @@ public actor FileHistoryStore: HistoryStore {
 
     /// Records the latest export of a capture (Save, auto-save).
     public func markExported(id: CaptureResult.ID, to url: URL) {
-        var list = loaded()
-        guard let index = list.firstIndex(where: { $0.id == id }) else { return }
-        list[index].exportURL = url
-        entries = list
-        persist()
+        mutate { list in
+            guard let index = list.firstIndex(where: { $0.id == id }) else { return }
+            list[index].exportURL = url
+        }
     }
 
     /// Applies the retention setting; `.forever` only drops missing files.
@@ -97,34 +101,34 @@ public actor FileHistoryStore: HistoryStore {
     @discardableResult
     public func prune(olderThan interval: TimeInterval?, now: Date = Date()) -> Int {
         let cutoff = interval.map { now.addingTimeInterval(-$0) }
-        let list = loaded()
-        var keep: [HistoryEntry] = []
-        var expired: [HistoryEntry] = []
-        var missing = 0
-        for entry in list {
-            if let cutoff, entry.capture.createdAt < cutoff {
-                expired.append(entry)
-            } else if !Self.exists(entry.capture.fileURL) {
-                missing += 1
-                // The image is gone; its editable document is useless too.
-                deleteDocument(of: entry.capture.id)
-            } else {
-                keep.append(entry)
+        let (expired, missing): ([HistoryEntry], [HistoryEntry]) = mutate { list in
+            var keep: [HistoryEntry] = []
+            var expired: [HistoryEntry] = []
+            var missing: [HistoryEntry] = []
+            for entry in list {
+                if let cutoff, entry.capture.createdAt < cutoff {
+                    expired.append(entry)
+                } else if !Self.exists(entry.capture.fileURL) {
+                    missing.append(entry)
+                } else {
+                    keep.append(entry)
+                }
             }
+            list = keep
+            return (expired, missing)
         }
-        guard keep.count != list.count else { return 0 }
-        entries = keep
-        persist()
+        guard !expired.isEmpty || !missing.isEmpty else { return 0 }
         expired.forEach { deleteFiles(of: $0.capture) }
-        log.info("Pruned \(expired.count) expired and \(missing) missing history entries")
-        return expired.count + missing
+        // The image is gone; its editable document is useless too.
+        missing.forEach { deleteDocument(of: $0.capture.id) }
+        log.info("Pruned \(expired.count) expired and \(missing.count) missing history entries")
+        return expired.count + missing.count
     }
 
     /// Clear history: removes every entry and every file in the captures and
     /// documents folders (including files the index did not know about).
     public func clear() {
-        entries = []
-        persist()
+        mutate { $0 = [] }
         let fm = FileManager.default
         for dir in [paths.captures, paths.documents] {
             let items: [URL]
@@ -141,10 +145,38 @@ public actor FileHistoryStore: HistoryStore {
 
     // MARK: Storage
 
+    /// The cached entries, reloaded if another process replaced the index.
     private func loaded() -> [HistoryEntry] {
-        if let entries { return entries }
+        if let entries, stamp == HistoryIndexStamp(paths.historyIndex) { return entries }
+        return lock.withLock { readFresh() }
+    }
+
+    /// One locked read-modify-write against the current file on disk. Writes
+    /// only when `body` actually changed something.
+    @discardableResult
+    private func mutate<T>(_ body: (inout [HistoryEntry]) -> T) -> T {
+        do { try paths.createDirectories() } catch {
+            // The lock file lives in `root`; without it the write below fails
+            // too and is logged there.
+            log.error("Creating history folders failed: \(error.localizedDescription, privacy: .public)")
+        }
+        return lock.withLock {
+            var list = readFresh()
+            let before = list
+            let result = body(&list)
+            if list != before {
+                entries = list
+                persist()
+            }
+            return result
+        }
+    }
+
+    /// Must be called while holding `lock`.
+    private func readFresh() -> [HistoryEntry] {
         let list = readIndex()
         entries = list
+        stamp = HistoryIndexStamp(paths.historyIndex)
         return list
     }
 
@@ -225,6 +257,7 @@ public actor FileHistoryStore: HistoryStore {
             let encoder = HistoryDates.encoder()
             let data = try encoder.encode(HistoryIndexFile(entries: entries ?? []))
             try data.write(to: paths.historyIndex, options: .atomic)
+            stamp = HistoryIndexStamp(paths.historyIndex)
         } catch {
             log.error("Saving history index failed: \(error.localizedDescription, privacy: .public)")
         }
