@@ -24,8 +24,14 @@ import ShotzCore
 ///   background on [1:1|4:3|16:9|3:2] | off
 ///   export <path.png>          render the flattened document
 ///   dragfile                   log the drag-out file
-///   capture <png> <uuid> <doc.json>   open through openEditor(for:) and switch to that window
+///   capture <png> <uuid> <doc.json> [rendered.png]   open through openEditor(for:) and switch to it;
+///                              closing it then writes the annotated PNG to rendered.png
+///   (paths with spaces: wrap them in "double quotes")
 ///   hover x y                  move the pointer over the canvas
+///   appearance light|dark|system   window appearance
+///   panel                      toggle the background panel
+///   size <w> <h>               window content size
+///   select all|none
 ///   textstyle <decoration>     the Text tool's decoration for the next text
 ///   down|move|up x y [mods]    one mouse event (snapshot mid-drag)
 ///   wait <ms>
@@ -73,7 +79,7 @@ import ShotzCore
         }
         let line = lines.removeFirst()
         log.notice("SCRIPT \(line, privacy: .public)")
-        let parts = line.split(separator: " ").map(String.init)
+        let parts = Self.tokens(line)
         let args = Array(parts.dropFirst())
         let flags = Self.flags(args)
         let nums = args.compactMap(Double.init).map { CGFloat($0) }
@@ -161,6 +167,10 @@ import ShotzCore
         case "capture":
             // capture <png> <uuid> <document.json>: the quick-access hand-off, openEditor(for:)
             // with a real CaptureResult and an explicit document location. Later commands act on it.
+            if args.count >= 4 {
+                let rendered = URL(filePath: args[3])
+                coordinator?.renderedURL = { _ in rendered }
+            }
             guard args.count >= 3, let id = UUID(uuidString: args[1]),
                   let info = EditorCoordinator.imageInfo(URL(filePath: args[0])) else {
                 log.error("SCRIPT capture needs <png> <uuid> <document.json>")
@@ -172,6 +182,23 @@ import ShotzCore
                 controller = opened
                 log.notice("SCRIPT capture opened with \(opened.store.document.objects.count) objects")
             }
+        case "appearance":
+            // appearance light|dark|system: the window's appearance (snapshots of both themes).
+            switch args.first {
+            case "light": window?.appearance = NSAppearance(named: .aqua)
+            case "dark": window?.appearance = NSAppearance(named: .darkAqua)
+            default: window?.appearance = nil
+            }
+        case "size":
+            // size <w> <h>: the window's content size in points (720 × 480 is the minimum).
+            if nums.count >= 2 { window?.setContentSize(NSSize(width: nums[0], height: nums[1])) }
+            log.notice("SCRIPT window frame \(NSStringFromRect(self.window?.frame ?? .zero), privacy: .public) min \(NSStringFromSize(self.window?.minSize ?? .zero), privacy: .public) bar fitting \(self.controller.optionsBar.fittingSize.width) content min \(NSStringFromSize(self.window?.contentMinSize ?? .zero), privacy: .public)")
+        case "panel":
+            // panel: show or hide the background panel.
+            controller.toggleBackgroundPanel(nil)
+        case "select":
+            // select all | none
+            if args.first == "all" { controller.model.selectAll() } else { controller.model.clearSelection() }
         case "textstyle":
             // textstyle plain|outlined|solidPill|translucentPill: the Text tool's decoration.
             if let d = args.first.flatMap(TextStyle.Decoration.init(rawValue:)) {
@@ -194,6 +221,29 @@ import ShotzCore
             log.error("SCRIPT unknown command \(line, privacy: .public)")
         }
         next()
+    }
+
+    /// Splits a script line on spaces; "double quotes" keep a path with spaces together.
+    static func tokens(_ line: String) -> [String] {
+        var out: [String] = []
+        var current = ""
+        var quoted = false
+        var hasToken = false
+        for ch in line {
+            if ch == "\"" {
+                quoted.toggle()
+                hasToken = true
+            } else if ch == " ", !quoted {
+                if hasToken { out.append(current) }
+                current = ""
+                hasToken = false
+            } else {
+                current.append(ch)
+                hasToken = true
+            }
+        }
+        if hasToken { out.append(current) }
+        return out
     }
 
     private static func flags(_ args: [String]) -> NSEvent.ModifierFlags {

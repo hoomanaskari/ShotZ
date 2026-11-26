@@ -20,39 +20,55 @@ import AppKit
         control.action = #selector(ControlAction.fire(_:))
     }
 
+    /// A style picker: glyph segments with tooltips and per-segment VoiceOver labels.
     func segmented(
-        images: [NSImage], labels: [String], selected: Int?, _ handler: @escaping (Int) -> Void
-    ) -> NSSegmentedControl {
-        // VoiceOver reads each segment's image description.
-        let described = zip(images, labels).map { image, label -> NSImage in
-            let copy = (image.copy() as? NSImage) ?? image
-            copy.accessibilityDescription = label
-            return copy
-        }
-        let c = NSSegmentedControl(images: described, trackingMode: .selectOne, target: nil, action: nil)
-        c.controlSize = .small
-        c.segmentStyle = .rounded
-        for (i, label) in labels.enumerated() where i < c.segmentCount {
-            c.setToolTip(label, forSegment: i)
-            c.setLabel("", forSegment: i)
-        }
-        if let selected { c.selectedSegment = selected }
-        c.setAccessibilityLabel(labels.joined(separator: ", "))
-        bind(c) { handler(($0 as? NSSegmentedControl)?.selectedSegment ?? 0) }
+        images: [NSImage], labels: [String], selected: Int?, label: String? = nil, _ handler: @escaping (Int) -> Void
+    ) -> GlyphSegmentedControl {
+        let segments = zip(images, labels).map { GlyphSegmentedControl.Segment(image: $0, title: nil, label: $1, shortcut: nil) }
+        let c = GlyphSegmentedControl(style: .options, segments: segments, selected: selected,
+                                      label: label ?? labels.joined(separator: ", "))
+        c.onSelect = handler
         return c
     }
 
-    func segmented(titles: [String], selected: Int?, label: String? = nil, _ handler: @escaping (Int) -> Void) -> NSSegmentedControl {
-        let c = NSSegmentedControl(labels: titles, trackingMode: .selectOne, target: nil, action: nil)
-        c.controlSize = .small
-        if let label {
-            c.setAccessibilityLabel(label)
-            c.toolTip = label
-        }
-        if let selected { c.selectedSegment = selected }
-        bind(c) { handler(($0 as? NSSegmentedControl)?.selectedSegment ?? 0) }
+    func segmented(titles: [String], selected: Int?, label: String? = nil, _ handler: @escaping (Int) -> Void) -> GlyphSegmentedControl {
+        let segments = titles.map { GlyphSegmentedControl.Segment(image: nil, title: $0, label: $0, shortcut: nil) }
+        let c = GlyphSegmentedControl(style: .options, segments: segments, selected: selected, label: label ?? titles.joined(separator: ", "))
+        c.onSelect = handler
         return c
     }
+
+    /// A one-glyph on/off chip in the same style as the pickers.
+    func toggleChip(_ glyph: EditorGlyph, label: String, on: Bool, _ handler: @escaping (Bool) -> Void) -> GlyphSegmentedControl {
+        let c = GlyphSegmentedControl(style: .options,
+                                      segments: [.init(image: EditorGlyphs.image(glyph, label: label), title: nil, label: label, shortcut: nil)],
+                                      selected: on ? 0 : nil, label: label)
+        c.setAccessibilityRole(.checkBox)
+        var state = on
+        c.onSelect = { [weak c] _ in
+            state.toggle()
+            c?.selectedIndex = state ? 0 : nil
+            handler(state)
+        }
+        return c
+    }
+
+    /// Glyph, slider and value readout in one row.
+    func sliderRow(
+        value: Double, min: Double, max: Double, width: CGFloat = 80, label: String, glyph: EditorGlyph?,
+        format: @escaping (Double) -> String, _ handler: @escaping (Double, Bool) -> Void
+    ) -> ValueSliderRow {
+        weak var rowRef: ValueSliderRow?
+        let s = slider(value: value, min: min, max: max, width: width, label: label) { v, final in
+            handler(v, final)
+            rowRef?.refresh()
+        }
+        let row = ValueSliderRow(glyph: glyph, label: label, slider: s, width: width, format: format)
+        rowRef = row
+        return row
+    }
+
+    static func percent(_ v: Double) -> String { "\(Int((v * 100).rounded()))%" }
 
     /// `handler(value, isFinal)`: isFinal on mouse up (one undo step per drag).
     func slider(
@@ -81,17 +97,6 @@ import AppKit
         return b
     }
 
-    func toggle(symbol: String, label: String, on: Bool, _ handler: @escaping (Bool) -> Void) -> NSButton {
-        let b = NSButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: label) ?? NSImage(), target: nil, action: nil)
-        b.setButtonType(.pushOnPushOff)
-        b.bezelStyle = .toolbar
-        b.controlSize = .small
-        b.state = on ? .on : .off
-        b.toolTip = label
-        b.setAccessibilityLabel(label)
-        bind(b) { handler(($0 as? NSButton)?.state == .on) }
-        return b
-    }
 
     func imageButton(_ image: NSImage, label: String, _ handler: @escaping () -> Void) -> NSButton {
         let b = NSButton(image: image, target: nil, action: nil)
@@ -146,18 +151,9 @@ import AppKit
         return f
     }
 
-    func colorWell(_ color: NSColor, label: String, _ handler: @escaping (NSColor, Bool) -> Void) -> NSColorWell {
-        let w = NSColorWell(style: .minimal)
-        w.color = color
-        w.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        w.heightAnchor.constraint(equalToConstant: 18).isActive = true
-        w.supportsAlpha = false
-        w.setAccessibilityLabel(label)
-        w.toolTip = label
-        bind(w) { control in
-            guard let well = control as? NSColorWell else { return }
-            handler(well.color, NSApp.currentEvent?.type != .leftMouseDragged)
-        }
+    func colorWell(_ color: NSColor, isCustom: Bool = true, label: String, _ handler: @escaping (NSColor, Bool) -> Void) -> CustomColorWell {
+        let w = CustomColorWell(color: color, isCustom: isCustom, label: label)
+        w.onChange = handler
         return w
     }
 
@@ -170,19 +166,14 @@ import AppKit
         return l
     }
 
-    /// A small secondary-coloured symbol labelling the control after it.
-    static func icon(_ symbol: String, label: String) -> NSImageView {
-        let v = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: label) ?? NSImage())
-        v.contentTintColor = .secondaryLabelColor
-        v.symbolConfiguration = .init(pointSize: 12, weight: .regular)
-        v.toolTip = label
-        return v
-    }
 
     static func separator() -> NSView {
         let v = NSBox()
-        v.boxType = .separator
-        v.heightAnchor.constraint(equalToConstant: 16).isActive = true
+        v.boxType = .custom
+        v.borderWidth = 0
+        v.fillColor = .separatorColor
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.heightAnchor.constraint(equalToConstant: 18).isActive = true
         v.widthAnchor.constraint(equalToConstant: 1).isActive = true
         return v
     }

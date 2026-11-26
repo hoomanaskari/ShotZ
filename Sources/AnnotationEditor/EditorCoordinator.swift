@@ -18,24 +18,32 @@ import ShotzCore
     /// Where each capture's editable document lives (`HistoryStore.documentURL(for:)`).
     private let documentURL: (CaptureResult.ID) -> URL
     private var windows: [Key: EditorWindowController] = [:]
-    // TEMP (engineer A, M4 step 1 compile stub): never called until engineer D implements it.
+    /// Told when a capture's editor closes, after the annotated result is written (SPEC §4.6).
     public weak var delegate: AnnotationEditingDelegate?
     private let library: ToolSettingsLibrary
     private let backgroundPresets: BackgroundPresets
     private let previousExport: @Sendable (CaptureResult.ID) async -> URL?
     private let recordExport: @Sendable (CaptureResult.ID, URL) async -> Void
-    private let log = ShotzLog.logger("AnnotationEditor")
+    let log = ShotzLog.logger("AnnotationEditor")
+    /// Where a capture's flattened, annotated PNG goes when its editor closes
+    /// (`HistoryStore.renderedURL(for:)`); nil = no rendering.
+    var renderedURL: ((CaptureResult.ID) -> URL)?
+    /// False in unit tests: windows are created but never shown.
+    var presentsWindows = true
 
     /// - Parameters:
     ///   - previousExport: the export path stored with a capture's history item (Save overwrites it).
     ///   - recordExport: stores a capture's new export path after Save or Save As.
+    ///   - renderedURL: where the annotated PNG is written when a capture's editor closes.
     public init(
         settings: SettingsStore,
         exporter: ExportService,
         documentURL: @escaping (CaptureResult.ID) -> URL,
         previousExport: @escaping @Sendable (CaptureResult.ID) async -> URL? = { _ in nil },
-        recordExport: @escaping @Sendable (CaptureResult.ID, URL) async -> Void = { _, _ in }
+        recordExport: @escaping @Sendable (CaptureResult.ID, URL) async -> Void = { _, _ in },
+        renderedURL: ((CaptureResult.ID) -> URL)? = nil
     ) {
+        self.renderedURL = renderedURL
         self.settings = settings
         self.exporter = exporter
         self.documentURL = documentURL
@@ -67,7 +75,7 @@ import ShotzCore
             }
         }
         let record = ExportRecord(captureID: capture.id, previous: previousExport, record: recordExport)
-        return open(document, title: capture.displayName, key: key, documentURL: url, exportRecord: record)
+        return open(document, title: capture.displayName, key: key, documentURL: url, exportRecord: record, capture: capture)
     }
 
     public func openEditor(imageAt url: URL) {
@@ -111,6 +119,8 @@ import ShotzCore
 
     private func bringToFront(_ key: Key) -> Bool {
         guard let existing = windows[key] else { return false }
+        // Tests and scripted runs never take focus.
+        guard presentsWindows, !EditorScriptRunner.isScripted else { return true }
         NSApp.activate()
         existing.showWindow(nil)
         existing.window?.makeKeyAndOrderFront(nil)
@@ -119,7 +129,8 @@ import ShotzCore
 
     @discardableResult
     private func open(
-        _ document: AnnotationDocument, title: String, key: Key, documentURL: URL?, exportRecord: ExportRecord? = nil
+        _ document: AnnotationDocument, title: String, key: Key, documentURL: URL?, exportRecord: ExportRecord? = nil,
+        capture: CaptureResult? = nil
     ) -> EditorWindowController? {
         let start = ContinuousClock.now
         let base = BaseImageProvider(url: document.baseImageURL)
@@ -141,9 +152,14 @@ import ShotzCore
         let controller = EditorWindowController(
             store: DocumentStore(document: document), image: image, base: base, title: title, documentURL: documentURL, env: env
         )
-        controller.onClose = { [weak self] in self?.windows[key] = nil }
+        controller.onClose = { [weak self] info in
+            self?.windows[key] = nil
+            if let capture { self?.captureWindowClosed(capture, info) }
+        }
         windows[key] = controller
-        if EditorScriptRunner.isScripted {
+        if !presentsWindows {
+            // Unit tests: never put a window on screen.
+        } else if EditorScriptRunner.isScripted {
             // Scripted development runs never take focus from the person using the Mac.
             controller.window?.orderBack(nil)
         } else {
@@ -168,4 +184,9 @@ import ShotzCore
     }
 
     var openWindowCount: Int { windows.count }
+
+    func isOpen(_ id: CaptureResult.ID) -> Bool { windows[.capture(id)] != nil }
+
+    /// The open editor of a capture, if any.
+    func controller(for id: CaptureResult.ID) -> EditorWindowController? { windows[.capture(id)] }
 }

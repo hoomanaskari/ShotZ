@@ -29,7 +29,10 @@ import AppKit
         stack.orientation = .horizontal
         stack.spacing = 8
         stack.alignment = .centerY
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 12)
+        // Never widen the window: at narrow sizes, drop the optional controls, then clip.
+        stack.setClippingResistancePriority(.defaultLow, for: .horizontal)
+        stack.setHuggingPriority(.defaultLow, for: .horizontal)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -105,16 +108,23 @@ import AppKit
 
     func add(_ v: NSView) { stack.addArrangedSubview(v) }
 
+    /// A control that may be hidden when the window is narrow (it stays reachable by
+    /// widening the window or selecting an object).
+    func addOptional(_ v: NSView) {
+        stack.addArrangedSubview(v)
+        stack.setVisibilityPriority(.detachOnlyIfNecessary, for: v)
+    }
+
     private func addOptions(for kind: ToolKind, _ s: ToolSettings) {
         switch kind {
         case .arrow:
             addColors(s)
             add(thickness(s))
-            add(controls.segmented(images: ArrowStyle.allCases.map(EditorIcons.arrow), labels: ArrowStyle.allCases.map(Self.title),
+            add(controls.segmented(images: ArrowStyle.allCases.map { EditorGlyphs.image(.arrowStyle($0)) }, labels: ArrowStyle.allCases.map(Self.title),
                                    selected: ArrowStyle.allCases.firstIndex(of: s.arrowStyle)) { [weak self] i in
                 self?.change(String(localized: "Arrow Style")) { $0.arrowStyle = ArrowStyle.allCases[i] }
             })
-            add(controls.checkbox(String(localized: "Outline"), on: s.contrastOutline) { [weak self] on in
+            add(controls.toggleChip(.textDecoration(.outlined), label: String(localized: "Contrast outline"), on: s.contrastOutline) { [weak self] on in
                 self?.change(String(localized: "Outline")) { $0.contrastOutline = on }
             })
             addOpacity(s)
@@ -122,8 +132,8 @@ import AppKit
             addColors(s)
             add(thickness(s))
             add(fillControl(s, modes: [.outline, .filled, .outlineTranslucentFill], ellipse: false))
-            add(OptionControls.icon("square.dashed", label: String(localized: "Corner radius")))
-            add(controls.slider(value: s.cornerRadiusUnits, min: 0, max: 12, width: 70, label: String(localized: "Corner radius")) { [weak self] v, final in
+            add(controls.sliderRow(value: s.cornerRadiusUnits, min: 0, max: 12, width: 64, label: String(localized: "Corner radius"),
+                                   glyph: .cornerRadius, format: { "\(Int($0.rounded()))" }) { [weak self] v, final in
                 self?.change(String(localized: "Corner Radius"), final: final) { $0.cornerRadiusUnits = v }
             })
             addOpacity(s)
@@ -136,7 +146,7 @@ import AppKit
             addColors(s)
             add(thickness(s))
             let dashes = ObjectStyle.Dash.allCases
-            add(controls.segmented(images: dashes.map(EditorIcons.dash), labels: [String(localized: "Solid"), String(localized: "Dashed")],
+            add(controls.segmented(images: dashes.map { EditorGlyphs.image(.dash($0)) }, labels: [String(localized: "Solid"), String(localized: "Dashed")],
                                    selected: dashes.firstIndex(of: s.dash)) { [weak self] i in
                 self?.change(String(localized: "Line Style")) { $0.dash = dashes[i] }
             })
@@ -146,7 +156,7 @@ import AppKit
         case .highlighter:
             addColors(s)
             add(controls.segmented(
-                images: [symbol("highlighter"), symbol("rectangle.fill")],
+                images: [EditorGlyphs.image(.highlightFreehand), EditorGlyphs.image(.highlightRect)],
                 labels: [String(localized: "Freehand marker"), String(localized: "Rectangle highlight")],
                 selected: s.highlightRect ? 1 : 0
             ) { [weak self] i in
@@ -180,10 +190,6 @@ import AppKit
 
     // MARK: Pieces
 
-    private func symbol(_ name: String) -> NSImage {
-        NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
-    }
-
     /// - rebuild: false keeps the controls (the colour well must survive, or the
     ///   colour panel detaches from it).
     func change(_ name: String, final: Bool = true, rebuild: Bool = true, _ apply: @escaping (inout ToolSettings) -> Void) {
@@ -209,18 +215,29 @@ import AppKit
             add(swatch)
         }
         let current = NSColor(cgColor: s.color.cgColor) ?? .red
-        add(controls.colorWell(current, label: String(localized: "Custom colour")) { [weak self] color, final in
+        let apply: (NSColor, Bool) -> Void = { [weak self] color, final in
             guard let srgb = color.usingColorSpace(.sRGB) else { return }
             let c = RGBAColor(red: srgb.redComponent, green: srgb.greenComponent, blue: srgb.blueComponent)
             self?.change(String(localized: "Colour"), final: final, rebuild: false) { $0.color = c }
-            self?.swatches.forEach { $0.isSelected = false }
-        })
+            // Swatches are in preset order.
+            let preset = RGBAColor.presets.firstIndex(of: c)
+            for (i, swatch) in (self?.swatches ?? []).enumerated() { swatch.isSelected = i == preset }
+        }
+        let well = controls.colorWell(current, isCustom: !RGBAColor.presets.contains(s.color), label: String(localized: "Custom colour"), apply)
+        add(well)
+        let dropper = EyedropperButton(label: String(localized: "Pick a colour from the screen"))
+        dropper.onPick = { [weak well] color in
+            well?.color = color
+            well?.isCustom = true
+            apply(color, true)
+        }
+        addOptional(dropper)
         add(OptionControls.separator())
     }
 
     private func thickness(_ s: ToolSettings) -> NSView {
         controls.segmented(
-            images: (0..<5).map(EditorIcons.thickness),
+            images: (0..<5).map { EditorGlyphs.image(.thickness($0)) },
             labels: [String(localized: "Extra thin"), String(localized: "Thin"), String(localized: "Medium"),
                      String(localized: "Thick"), String(localized: "Extra thick")],
             selected: s.thicknessStep
@@ -230,15 +247,15 @@ import AppKit
     }
 
     func addOpacity(_ s: ToolSettings) {
-        add(OptionControls.icon("circle.lefthalf.filled", label: String(localized: "Opacity")))
-        add(controls.slider(value: s.opacity, min: 0.1, max: 1, width: 70, label: String(localized: "Opacity")) { [weak self] v, final in
+        addOptional(controls.sliderRow(value: s.opacity, min: 0.1, max: 1, width: 64, label: String(localized: "Opacity"),
+                               glyph: .opacity, format: OptionControls.percent) { [weak self] v, final in
             self?.change(String(localized: "Opacity"), final: final) { $0.opacity = v }
         })
     }
 
     private func fillControl(_ s: ToolSettings, modes: [ObjectStyle.FillMode], ellipse: Bool) -> NSView {
         let labels = [String(localized: "Outline"), String(localized: "Filled"), String(localized: "Outline with translucent fill")]
-        return controls.segmented(images: modes.map { EditorIcons.fill($0, ellipse: ellipse) }, labels: Array(labels.prefix(modes.count)),
+        return controls.segmented(images: modes.map { EditorGlyphs.image(.fill($0, ellipse: ellipse)) }, labels: Array(labels.prefix(modes.count)),
                                   selected: modes.firstIndex(of: s.fill) ?? 0) { [weak self] i in
             self?.change(String(localized: "Fill")) { $0.fill = modes[i] }
         }

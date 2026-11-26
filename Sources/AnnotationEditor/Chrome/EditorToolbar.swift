@@ -7,12 +7,16 @@ import AppKit
     private let model: EditorModel
     private let commandMenu: NSMenu
     let dragHandle = DragHandleView(frame: .zero)
-    private var toolGroup: NSToolbarItemGroup?
-    private var backgroundButton: NSButton?
+    private var toolStrip: GlyphSegmentedControl?
+    private var backgroundToggle: GlyphSegmentedControl?
     var onSelectTool: ((ToolKind) -> Void)?
     var onToggleBackground: (() -> Void)?
     var onCopy: (() -> Void)?
     var onSave: (() -> Void)?
+
+    /// Tool strip order and groups: select · drawing · text and numbers · redact and crop.
+    static let toolOrder: [ToolKind] = [.select, .arrow, .line, .rectangle, .ellipse, .pen, .highlighter, .text, .counter, .redact, .crop]
+    static let groupStarts: Set<Int> = [1, 7, 9]
 
     private static let toolsID = NSToolbarItem.Identifier("tools")
     private static let backgroundID = NSToolbarItem.Identifier("background")
@@ -34,16 +38,15 @@ import AppKit
     }
 
     func setBackgroundPanelVisible(_ visible: Bool) {
-        backgroundButton?.state = visible ? .on : .off
+        backgroundToggle?.selectedIndex = visible ? 0 : nil
     }
 
     private func syncTool() {
-        guard let group = toolGroup, let i = ToolKind.allCases.firstIndex(of: model.toolKind) else { return }
-        group.selectedIndex = i
+        toolStrip?.selectedIndex = Self.toolOrder.firstIndex(of: model.toolKind)
     }
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [Self.toolsID, .space, Self.backgroundID, .flexibleSpace, Self.copyID, Self.saveID, Self.dragID, Self.moreID]
+        [Self.toolsID, Self.backgroundID, .flexibleSpace, Self.dragID, Self.saveID, Self.copyID, Self.moreID]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -53,44 +56,37 @@ import AppKit
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
         switch id {
         case Self.toolsID:
-            let kinds = ToolKind.allCases
-            let images = kinds.map { NSImage(systemSymbolName: $0.symbolName, accessibilityDescription: $0.title) ?? NSImage() }
-            let group = NSToolbarItemGroup(itemIdentifier: id, images: images, selectionMode: .selectOne,
-                                           labels: kinds.map(\.title), target: self, action: #selector(toolPicked(_:)))
-            for (item, kind) in zip(group.subitems, kinds) {
-                item.toolTip = "\(kind.title) (\(String(kind.key).uppercased()))"
-                item.label = kind.title
+            let segments = Self.toolOrder.map { kind in
+                GlyphSegmentedControl.Segment(image: EditorGlyphs.image(.tool(kind), size: 20, label: kind.title), title: nil,
+                                              label: kind.title, shortcut: String(kind.key).uppercased())
             }
-            group.controlRepresentation = .expanded
-            group.selectedIndex = kinds.firstIndex(of: model.toolKind) ?? 0
-            group.label = String(localized: "Tools")
-            toolGroup = group
-            return group
+            let strip = GlyphSegmentedControl(style: .tools, segments: segments,
+                                              selected: Self.toolOrder.firstIndex(of: model.toolKind), label: String(localized: "Tools"))
+            strip.groupStarts = Self.groupStarts
+            strip.onSelect = { [weak self] i in self?.onSelectTool?(Self.toolOrder[i]) }
+            toolStrip = strip
+            return item(id, String(localized: "Tools"), String(localized: "Tools"), strip)
         case Self.backgroundID:
-            let b = NSButton(image: NSImage(systemSymbolName: "square.on.square.squareshape.controlhandles",
-                                            accessibilityDescription: String(localized: "Background")) ?? NSImage(),
-                             target: self, action: #selector(toggleBackground))
-            b.setButtonType(.pushOnPushOff)
-            b.bezelStyle = .toolbar
-            backgroundButton = b
-            return item(id, String(localized: "Background"), "\(String(localized: "Background")) (G)", b)
+            let toggle = GlyphSegmentedControl(
+                style: .tools,
+                segments: [.init(image: EditorGlyphs.image(.background, size: 20, label: String(localized: "Background")), title: nil,
+                                 label: String(localized: "Background"), shortcut: "G")],
+                selected: nil, label: String(localized: "Background"))
+            toggle.setAccessibilityRole(.checkBox)
+            toggle.onSelect = { [weak self] _ in self?.onToggleBackground?() }
+            backgroundToggle = toggle
+            return item(id, String(localized: "Background"), "\(String(localized: "Background"))  G", toggle)
         case Self.copyID:
-            let b = NSButton(title: String(localized: "Copy"), image: NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil) ?? NSImage(),
-                             target: self, action: #selector(copyPressed))
-            b.bezelStyle = .toolbar
-            b.imagePosition = .imageLeading
-            return item(id, String(localized: "Copy"), String(localized: "Copy the finished image (⇧⌘C)"), b)
+            let b = actionButton(String(localized: "Copy"), glyph: .copy, prominent: true, action: #selector(copyPressed))
+            return item(id, String(localized: "Copy"), String(localized: "Copy the finished image  ⇧⌘C"), b)
         case Self.saveID:
-            let b = NSButton(title: String(localized: "Save"), image: NSImage(systemSymbolName: "square.and.arrow.down", accessibilityDescription: nil) ?? NSImage(),
-                             target: self, action: #selector(savePressed))
-            b.bezelStyle = .toolbar
-            b.imagePosition = .imageLeading
-            return item(id, String(localized: "Save"), String(localized: "Save to the export folder (⌘S)"), b)
+            let b = actionButton(String(localized: "Save"), glyph: .save, prominent: false, action: #selector(savePressed))
+            return item(id, String(localized: "Save"), String(localized: "Save to the export folder  ⌘S"), b)
         case Self.dragID:
             return item(id, String(localized: "Drag"), dragHandle.toolTip ?? "", dragHandle)
         case Self.moreID:
             let more = NSMenuToolbarItem(itemIdentifier: id)
-            more.image = NSImage(systemSymbolName: "ellipsis.circle", accessibilityDescription: String(localized: "More"))
+            more.image = EditorGlyphs.image(.more, size: 18, label: String(localized: "More"))
             more.menu = commandMenu
             more.showsIndicator = false
             more.label = String(localized: "More")
@@ -110,10 +106,20 @@ import AppKit
         return i
     }
 
-    @objc private func toolPicked(_ sender: NSToolbarItemGroup) {
-        let kinds = ToolKind.allCases
-        guard sender.selectedIndex >= 0, sender.selectedIndex < kinds.count else { return }
-        onSelectTool?(kinds[sender.selectedIndex])
+    /// Copy is the primary action (accent-filled); Save sits beside it.
+    private func actionButton(_ title: String, glyph: EditorGlyph, prominent: Bool, action: Selector) -> NSButton {
+        let b = NSButton(title: title, image: EditorGlyphs.image(glyph, size: 16, label: title), target: self, action: action)
+        b.bezelStyle = .push
+        b.controlSize = .large
+        b.imagePosition = .imageLeading
+        b.imageHugsTitle = true
+        b.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .medium)
+        if prominent {
+            b.bezelColor = .controlAccentColor
+            b.contentTintColor = .white
+        }
+        b.setAccessibilityLabel(title)
+        return b
     }
 
     @objc private func toggleBackground() { onToggleBackground?() }
