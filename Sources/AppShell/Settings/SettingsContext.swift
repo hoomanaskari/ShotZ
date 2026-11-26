@@ -13,6 +13,8 @@ import ShotzCore
     public let showOnboarding: (_ permissionStep: Bool) -> Void
     /// Software updates (available in the production app only).
     public let updates: SoftwareUpdates
+    /// Opens the Acknowledgements window (ShotZ's licence and the third-party notices).
+    public let showAcknowledgements: () -> Void
 
     public init(
         settings: SettingsStore,
@@ -23,7 +25,8 @@ import ShotzCore
         showOnboarding: @escaping (_ permissionStep: Bool) -> Void,
         updates: SoftwareUpdates = SoftwareUpdates(availability: .unavailable(.testRun)) { _ in
             preconditionFailure("an unavailable updater never builds a backend")
-        }
+        },
+        showAcknowledgements: @escaping () -> Void = {}
     ) {
         self.settings = settings
         self.hotkeys = hotkeys
@@ -32,6 +35,7 @@ import ShotzCore
         self.clearHistory = clearHistory
         self.showOnboarding = showOnboarding
         self.updates = updates
+        self.showAcknowledgements = showAcknowledgements
     }
 }
 

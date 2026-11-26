@@ -154,6 +154,12 @@ if [[ "$UNIVERSAL" == "1" ]]; then
   echo "Universal: app and Sparkle binaries contain arm64 and x86_64"
 fi
 cp "$ROOT/Resources/$ICON" "$APP/Contents/Resources/AppIcon.icns"
+# The licences ship inside the app (MIT asks for the notices "in all copies"): ShotZ's own licence
+# and the third-party notices (Phosphor Icons, Sparkle). Settings ▸ Advanced ▸ Acknowledgements shows them.
+for notice in LICENSE THIRD-PARTY-NOTICES; do
+  [[ -s "$ROOT/$notice" ]] || { echo "$notice is missing or empty" >&2; exit 73; }
+  cp "$ROOT/$notice" "$APP/Contents/Resources/$notice"
+done
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 IDENTITY="${SHOTZ_SIGN_IDENTITY:-}"

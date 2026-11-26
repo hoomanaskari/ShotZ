@@ -62,7 +62,8 @@ import SwiftUI
         let c = context
         let shown = SettingsContext(settings: c.settings, hotkeys: c.hotkeys, loginItem: c.loginItem,
                                     screenRecording: c.screenRecording, clearHistory: c.clearHistory,
-                                    showOnboarding: c.showOnboarding, updates: updates)
+                                    showOnboarding: c.showOnboarding, updates: updates,
+                                    showAcknowledgements: c.showAcknowledgements)
         let tabs = SettingsTabViewController(context: shown, presentsAsNormalRun: true)
         let window = Self.makeWindow(tabs: tabs)
         window.appearance = NSAppearance(named: appearance)

@@ -361,6 +361,13 @@ else
   fi
 fi
 
+# The licences ship inside the app, identical to the repository's copies.
+for notice in LICENSE THIRD-PARTY-NOTICES; do
+  [[ -s "$APP/Contents/Resources/$notice" ]] || stop "the app has no (or an empty) Contents/Resources/$notice."
+  cmp -s "$APP/Contents/Resources/$notice" "$ROOT/$notice" || stop "the app's $notice differs from the repository's."
+done
+ok "LICENSE and THIRD-PARTY-NOTICES are in the app and match the repository"
+
 # No build-machine paths in anything shipped: every Mach-O in the app (main executable, Sparkle,
 # Autoupdate, Updater.app, the XPC services), each architecture on its own, checked as raw bytes
 # (the symbol string table, which `strings` skips) and with `strings -a`. bundle.sh strips the

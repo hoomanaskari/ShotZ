@@ -399,6 +399,11 @@ swift scripts/make-sample.swift <w> <h> <out.png>   # synthetic test PNG (gradie
   already module-relative, so no prefix map is needed). The dSYM is written to
   `build/dSYMs/` (git-ignored) for symbolication; `release.sh` fails if any
   shipped Mach-O contains `/Users/` or the build user's name.
+  Both apps carry `LICENSE` and `THIRD-PARTY-NOTICES` in `Contents/Resources`
+  (`release.sh` checks they match the repository); Settings ▸ Advanced ▸
+  Acknowledgements shows them in a read-only ShotZ window
+  (`AcknowledgementsWindowController`). The DMG holds only the app and an
+  Applications link, as in the owner's other apps.
   A fully signed release for distribution:
   `SHOTZ_SIGN_IDENTITY="Developer ID Application: … (TEAMID)" scripts/bundle.sh release`.
   Notarisation and upload belong to `scripts/release.sh` (engineer C).

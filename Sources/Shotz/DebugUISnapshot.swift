@@ -36,6 +36,8 @@ import ShotzCore
                                                                        updates: .preview(.unavailable(.noPublicKey))),
                           to: dir.appending(path: "settings-advanced-nokey-\(suffix).png"))
                 }
+                write(await coordinator.acknowledgements.debugRender(appearance: appearance, scale: scale),
+                      to: dir.appending(path: "acknowledgements-\(suffix).png"))
                 write(await coordinator.statusItem.debugMenuSnapshot(appearance: appearance, scale: scale),
                       to: dir.appending(path: "status-menu-\(suffix).png"))
             }

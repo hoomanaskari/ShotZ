@@ -117,6 +117,7 @@ overrides it only if it matches.)
       safety net, and verifies the signatures (including Sparkle's XPC services, Autoupdate and
       Updater.app), the entitlements, the bundle id, version and build, `SUFeedURL`,
       `SUPublicEDKey` against `Resources/SparklePublicKey.txt`, that every binary is universal, and
+      that `LICENSE` and `THIRD-PARTY-NOTICES` are in `Contents/Resources` and match the repository,
       that no Mach-O in the app (each architecture, raw bytes and `strings -a`) contains `/Users/`
       or the build user's name (the executable is stripped by `bundle.sh`; its dSYM stays in
       `build/dSYMs/`);

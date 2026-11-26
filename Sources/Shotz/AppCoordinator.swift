@@ -17,6 +17,7 @@ import ShotzCore
     let settings = SettingsStore()
     /// Sparkle in the production app; nothing (no network) in ShotZ Dev and test runs.
     let updates = SoftwareUpdates.forThisApp()
+    let acknowledgements = AcknowledgementsWindowController()
     let engine: CaptureEngine = SystemCaptureEngine()
     let history: FileHistoryStore
     let exporter: ExportService
@@ -78,7 +79,8 @@ import ShotzCore
             showOnboarding: { [weak self] permissionStep in
                 self?.onboarding.show(step: permissionStep ? .screenRecording : .welcome)
             },
-            updates: updates
+            updates: updates,
+            showAcknowledgements: { [weak self] in self?.acknowledgements.show() }
         ))
     }
 
