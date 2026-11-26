@@ -53,7 +53,10 @@ extension EditorWindowController {
             MainActor.assumeIsolated { self?.rasterizeForZoom() }
         }
         center.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.persistNow() }
+            MainActor.assumeIsolated {
+                self?.isTerminating = true
+                self?.persistNow()
+            }
         }
         scrollView.onZoomSettled = { [weak self] in self?.rasterizeForZoom() }
 

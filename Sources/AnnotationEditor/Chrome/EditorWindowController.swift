@@ -25,7 +25,18 @@ import ShotzCore
     let documentTitle: String
     /// Where the editable document is persisted (nil for images opened from files).
     let documentURL: URL?
-    var onClose: (() -> Void)?
+    /// What the coordinator needs when the window closes (SPEC §4.6).
+    struct CloseInfo {
+        let document: AnnotationDocument
+        let base: BaseImageProvider
+        /// The display the window was on (CGDirectDisplayID).
+        let displayID: UInt32?
+        /// The app is quitting: save only, no hand-back.
+        let isTerminating: Bool
+    }
+
+    var onClose: ((CloseInfo) -> Void)?
+    var isTerminating = false
 
     let canvas: CanvasView
     let scrollView = CanvasScrollView(frame: .zero)
@@ -177,7 +188,8 @@ import ShotzCore
         if store.isInteractive { store.commitInteractiveChange() }
         persistNow()
         changeTask?.cancel()
-        onClose?()
+        let screen = window?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+        onClose?(CloseInfo(document: store.document, base: base, displayID: screen?.uint32Value, isTerminating: isTerminating))
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
