@@ -103,19 +103,20 @@ More detail, including launch at login, is in [docs/INSTALL.md](docs/INSTALL.md)
 | G | Background panel | | | |
 
 ## Updates
-<!-- MANAGER CHECK: written for Sparkle as engineer A is adding it. Confirm the menu item, the Settings location, the check interval and that no system profile is sent once it lands. -->
 
-ShotZ updates itself with [Sparkle](https://sparkle-project.org). It reads the update feed (`appcast.xml` in this repository) in the background and asks before installing anything; **Check for Updates…** in the menu-bar menu checks right away. Updates are downloaded from this repository's releases and installed only if they carry ShotZ's EdDSA signature and Apple's notarization. You can turn automatic checks off in Settings.
+ShotZ updates itself with [Sparkle](https://sparkle-project.org). It checks once a day and asks before installing anything. To check now, choose **Check for Updates…** in the menu-bar menu, or in **Settings ▸ Advanced ▸ Updates**, which also shows when ShotZ last checked and its version and build. To stop the daily check, turn off **Check for updates automatically** there.
+
+The update feed is `appcast.xml` on this repository's `main` branch. Updates come from this repository's releases and are installed only if they carry ShotZ's EdDSA signature; every release is notarized by Apple.
 
 ## Privacy
 
 - **No accounts, no analytics, no telemetry.**
 - **Your captures stay on your Mac**, in ShotZ's own folder (listed in [docs/UNINSTALL.md](docs/UNINSTALL.md)), until you save, copy or drag them somewhere. Old captures are removed after the time you choose in Settings ▸ Advanced.
-- **The only network access is the update check**, which reads ShotZ's update feed from GitHub. It sends nothing about you or your captures. Turn automatic checks off and ShotZ makes no network requests on its own.
+- **The only network access is the update check**, which reads ShotZ's update feed from GitHub. The request carries ShotZ's version and nothing about you, your Mac or your captures (Sparkle's optional system profile is off). Turn automatic checks off and ShotZ makes no network requests on its own.
 
 ## Building from source
 
-You need Xcode 16 or later (Swift 6) on macOS 15 or later. Swift Package Manager fetches the dependencies on the first build.
+You need Xcode 16 or later (Swift 6) on macOS 15 or later. ShotZ has one runtime dependency, [Sparkle](https://github.com/sparkle-project/Sparkle), which Swift Package Manager fetches on the first build.
 
 ```bash
 git clone https://github.com/hoomanaskari/ShotZ.git
@@ -130,13 +131,13 @@ Run the development app, **ShotZ Dev**. It's a separate app with its own setting
 scripts/run.sh
 ```
 
-Build the release app into `build/ShotZ.app`:
+Build the release app into `build/ShotZ.app`. It is universal (`arm64` and `x86_64`); `SHOTZ_UNIVERSAL=0` builds for this Mac only:
 
 ```bash
 scripts/bundle.sh release
 ```
 
-A release build needs a code-signing identity (set `SHOTZ_SIGN_IDENTITY`, or it uses your first Apple Development certificate). With none, set `SHOTZ_ALLOW_ADHOC=1`; macOS then asks for the Screen Recording permission again after every rebuild.
+Set the version with `scripts/bump-version.sh <version> [build]` (it edits `Resources/Info.plist`, the only place the version lives). A release build needs a code-signing identity (set `SHOTZ_SIGN_IDENTITY`, or it uses your first Apple Development certificate). With none, set `SHOTZ_ALLOW_ADHOC=1`; macOS then asks for the Screen Recording permission again after every rebuild.
 
 Releases (signing, notarization, the DMG and the update feed) are built with `scripts/release.sh`; see [docs/RELEASE.md](docs/RELEASE.md). The app icon is rebuilt with `scripts/make-icons.sh` ([docs/ICON.md](docs/ICON.md)). The README screenshots are made from the app itself with `scripts/screenshots/make-screenshots.sh` (synthetic sample images, no screen reading).
 
@@ -166,5 +167,4 @@ Bug reports and fixes with tests are welcome. See [CONTRIBUTING.md](CONTRIBUTING
 
 ## Licence
 
-<!-- MANAGER CHECK: Sparkle is named here and under Updates; confirm it is in Package.swift and THIRD-PARTY-NOTICES once engineer A lands it. -->
 [MIT](LICENSE). ShotZ uses [Phosphor Icons](https://github.com/phosphor-icons/core) (MIT) for its interface icons and [Sparkle](https://github.com/sparkle-project/Sparkle) (MIT) for updates. Their licences and copyright notices are in [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES).
