@@ -176,7 +176,12 @@ public final class ShotzTileButton: ShotzControlView {
         NSGraphicsContext.saveGraphicsState()
         if !state.isEnabled { ctx.setAlpha(0.4) }
         tile.addClip()
-        image.draw(in: r, from: .zero, operation: .sourceOver, fraction: state.isPressed ? 0.85 : 1)
+        // A subtle base fill so plain tiles (position grids, transparent images) read as controls
+        // on any panel; full-bleed images (gradient presets) cover it.
+        (state.isPressed ? ShotzUI.Palette.fillPressed : state.isHovered ? ShotzUI.Palette.fillPressed : ShotzUI.Palette.fillHover).setFill()
+        r.fill()
+        // `respectFlipped` keeps the image upright in this flipped view.
+        image.draw(in: r, from: .zero, operation: .sourceOver, fraction: state.isPressed ? 0.85 : 1, respectFlipped: true, hints: nil)
         NSGraphicsContext.restoreGraphicsState()
         ctx.addPath(CGPath(roundedRect: r.insetBy(dx: 0.5, dy: 0.5), cornerWidth: 5, cornerHeight: 5, transform: nil))
         ctx.setStrokeColor(ShotzUI.Palette.swatchEdge.resolved(in: a).cgColor)

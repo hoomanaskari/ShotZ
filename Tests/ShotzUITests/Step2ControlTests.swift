@@ -142,3 +142,43 @@ struct Step3Tests {
         #expect(b.title == nil && b.accessibilityLabel() == "Copy" && b.toolTip == "Copy" && b.intrinsicContentSize.width >= 28)
     }
 }
+
+@MainActor
+struct TileButtonTests {
+    init() { _ = NSApplication.shared }
+
+    /// Renders a control offline and returns the colour at a top-left-origin point.
+    static func colour(of view: NSView, at p: CGPoint) -> NSColor? {
+        let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)!
+        view.cacheDisplay(in: view.bounds, to: rep)
+        // NSBitmapImageRep's colorAt uses a top-left origin in pixels.
+        let scale = CGFloat(rep.pixelsWide) / view.bounds.width
+        return rep.colorAt(x: Int(p.x * scale), y: Int(p.y * scale))?.usingColorSpace(.sRGB)
+    }
+
+    @Test func tileImageIsUpright() throws {
+        // Top half red, bottom half blue (drawn in a non-flipped image).
+        let image = NSImage(size: NSSize(width: 36, height: 24), flipped: false) { r in
+            NSColor.blue.setFill(); NSRect(x: 0, y: 0, width: r.width, height: r.height / 2).fill()
+            NSColor.red.setFill(); NSRect(x: 0, y: r.height / 2, width: r.width, height: r.height / 2).fill()
+            return true
+        }
+        let tile = ShotzTileButton(image: image, label: "Two colours")
+        tile.appearance = NSAppearance(named: .aqua)
+        tile.frame = CGRect(origin: .zero, size: tile.intrinsicContentSize)
+        let tileTop = (tile.bounds.height - 24) / 2
+        let top = try #require(Self.colour(of: tile, at: CGPoint(x: tile.bounds.midX, y: tileTop + 4)))
+        let bottom = try #require(Self.colour(of: tile, at: CGPoint(x: tile.bounds.midX, y: tileTop + 20)))
+        #expect(top.redComponent > 0.8 && top.blueComponent < 0.3, "top should be red: \(top)")
+        #expect(bottom.blueComponent > 0.8 && bottom.redComponent < 0.3, "bottom should be blue: \(bottom)")
+    }
+
+    @Test func plainTileHasAVisibleBaseOnDark() throws {
+        let empty = NSImage(size: NSSize(width: 24, height: 24), flipped: false) { _ in true }
+        let tile = ShotzTileButton(image: empty, size: CGSize(width: 24, height: 24), label: "Top left")
+        tile.appearance = NSAppearance(named: .darkAqua)
+        tile.frame = CGRect(origin: .zero, size: tile.intrinsicContentSize)
+        let inside = try #require(Self.colour(of: tile, at: CGPoint(x: tile.bounds.midX, y: tile.bounds.midY)))
+        #expect(inside.alphaComponent > 0.04, "an empty tile must not be just an outline")
+    }
+}
