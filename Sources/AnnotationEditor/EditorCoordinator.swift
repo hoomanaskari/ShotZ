@@ -118,7 +118,7 @@ import ShotzCore
         controller.window?.makeKeyAndOrderFront(nil)
         controller.zoomFit()
         EditorScriptRunner.startIfRequested(for: controller)
-        log.info("Opened editor for \(title, privacy: .public) in \(ContinuousClock.now - start, privacy: .public)")
+        log.notice("Opened editor for \(title, privacy: .public) in \(ContinuousClock.now - start, privacy: .public)")
     }
 
     /// Pixel size and scale (from DPI) without decoding the image.
