@@ -7,15 +7,24 @@ enum Redactor {
     // CIContext is thread-safe (and Sendable); one shared instance avoids re-creating GPU state.
     static let ciContext = CIContext(options: [.cacheIntermediates: false, .name: "Shotz.Redactor"])
 
-    /// Pixelate block edge in pixels. At the default strength (0.6) on a 2× capture a block is
-    /// ~34 px, larger than a line of body text, so glyph shapes cannot be recovered.
-    static func blockSize(strength: CGFloat, scale: CGFloat) -> CGFloat {
-        max((max(scale, 1) * (5 + 20 * min(max(strength, 0), 1))).rounded(), 4)
+    /// Pixelate cell edge in pixels: the larger of a scale-based size (≈34 px on a 2× capture at
+    /// the default strength 0.6) and a fraction of the rect's short side (≈46 % at default, capped
+    /// at 48 pt), so a rect drawn tightly around a line of text gets cells of at least about half
+    /// the text height and glyph shapes cannot be recovered.
+    static func blockSize(strength: CGFloat, scale: CGFloat, rect: CGRect) -> CGFloat {
+        let s = min(max(strength, 0), 1), k = max(scale, 1)
+        let byScale = k * (5 + 20 * s)
+        let byRect = min(min(rect.width, rect.height) * (0.22 + 0.4 * s), k * 48)
+        return max(byScale, byRect, 4).rounded()
     }
 
-    /// Gaussian sigma in pixels (default ≈ 26 px on a 2× capture).
-    static func blurRadius(strength: CGFloat, scale: CGFloat) -> CGFloat {
-        max(scale, 1) * (3 + 17 * min(max(strength, 0), 1))
+    /// Gaussian sigma in pixels: scale-based (≈26 px on 2× at default) or ≈35 % of the rect's
+    /// short side (capped at 40 pt), whichever is larger.
+    static func blurRadius(strength: CGFloat, scale: CGFloat, rect: CGRect) -> CGFloat {
+        let s = min(max(strength, 0), 1), k = max(scale, 1)
+        let byScale = k * (3 + 17 * s)
+        let byRect = min(min(rect.width, rect.height) * (0.15 + 0.33 * s), k * 40)
+        return max(byScale, byRect)
     }
 
     /// `rect` must be integral and inside the image.

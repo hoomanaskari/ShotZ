@@ -122,9 +122,10 @@ extension AnnotationRenderer {
         ctx.strokePath()
     }
 
-    static func drawHighlight(_ h: HighlightGeometry, style: ObjectStyle, in ctx: CGContext) {
-        // Multiply keeps dark text under the mark readable (SPEC §5.3).
-        ctx.setBlendMode(.multiply)
+    static func drawHighlight(_ h: HighlightGeometry, style: ObjectStyle, blend: CGBlendMode, in ctx: CGContext) {
+        // Multiply keeps dark text under the mark readable (SPEC §5.3); screen is the fallback
+        // over dark content (see `blendMode(for:document:base:)`).
+        ctx.setBlendMode(blend)
         let color = style.color.scaledAlpha(style.opacity).cgColor
         switch h {
         case .freehand(let points):
