@@ -4,12 +4,34 @@ import Foundation
 import ShotzCore
 
 /// Phase 1 engine: drives `/usr/sbin/screencapture` (ARCHITECTURE §3).
+///
+/// One capture at a time (`CaptureError.busy`). The tool writes into a hidden
+/// incoming folder next to the captures; the finished PNG is then moved into
+/// place under the settings file-name pattern, so a capture file is never seen
+/// half-written.
 public actor SystemCaptureEngine: CaptureEngine {
-    private let executable = URL(filePath: "/usr/sbin/screencapture")
+    /// Seams for tests: the tool, the permission check and the display lookup.
+    struct Environment: Sendable {
+        var executable: URL
+        var hasPermission: @Sendable () -> Bool
+        var displayUnderPointer: @Sendable () -> DisplayLocator.Located
+        var now: @Sendable () -> Date
+
+        static let live = Environment(
+            executable: URL(filePath: "/usr/sbin/screencapture"),
+            hasPermission: { CGPreflightScreenCaptureAccess() },
+            displayUnderPointer: { DisplayLocator.displayUnderPointer() },
+            now: { Date() }
+        )
+    }
+
+    private let env: Environment
     private var isCapturing = false
     private let log = ShotzLog.logger("CaptureKit")
 
-    public init() {}
+    public init() { self.init(environment: .live) }
+
+    init(environment: Environment) { env = environment }
 
     public func capture(_ mode: CaptureMode, options: CaptureOptions) async throws -> CaptureResult? {
         guard !isCapturing else { throw CaptureError.busy }
@@ -17,48 +39,49 @@ public actor SystemCaptureEngine: CaptureEngine {
         defer { isCapturing = false }
 
         let fm = FileManager.default
+        let incoming = options.destinationDirectory.appending(path: ".incoming", directoryHint: .isDirectory)
         do {
-            try fm.createDirectory(at: options.destinationDirectory, withIntermediateDirectories: true)
+            try fm.createDirectory(at: incoming, withIntermediateDirectories: true)
         } catch {
             throw CaptureError.failed("Cannot create captures folder: \(error.localizedDescription)")
         }
-        let startedAt = Date()
-        let temp = options.destinationDirectory.appending(path: ".capture-\(UUID().uuidString).png", directoryHint: .notDirectory)
-        let display = DisplayLocator.displayUnderPointer()
+        let temp = incoming.appending(path: "\(UUID().uuidString).png", directoryHint: .notDirectory)
+        let tempPath = temp.path(percentEncoded: false)
+        // Removes the temp file on every exit path except a successful move.
+        defer { if fm.fileExists(atPath: tempPath) { try? fm.removeItem(at: temp) } } // best effort: stray temp file only
+
+        let startDisplay = env.displayUnderPointer()
         let args = ScreencaptureArguments.make(
-            mode: mode, options: options, displayNumber: display.number, outputPath: temp.path(percentEncoded: false)
+            mode: mode, options: options, displayNumber: startDisplay.number, outputPath: tempPath
         )
         log.debug("screencapture \(args.joined(separator: " "), privacy: .public)")
 
         let (status, stderr) = try await run(args)
-        let tempPath = temp.path(percentEncoded: false)
-        guard fm.fileExists(atPath: tempPath) else {
-            if status == 0 || stderr.isEmpty {
-                log.info("Capture cancelled")
-                return nil
-            }
-            if !CGPreflightScreenCaptureAccess() { throw CaptureError.permissionDenied }
-            throw CaptureError.failed(stderr)
+        let capturedAt = env.now()
+
+        let outcome = CaptureOutcome.classify(
+            status: status, stderr: stderr, fileExists: fm.fileExists(atPath: tempPath), hasPermission: env.hasPermission
+        )
+        switch outcome {
+        case .cancelled:
+            log.info("Capture cancelled")
+            return nil
+        case .failure(let error):
+            log.error("Capture failed (status \(status)): \(stderr, privacy: .public)")
+            throw error
+        case .image:
+            break
         }
 
         guard let info = ImageInfo(url: temp) else {
-            try? fm.removeItem(at: temp) // best effort cleanup of an unreadable temp file
             throw CaptureError.failed("Unreadable capture output")
         }
-        let name = FileNaming.format(options.fileNamePattern, date: startedAt)
-        let final = FileNaming.uniqueURL(in: options.destinationDirectory, base: name, ext: "png")
-        do {
-            try fm.moveItem(at: temp, to: final)
-        } catch {
-            throw CaptureError.failed("Cannot move capture into place: \(error.localizedDescription)")
-        }
-        let kind: CaptureKind = switch mode {
-        case .fullscreen: .fullscreen
-        case .window: .window
-        // TODO(engineer B): detect window captures made via Space in area/all-in-one mode.
-        case .area, .allInOne: .area
-        }
-        let displayID = mode == .fullscreen ? display.displayID : DisplayLocator.displayUnderPointer().displayID
+        let name = FileNaming.format(options.fileNamePattern, date: capturedAt)
+        let final = try place(temp, in: options.destinationDirectory, base: name)
+
+        let kind = CaptureOutcome.kind(for: mode, hasAlpha: info.hasAlpha)
+        let displayID = mode == .fullscreen ? startDisplay.displayID : env.displayUnderPointer().displayID
+        log.info("Captured \(final.lastPathComponent, privacy: .public) \(Int(info.pixelSize.width))×\(Int(info.pixelSize.height)) @\(info.scale)x")
         return CaptureResult(
             fileURL: final,
             displayName: final.deletingPathExtension().lastPathComponent,
@@ -66,14 +89,35 @@ public actor SystemCaptureEngine: CaptureEngine {
             pixelSize: info.pixelSize,
             scale: info.scale,
             displayID: displayID,
-            createdAt: startedAt
+            createdAt: capturedAt
         )
     }
 
-    /// Runs screencapture and waits for it to exit. Returns exit status and stderr.
+    /// Moves `temp` to the first free `base[ n].png` in `directory`. Retries if
+    /// another writer took the name between the check and the move.
+    private func place(_ temp: URL, in directory: URL, base: String) throws -> URL {
+        let fm = FileManager.default
+        var lastError: Error?
+        for _ in 0..<5 {
+            let final = FileNaming.uniqueURL(in: directory, base: base, ext: "png")
+            do {
+                try fm.moveItem(at: temp, to: final)
+                return final
+            } catch CocoaError.fileWriteFileExists {
+                lastError = CocoaError(.fileWriteFileExists)
+                continue
+            } catch {
+                lastError = error
+                break
+            }
+        }
+        throw CaptureError.failed("Cannot move capture into place: \(lastError?.localizedDescription ?? "unknown")")
+    }
+
+    /// Runs the tool and waits for it to exit. Returns exit status and stderr.
     private func run(_ args: [String]) async throws -> (Int32, String) {
         let process = Process()
-        process.executableURL = executable
+        process.executableURL = env.executable
         process.arguments = args
         let errPipe = Pipe()
         process.standardError = errPipe
