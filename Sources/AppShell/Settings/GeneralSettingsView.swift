@@ -65,11 +65,14 @@ struct GeneralSettingsView: View {
 /// Launch-at-login notices as a ShotzUI banner above the sections.
 struct LoginItemBanner: View {
     @ObservedObject var loginItem: LoginItemController
+    @Environment(\.presentsAsNormalRun) private var presentsAsNormalRun
 
     var body: some View {
         switch loginItem.state {
         case .enabled, .disabled:
             EmptyView()
+        case .notInstalled where presentsAsNormalRun:
+            EmptyView()   // an installed run has a login item
         case .notInstalled:
             ShotzBanner(loginItem.variant == .production
                         ? String(localized: "Launch at login takes effect when ShotZ runs from the Applications folder.")

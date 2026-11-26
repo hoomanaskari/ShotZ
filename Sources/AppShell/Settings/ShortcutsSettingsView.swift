@@ -6,6 +6,7 @@ struct ShortcutsSettingsView: View {
     @ObservedObject var settings: SettingsStore
     @ObservedObject var hotkeys: HotkeyCenter
     @StateObject private var recorder: ShortcutRecorderModel
+    @Environment(\.presentsAsNormalRun) private var presentsAsNormalRun
 
     init(settings: SettingsStore, hotkeys: HotkeyCenter) {
         self.settings = settings
@@ -22,7 +23,7 @@ struct ShortcutsSettingsView: View {
 
     var body: some View {
         ShotzSettingsPane {
-            if !hotkeys.hotkeysEnabled {
+            if !hotkeys.hotkeysEnabled && !presentsAsNormalRun {
                 ShotzBanner(String(localized: "Test run (--no-hotkeys): no shortcuts are registered. Changes here are saved to this run's settings only."),
                             tone: .warning)
             }
@@ -69,19 +70,15 @@ struct ShortcutsSettingsView: View {
 
     private func row(_ action: HotkeyAction) -> some View {
         ShotzSettingsRow(action.title, help: help(for: action)) {
-            HStack(spacing: ShotzUI.Space.s) {
-                if hotkeys.registrationWarning(for: action) != nil {
-                    ShotzStatusBadge(String(localized: "Not registered"), tone: .warning)
-                }
-                ShortcutRecorderField(
-                    combo: settings.hotkey(for: action),
-                    isRecording: recorder.recording == action,
-                    heldModifiers: recorder.heldModifiers,
-                    title: action.title,
-                    onToggle: { recorder.toggle(action) },
-                    onClear: { recorder.clear(action) }
-                )
-            }
+            ShotzShortcutField(
+                keys: settings.hotkey(for: action)?.capLabels ?? [],
+                isRecording: recorder.recording == action,
+                heldModifiers: KeyCombo.modifierCaps(recorder.heldModifiers),
+                hasWarning: hotkeys.registrationWarning(for: action) != nil,
+                title: action.title,
+                onToggle: { recorder.toggle(action) },
+                onClear: { recorder.clear(action) }
+            )
         }
     }
 }

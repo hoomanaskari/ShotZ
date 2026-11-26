@@ -227,13 +227,14 @@ struct ScreenRecordingPage: View {
                  ? String(localized: "If captures still fail, relaunch so macOS applies the permission.")
                  : String(localized: "Turn on \(name) in the list. If macOS asks to quit and reopen it, choose Later, then relaunch here."))
             Button(String(localized: "Relaunch \(name)")) { Permissions.relaunch() }
-                .buttonStyle(.shotz(.quiet, size: .regular))
+                .buttonStyle(.shotz(.secondary, size: .regular))
         }
     }
 }
 
 struct SystemShortcutsPage: View {
     @ObservedObject var model: OnboardingModel
+    @Environment(\.presentsAsNormalRun) private var presentsAsNormalRun
 
     var body: some View {
         let shortcuts = model.systemShortcuts
@@ -260,7 +261,7 @@ struct SystemShortcutsPage: View {
                         .buttonStyle(.shotz(.secondary, size: .regular))
                 }
             }
-            if !model.hotkeys.hotkeysEnabled {
+            if !model.hotkeys.hotkeysEnabled && !presentsAsNormalRun {
                 ShotzBanner(String(localized: "Test run (--no-hotkeys): no shortcuts are registered this run."), tone: .info)
             }
             ForEach(model.heldByAnotherApp, id: \.self) { action in
@@ -280,6 +281,7 @@ struct SystemShortcutsPage: View {
 struct LaunchAtLoginPage: View {
     @ObservedObject var model: OnboardingModel
     @ObservedObject var loginItem: LoginItemController
+    @Environment(\.presentsAsNormalRun) private var presentsAsNormalRun
     private var name: String { AppVariant.current.displayName }
 
     var body: some View {
@@ -292,7 +294,7 @@ struct LaunchAtLoginPage: View {
             Toggle(String(localized: "Launch \(name) at login"), isOn: $model.launchAtLogin)
                 .toggleStyle(.shotzSwitch)
                 .font(ShotzUI.Typography.body.swiftUIFont)
-            Note(loginItem.isInstalled
+            Note(loginItem.isInstalled || presentsAsNormalRun
                  ? String(localized: "You can change any of this later in Settings.")
                  : String(localized: "This copy doesn't add itself to your login items (it isn't in Applications, or it is a test run). The choice is saved."))
         }
