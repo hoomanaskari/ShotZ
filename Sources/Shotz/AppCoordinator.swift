@@ -46,12 +46,14 @@ import ShotzCore
         let history = self.history
         // Export memory: the editor's Save overwrites the export recorded in
         // history, and records new ones, across reopen (SPEC §5.5).
+        let hooks = HistoryEditorHooks(history: history)
         editor = EditorCoordinator(
             settings: settings,
             exporter: exporter,
-            documentURL: { history.documentURL(for: $0) },
-            previousExport: { await history.exportURL(for: $0) },
-            recordExport: { await history.markExported(id: $0, url: $1) }
+            documentURL: hooks.documentURL,
+            previousExport: hooks.previousExport,
+            recordExport: hooks.recordExport,
+            renderedURL: hooks.renderedURL
         )
         editingFlow = CaptureEditingFlow(quickAccess: quickAccess, editor: editor) { id in
             let url = history.renderedURL(for: id)
@@ -83,7 +85,7 @@ import ShotzCore
             log.error("Cannot create app folders: \(error.localizedDescription, privacy: .public)")
         }
         quickAccess.delegate = self
-        editor.delegate = editingFlow
+        editingFlow.attach(to: editor)
         editingFlow.didPresent = { [weak self] capture in self?.closedCards.removeAll { $0.id == capture.id } }
 
         hotkeys.onAction = { [weak self] action in self?.handle(action) }
