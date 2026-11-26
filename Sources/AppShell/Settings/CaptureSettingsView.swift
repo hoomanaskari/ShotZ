@@ -37,14 +37,10 @@ struct FileNameSection: View {
                              footer: String(localized: "%Y year · %m month · %d day · %H hour · %M minute · %S second")) {
             ShotzSettingsRow(String(localized: "Pattern"),
                              help: String(localized: "Example: \(FileNaming.format(draft.isEmpty ? FileNaming.defaultPattern : draft, date: Date())).\(settings.exportFormat.fileExtension)")) {
-                // ShotzUI has no text field yet: the system field with ShotZ's value type.
-                TextField(String(localized: "File name pattern"), text: $draft)
-                    .labelsHidden()
-                    .textFieldStyle(.roundedBorder)
-                    .font(ShotzUI.Typography.value.swiftUIFont)
+                ShotzTextFieldView(String(localized: "File name pattern"), text: $draft, monospaced: true, onCommit: commit)
                     .frame(width: 240)
+                    .accessibilityLabel(String(localized: "File name pattern"))
                     .onAppear { draft = settings.fileNamePattern }
-                    .onSubmit(commit)
                     .onChange(of: draft) { commit() }
             }
             if settings.fileNamePattern != FileNaming.defaultPattern {
