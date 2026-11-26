@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Builds a release bundle and installs it to /Applications/Shotz.app.
 # Manager/owner only, from the main checkout (never from a worktree).
+# Production only: it never quits, replaces or unregisters Shotz Dev
+# (build/Shotz Dev.app, app.shotz.Shotz.dev), which runs side by side.
 #
 # - Quits only the installed copy (matched by its resolved executable path;
 #   dev builds elsewhere are left alone), politely first (SIGTERM runs Shotz's

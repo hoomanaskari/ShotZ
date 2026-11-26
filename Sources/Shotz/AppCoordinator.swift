@@ -108,7 +108,9 @@ import ShotzCore
         startHistoryPruning()
         log.info("Shotz started (Screen Recording \(self.screenRecording.isGranted ? "granted" : "not granted", privacy: .public))")
 
-        if !settings.hasCompletedOnboarding {
+        // Test runs (--no-hotkeys, implied by every debug flag) never pop the
+        // welcome window over whoever is using the Mac.
+        if !settings.hasCompletedOnboarding && hotkeys.hotkeysEnabled {
             onboarding.show(step: .welcome)
         }
         runDebugLaunchArguments(DebugLaunchArguments())
