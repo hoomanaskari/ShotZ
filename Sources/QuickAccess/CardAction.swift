@@ -60,19 +60,6 @@ enum CardAction: CaseIterable, Sendable {
         }
     }
 
-    var symbolName: String {
-        switch self {
-        case .copy: "doc.on.doc"
-        case .save: "arrow.down.to.line"
-        case .annotate: "pencil"
-        case .quickLook: "eye"
-        case .close: "xmark"
-        case .closeAndDelete: "trash"
-        case .showInFinder: "folder"
-        case .copyFilePath: "link"
-        case .closeAll: "xmark.square"
-        }
-    }
 
     var tooltip: String {
         guard let hint = shortcutHint else { return title }

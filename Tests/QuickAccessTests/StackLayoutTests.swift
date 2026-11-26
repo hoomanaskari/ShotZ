@@ -78,6 +78,23 @@ struct StackModelTests {
         #expect(m.order == [2, 1])
     }
 
+    @Test func annotateHideThenReturnIsNewestOnce() {
+        var m = StackModel<Int>()
+        for i in 1...4 { m.insert(i, limit: 5) { _ in 0 } }
+        m.remove(2)                      // Annotate hides card 2
+        #expect(m.order == [1, 3, 4])
+        m.insert(2, limit: 5) { _ in 0 } // editor closed: back as newest
+        #expect(m.order == [1, 3, 4, 2])
+        m.insert(2, limit: 5) { _ in 0 } // a second present replaces, never duplicates
+        #expect(m.order == [1, 3, 4, 2])
+        for _ in 0..<10 {                 // rapid open/close cycles
+            m.remove(2)
+            m.insert(2, limit: 5) { _ in 0 }
+        }
+        #expect(m.order.filter { $0 == 2 }.count == 1)
+        #expect(m.count == 4)
+    }
+
     @Test func tenRapidInsertsKeepOrder() {
         var m = StackModel<Int>()
         var evicted: [Int] = []
