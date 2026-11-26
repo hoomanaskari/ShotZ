@@ -6,8 +6,9 @@ A release is two downloads and one feed:
 - `ShotZ-<version>.dmg`: the manual download, with an Applications link.
 - `appcast.xml` (repository root, served from `main`): the update feed every installed ShotZ reads.
 
-Both downloads contain the same `ShotZ.app`, signed with your Developer ID Application certificate
-and the hardened runtime, notarized and stapled. `scripts/release.sh` builds and checks all of it;
+Both downloads contain the same universal `ShotZ.app` (Apple silicon and Intel, about 2.4 MB more
+than Apple silicon alone), with Sparkle embedded, signed with your Developer ID Application
+certificate, the hardened runtime and a secure timestamp, notarized and stapled. `scripts/release.sh` builds and checks all of it;
 it never pushes, tags, publishes or uploads anything. You do those steps yourself, in the order below.
 
 ## One-time setup
@@ -68,9 +69,10 @@ SPARKLE_BIN="$(dirname "$(find .build/artifacts -path '*/bin/generate_keys' | he
 "$SPARKLE_BIN/generate_keys" --account shotz -x shotz-sparkle-private.key   # backup; store it safely, never in git
 ```
 
-With either choice, put the matching public key in `Resources/Info.plist` as `SUPublicEDKey`
-(`generate_keys [--account <name>] -p` prints it), and set `SPARKLE_KEY_ACCOUNT` in your shell
-profile if you use a named account. On a new Mac, import the backup with
+With either choice, put the matching public key (one line, `generate_keys [--account <name>] -p`
+prints it) into `Resources/SparklePublicKey.txt` and commit it. `bundle.sh` writes it into the app's
+`SUPublicEDKey`; while the file is empty, builds report updates as unavailable and `release.sh`
+refuses a real release. Set `SPARKLE_KEY_ACCOUNT` in your shell profile if you use a named account. On a new Mac, import the backup with
 `generate_keys [--account <name>] -f <backup file>`.
 
 ### 4. Tools and repository
@@ -79,21 +81,23 @@ profile if you use a named account. On a new Mac, import the backup with
 brew install create-dmg
 ```
 
-and the Xcode command line tools (`xcrun notarytool`, `stapler`, `lipo`). Set the GitHub repository
-that hosts the downloads, for example in your shell profile:
-
-```bash
-export SHOTZ_GITHUB_REPO=owner/name
-```
-
-The appcast links point to `https://github.com/$SHOTZ_GITHUB_REPO/releases/download/v<version>/`.
-`SUFeedURL` in `Info.plist` must be `https://raw.githubusercontent.com/<owner>/<name>/main/appcast.xml`.
+and the Xcode command line tools (`xcrun notarytool`, `stapler`, `lipo`). The update feed is
+`SUFeedURL` in `Resources/Info.plist` (`https://raw.githubusercontent.com/<owner>/<name>/main/appcast.xml`);
+`release.sh` takes the download repository from it, so the appcast links point to
+`https://github.com/<owner>/<name>/releases/download/v<version>/`. (`SHOTZ_GITHUB_REPO=owner/name`
+overrides it only if it matches.)
 
 ## Making a release
 
-1. **Version.** Set the new version and a higher build number in the single source
-   (`scripts/bump-version.sh`, or `CFBundleShortVersionString` / `CFBundleVersion` in
-   `Resources/Info.plist`). Sparkle compares the build number: it must always increase.
+1. **Version.** Set the new version; the build number goes up by one (or give it explicitly):
+
+   ```bash
+   scripts/bump-version.sh 1.2.0        # or: scripts/bump-version.sh 1.2.0 42
+   scripts/bump-version.sh --print      # shows "1.2.0 42"
+   ```
+
+   It edits `Resources/Info.plist`, the single source. Sparkle compares build numbers, so a build
+   number must never repeat or go down.
 2. **Notes.** Write `release-notes/<version>.md` (see `release-notes/README.md`).
 3. **Check.** `swift build`, `swift test`, and try the release build: `scripts/bundle.sh release`.
 4. **Commit** the version and notes on `main`. The tree must be clean.
@@ -110,15 +114,17 @@ The appcast links point to `https://github.com/$SHOTZ_GITHUB_REPO/releases/downl
    - there's no Developer ID identity
    - the notary profile doesn't work
    - Sparkle's tools or EdDSA key are missing (only the key's presence is checked)
-   - `SHOTZ_GITHUB_REPO` isn't set
+   - `SUFeedURL` isn't the raw `appcast.xml` on `main` of a GitHub repository
+   - `Resources/SparklePublicKey.txt` is empty
    - the bundle id in the single source (`CFBundleIdentifier` in `Resources/Info.plist`) isn't a
      production id; after the build, the app's own `Info.plist` must carry exactly that id
 
    Then it:
-   1. builds through `scripts/bundle.sh release`, signs inside-out (Sparkle's XPC services,
-      Autoupdate and Updater.app, the framework, then the app) with the Developer ID, the hardened
-      runtime and a secure timestamp, and verifies the signatures, the entitlements, the bundle
-      identity and version, and that every binary is universal;
+   1. builds through `scripts/bundle.sh release` (universal, Sparkle embedded and signed inside-out
+      with the Developer ID, the hardened runtime and a secure timestamp), re-signs the same way as a
+      safety net, and verifies the signatures (including Sparkle's XPC services, Autoupdate and
+      Updater.app), the entitlements, the bundle id, version and build, `SUFeedURL`,
+      `SUPublicEDKey` against `Resources/SparklePublicKey.txt`, and that every binary is universal;
    2. notarizes the app (`notarytool submit --wait`, a few minutes), staples it and checks Gatekeeper;
    3. makes the Sparkle zip and the DMG (signed), notarizes and staples the DMG, and validates it;
    4. mounts the DMG and verifies the app inside and the Applications link;
@@ -197,7 +203,10 @@ Keep the ZIPs in `sparkle-releases/` after releasing: the next release makes its
 - **Notarization "Invalid"**: run `xcrun notarytool log <submission-id> --keychain-profile
   notarytool-profile`. Usual causes: missing hardened runtime or secure timestamp on nested code,
   or an unsigned helper. `release.sh` checks both before submitting.
-- **"the app is not universal"**: `bundle.sh release` must build `--arch arm64 --arch x86_64`.
+- **"the app is not universal"**: `bundle.sh release` builds universal by default; check nothing
+  forced a host-only build.
+- **"Resources/SparklePublicKey.txt is empty"**: choose the Sparkle key and add its public key
+  (one-time setup, step 3).
 - **"no Sparkle EdDSA key"**: create or import it (one-time setup, step 3); check
   `SPARKLE_KEY_ACCOUNT`.
 - **Sparkle refuses the update** ("improperly signed"): `SUPublicEDKey` in the shipped app doesn't

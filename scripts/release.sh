@@ -26,7 +26,8 @@
 #   SHOTZ_DEVELOPER_ID   Developer ID Application identity (SHA-1 or exact name); default: the one
 #                        on this Mac whose certificate lasts longest (several can share a name)
 #   NOTARY_PROFILE       notarytool keychain profile (default: notarytool-profile)
-#   SHOTZ_GITHUB_REPO    owner/name of the GitHub repository the downloads come from
+#   SHOTZ_GITHUB_REPO    owner/name of the GitHub repository the downloads come from (default:
+#                        the repository in SUFeedURL; must match it when both are set)
 #   SPARKLE_BIN          folder with Sparkle's generate_appcast (default: found in .build/artifacts)
 #   SPARKLE_KEY_ACCOUNT  keychain account of the Sparkle EdDSA key; empty = Sparkle's default account
 #                        (passed to generate_appcast as --account only when set)
@@ -135,14 +136,20 @@ check "on branch main" 0 test "$(git branch --show-current)" = main
 check "tag $TAG does not exist yet" 0 test -z "$(git tag --list "$TAG")"
 NOTES="$NOTES_DIR/$VERSION.md"
 check "release notes at release-notes/$VERSION.md" 0 test -s "$NOTES"
-if [[ -z "${SHOTZ_GITHUB_REPO:-}" ]]; then
-  if [[ -n "$DRY_RUN_DIR" ]]; then
-    warn "SHOTZ_GITHUB_REPO is not set (needed for a real release's download links)"
-    SHOTZ_GITHUB_REPO="OWNER/REPO"
-  else
-    stop "set SHOTZ_GITHUB_REPO=owner/name (the GitHub repository that hosts the release downloads)."
-  fi
+# The GitHub repository that hosts the downloads is the one whose main branch serves the feed
+# (SUFeedURL = https://raw.githubusercontent.com/<owner>/<name>/main/appcast.xml).
+FEED_URL="$(plist_value SUFeedURL)"
+FEED_REPO=""
+if [[ "$FEED_URL" =~ ^https://raw\.githubusercontent\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/main/appcast\.xml$ ]]; then
+  FEED_REPO="${BASH_REMATCH[1]}"
 fi
+if [[ -z "${SHOTZ_GITHUB_REPO:-}" ]]; then
+  [[ -n "$FEED_REPO" ]] || stop "Resources/Info.plist: SUFeedURL must be https://raw.githubusercontent.com/<owner>/<name>/main/appcast.xml (or set SHOTZ_GITHUB_REPO)."
+  SHOTZ_GITHUB_REPO="$FEED_REPO"
+elif [[ -n "$FEED_REPO" && "$SHOTZ_GITHUB_REPO" != "$FEED_REPO" ]]; then
+  stop "SHOTZ_GITHUB_REPO ($SHOTZ_GITHUB_REPO) differs from the repository in SUFeedURL ($FEED_REPO)."
+fi
+ok "downloads and feed from github.com/$SHOTZ_GITHUB_REPO"
 [[ "$SHOTZ_GITHUB_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || stop "SHOTZ_GITHUB_REPO must look like owner/name."
 
 # Developer ID Application identity: explicit, or the longest-lasting one (by SHA-1, since a
@@ -176,7 +183,8 @@ REHEARSAL=0
 if [[ "$SKIP_NOTARIZE" == 1 || -n "$DRY_RUN_DIR" ]]; then
   SKIP_NOTARIZE=1
   warn "rehearsal: notary profile not checked, nothing is submitted or stapled"
-  blocker "notarization skipped (--skip-notarize): Gatekeeper rejects this app and DMG on other Macs"
+  warn "without notarization Gatekeeper rejects this app and DMG on other Macs"
+  blocker "notarization skipped"
 else
   xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
     || stop "notary profile '$NOTARY_PROFILE' is missing or unusable. Run: xcrun notarytool store-credentials \"$NOTARY_PROFILE\" (docs/RELEASE.md)."
@@ -197,11 +205,20 @@ elif [[ "$SKIP_APPCAST" == 0 ]]; then
 else
   warn "Sparkle's generate_appcast not found (resolve the Sparkle package first)"
 fi
+# The public key installed copies verify updates with (bundle.sh writes it into SUPublicEDKey).
+PUBLIC_KEY="$(tr -d '[:space:]' < "$ROOT/Resources/SparklePublicKey.txt" 2>/dev/null || true)"
+if [[ -n "$PUBLIC_KEY" ]]; then
+  ok "Sparkle public key set (Resources/SparklePublicKey.txt)"
+elif [[ "$REHEARSAL" == 1 || "$SKIP_APPCAST" == 1 ]]; then
+  warn "Resources/SparklePublicKey.txt is empty (the Sparkle key isn't chosen yet): this build reports updates as unavailable"
+else
+  stop "Resources/SparklePublicKey.txt is empty. Choose the Sparkle key and put its public key there (docs/RELEASE.md, one-time setup)."
+fi
 KEY_ACCOUNT_LABEL="${SPARKLE_KEY_ACCOUNT:-Sparkle default}"
 if [[ "$SKIP_APPCAST" == 1 ]]; then
   # Rehearsals and --skip-appcast never touch the Sparkle key (no presence check, no signing).
   warn "appcast skipped$([[ "$REHEARSAL" == 1 ]] && echo ' (rehearsal)'): the Sparkle key is not used"
-  blocker "no appcast generated"
+  blocker "appcast not generated or signed"
   HAVE_SPARKLE=0
 elif security find-generic-password -s "https://sparkle-project.org" -a "${SPARKLE_KEY_ACCOUNT:-ed25519}" >/dev/null 2>&1; then
   # Only the item's presence is checked (exit status); the key itself is never read.
@@ -265,6 +282,11 @@ info="$APP/Contents/Info.plist"
 [[ "$(plutil -extract CFBundleVersion raw -o - "$info")" == "$BUILD" ]] || stop "the app is not build $BUILD."
 [[ "$(plutil -extract LSUIElement raw -o - "$info" 2>/dev/null)" == true ]] || stop "the app is not an agent app (LSUIElement)."
 ok "bundle id, version, build and LSUIElement"
+feed="$(plutil -extract SUFeedURL raw -o - "$info" 2>/dev/null || true)"
+[[ "$feed" == https://* ]] || stop "the app has no https SUFeedURL."
+shipped_key="$(plutil -extract SUPublicEDKey raw -o - "$info" 2>/dev/null || true)"
+[[ "$shipped_key" == "$PUBLIC_KEY" ]] || stop "the app's SUPublicEDKey doesn't match Resources/SparklePublicKey.txt."
+ok "SUFeedURL ($feed) and SUPublicEDKey$([[ -z "$PUBLIC_KEY" ]] && echo ' (empty, as in the source)' || echo ' (matches the source)')"
 printf '    entitlements:\n'
 ents="$(codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -p - 2>/dev/null || true)"
 if [[ -z "$ents" || "$ents" == "{}" ]]; then printf '      (none)\n'; else printf '%s\n' "$ents" | sed 's/^/      /'; fi
