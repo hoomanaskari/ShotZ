@@ -5,11 +5,12 @@ import Foundation
 /// Typed, observable settings over `UserDefaults`. Keys live in ShotzCore so
 /// every module reads the same values; the Settings UI lives in AppShell.
 ///
-/// Pass a suite (`UserDefaults(suiteName:)`) in tests.
+/// Pass a suite (`UserDefaults(suiteName:)`) in tests. The default is
+/// `DevProfile.defaults`: the dev suite in the dev profile, else `.standard`.
 @MainActor public final class SettingsStore: ObservableObject {
     public let defaults: UserDefaults
 
-    public init(defaults: UserDefaults = .standard) {
+    public init(defaults: UserDefaults = DevProfile.defaults) {
         self.defaults = defaults
     }
 

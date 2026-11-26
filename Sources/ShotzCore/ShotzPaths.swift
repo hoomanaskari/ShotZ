@@ -2,16 +2,24 @@ import Foundation
 
 /// Shared on-disk locations. Inject a custom root in tests.
 public struct ShotzPaths: Sendable, Equatable {
-    /// `~/Library/Application Support/Shotz`
+    /// `~/Library/Application Support/Shotz` (`Shotz-Dev` in the dev profile)
     public let root: URL
+    /// Folder name under the temporary directory for scratch files.
+    public let scratchName: String
 
-    public init(root: URL) {
+    public init(root: URL, scratchName: String = DevProfile.standardDirectoryName) {
         self.root = root
+        self.scratchName = scratchName
     }
 
-    public static let `default` = ShotzPaths(
-        root: URL.applicationSupportDirectory.appending(path: "Shotz", directoryHint: .isDirectory)
-    )
+    /// The paths for this run: `Shotz-Dev` in the dev profile (see `DevProfile`).
+    public static let `default` = forProfile(dev: DevProfile.isActive)
+
+    public static func forProfile(dev: Bool) -> ShotzPaths {
+        let name = dev ? DevProfile.directoryName : DevProfile.standardDirectoryName
+        return ShotzPaths(root: URL.applicationSupportDirectory.appending(path: name, directoryHint: .isDirectory),
+                          scratchName: name)
+    }
 
     /// Private lossless originals.
     public var captures: URL { root.appending(path: "Captures", directoryHint: .isDirectory) }
@@ -21,7 +29,7 @@ public struct ShotzPaths: Sendable, Equatable {
     public var historyIndex: URL { root.appending(path: "history.json", directoryHint: .notDirectory) }
     /// Scratch area for drag-out files and in-flight captures.
     public var temporary: URL {
-        FileManager.default.temporaryDirectory.appending(path: "Shotz", directoryHint: .isDirectory)
+        FileManager.default.temporaryDirectory.appending(path: scratchName, directoryHint: .isDirectory)
     }
     public var dragExports: URL { temporary.appending(path: "Drag", directoryHint: .isDirectory) }
 
