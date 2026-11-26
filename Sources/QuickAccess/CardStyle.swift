@@ -12,22 +12,32 @@ struct CardStyle {
     let cornerSize: ShotzUI.ControlSize
     /// Copy / Save pair and the caption pill.
     let pillSize: ShotzUI.ControlSize
-    /// Inset of a corner button's hit frame from the card edge. Chosen so the
-    /// glass chrome lands `Space.s` (8 pt) in, except on Small cards where the
-    /// card is too short for three 28-pt rows and the chrome sits 6 pt in.
+    /// Inset of a corner button's hit frame from the card edge, chosen so the
+    /// glass chrome lands `Space.s` (8 pt) in.
     let hitInset: CGFloat
+    /// Copy/Save may carry labels (only if they also fit with ≥ 8 pt gaps).
+    let allowsLabels: Bool
+    /// The pixel-size caption pill (Small shows the size in the card's
+    /// tooltip and context menu instead).
+    let showsCaption: Bool
+
+    /// Smallest gap between any two controls, or a control and the card edge.
+    static let minimumGap: CGFloat = 6
 
     init(size: CardSize) {
         switch size {
         case .small:
             cornerSize = .compact; pillSize = .compact
-            hitInset = 4
+            hitInset = ShotzUI.Space.s - (ShotzUI.ControlSize.compact.hitHeight - ShotzUI.ControlSize.compact.height) / 2
+            allowsLabels = false; showsCaption = false
         case .medium:
             cornerSize = .regular; pillSize = .regular
             hitInset = ShotzUI.Space.s
+            allowsLabels = true; showsCaption = true
         case .large:
             cornerSize = .regular; pillSize = .regular
             hitInset = ShotzUI.Space.s
+            allowsLabels = true; showsCaption = true
         }
     }
 

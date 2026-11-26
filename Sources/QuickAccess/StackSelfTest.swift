@@ -151,7 +151,7 @@ import ShotzCore
 
         let event = NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0,
                                        windowNumber: 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
-        let titles = event.flatMap { card.menu(for: $0) }?.items.filter { !$0.isSeparatorItem }.map(\.title) ?? []
+        let titles = event.flatMap { card.menu(for: $0) }?.items.filter { !$0.isSeparatorItem && $0.isEnabled }.map(\.title) ?? []
         let expected = [CardAction.copy, .save, .annotate, .quickLook, .showInFinder, .copyFilePath, .close, .closeAndDelete, .closeAll].map(\.title)
         check("context menu items", titles == expected, titles.joined(separator: ", "))
 

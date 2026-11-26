@@ -16,12 +16,15 @@ import ShotzUI
     let buttons: [(action: CardAction, button: ShotzButton)]
     /// TEMP until ShotzUI has a caption-pill variant: a frozen, non-interactive
     /// compact glass button (never a hit target, reports itself as text).
-    private let caption: ShotzButton
+    /// nil on sizes that don't show a caption.
+    private let caption: ShotzButton?
+    /// Copy and Save carry their labels (false: icon-only circles).
+    let pairIsLabelled: Bool
     private var toast: ShotzToast?
     private(set) var isRevealed = false
     private var flashGeneration = 0
 
-    init(style: CardStyle, captionText: String) {
+    init(style: CardStyle, captionText: String, cardSize: CGSize) {
         self.style = style
         func corner(_ action: CardAction, _ icon: ShotzIcon) -> (CardAction, ShotzButton) {
             (action, ShotzButton(icon: icon, role: .glass, size: style.cornerSize))
@@ -36,7 +39,8 @@ import ShotzUI
             pill(.copy, CardIcon.action(.copy).shotzIcon),
             pill(.save, CardIcon.action(.save).shotzIcon),
         ]
-        caption = ShotzButton(title: captionText, role: .glass, size: .compact)
+        caption = style.showsCaption ? ShotzButton(title: captionText, role: .glass, size: .compact) : nil
+        pairIsLabelled = style.allowsLabels && Self.labelledPairFits(buttons.filter { $0.0 == .copy }.map(\.1).first, style: style, cardSize: cardSize)
         super.init(frame: .zero)
         wantsLayer = true
         controls.wantsLayer = true
@@ -44,10 +48,18 @@ import ShotzUI
         controls.layer?.addSublayer(scrim)
         addSubview(controls)
 
-        caption.titleFont = ShotzUI.Typography.value.font
-        caption.stateOverride = .rest
-        caption.setAccessibilityRole(.staticText)
-        controls.addSubview(caption)
+        if let caption {
+            caption.titleFont = ShotzUI.Typography.value.font
+            caption.stateOverride = .rest
+            caption.setAccessibilityRole(.staticText)
+            controls.addSubview(caption)
+        }
+        if !pairIsLabelled {
+            for (action, button) in buttons where action == .copy || action == .save {
+                button.title = nil
+                button.shotzSize = style.cornerSize
+            }
+        }
 
         let pair = buttons.filter { $0.action == .copy || $0.action == .save }.map(\.button)
         let pairWidth = pair.map(\.intrinsicContentSize.width).max() ?? 0
@@ -62,6 +74,17 @@ import ShotzUI
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// Labelled Copy/Save fit when the pair keeps `Space.s` from the card edges
+    /// and its row keeps `Space.s` from the corner rows.
+    static func labelledPairFits(_ sample: ShotzButton?, style: CardStyle, cardSize: CGSize) -> Bool {
+        guard let sample else { return false }
+        let gap = ShotzUI.Space.s
+        let pairWidth = 2 * sample.intrinsicContentSize.width + gap
+        let cornerHit = style.cornerSize.hitHeight
+        let middle = cardSize.height - 2 * (style.hitInset + cornerHit)
+        return pairWidth + 2 * gap <= cardSize.width && middle >= style.pillSize.hitHeight + 2 * gap
+    }
 
     func apply(_ palette: CardStyle.Palette) {
         scrim.backgroundColor = CGColor(gray: 0, alpha: CardStyle.scrimOpacity)
@@ -136,12 +159,14 @@ import ShotzUI
             button.frame = CGRect(x: x, y: y, width: s.width, height: s.height)
         }
         // Caption on the Quick Look row.
-        let c = caption.intrinsicContentSize
-        caption.frame = CGRect(x: inset, y: inset, width: c.width, height: c.height)
+        if let caption {
+            let c = caption.intrinsicContentSize
+            caption.frame = CGRect(x: inset, y: inset, width: c.width, height: c.height)
+        }
 
         let pair = buttons.filter { $0.action == .copy || $0.action == .save }.map(\.button)
         let p = pair.first?.intrinsicContentSize ?? .zero
-        let gap = ShotzUI.Space.s
+        let gap = pairIsLabelled ? ShotzUI.Space.s : ShotzUI.Space.m
         var x = (b.midX - (2 * p.width + gap) / 2).rounded()
         let y = (b.midY - p.height / 2).rounded()
         for button in pair {
@@ -163,6 +188,13 @@ import ShotzUI
             return button
         }
         return nil
+    }
+
+    /// Every visible control's frame (buttons and caption), for layout tests.
+    var controlFrames: [(name: String, frame: CGRect, natural: CGSize)] {
+        var out = buttons.map { ("\($0.action)", $0.button.frame, $0.button.intrinsicContentSize) }
+        if let caption { out.append(("caption", caption.frame, caption.intrinsicContentSize)) }
+        return out
     }
 
     /// Accessibility: buttons stay reachable even when not revealed.
