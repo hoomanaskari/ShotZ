@@ -147,4 +147,33 @@ struct TextEditingIntegrationTests {
         swatch.keyDown(with: space)
         #expect(pressed == 2)
     }
+
+    /// Emoji (with skin tone and a flag) survive in-place editing, the saved document and export.
+    @Test func emojiRoundTripsThroughEditingPersistenceAndExport() throws {
+        let c = try makeController()
+        let emoji = "Ship it 👋🏽🇨🇦"
+        _ = try startTyping(c, emoji)
+        try key(c, "\r", 36, [.command])
+        #expect(texts(c) == [emoji])
+
+        // Persisted document.
+        let reloaded = try JSONDecoder().decode(AnnotationDocument.self, from: c.store.document.jsonData())
+        guard case .text(let box) = try #require(reloaded.objects.first).shape else { Issue.record("not text"); return }
+        #expect(box.string == emoji)
+        #expect(box.string.unicodeScalars.count == emoji.unicodeScalars.count)
+
+        // Export: the emoji are laid out (wider than the plain words) and drawn (the image changes).
+        let object = try #require(reloaded.objects.first)
+        var plain = object
+        plain.shape = .text(TextBox(origin: box.origin, wrapWidth: box.wrapWidth, string: "Ship it", style: box.style))
+        #expect(TextLayout(box: box, fontSize: object.style.fontSize).frame.width
+                > ObjectGeometry.frame(of: plain).width + object.style.fontSize)
+        let base = BaseImageProvider(image: try #require(try? c.base.image()), url: reloaded.baseImageURL)
+        var withoutEmoji = reloaded
+        withoutEmoji.objects = [plain]
+        let a = try DocumentExport.data(reloaded, base: base, format: .png, quality: 1, scale: 1)
+        let b = try DocumentExport.data(withoutEmoji, base: base, format: .png, quality: 1, scale: 1)
+        #expect(!a.isEmpty)
+        #expect(a != b)
+    }
 }

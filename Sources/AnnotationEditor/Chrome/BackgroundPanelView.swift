@@ -218,13 +218,36 @@ import AppKit
         let saved = presets.saved
         var titles = saved.map(\.name)
         if titles.isEmpty { titles = [String(localized: "No saved presets")] }
-        let popup = controls.popup(titles, selected: 0, label: String(localized: "Saved presets")) { [weak self] i in
+        // Show the preset the current background matches, if any.
+        let current = saved.firstIndex { $0.style == s } ?? 0
+        let popup = controls.popup(titles, selected: current, label: String(localized: "Saved presets")) { [weak self] i in
             guard let self, i < saved.count else { return }
             self.set(saved[i].style)
         }
         popup.isEnabled = !saved.isEmpty
         let save = controls.button(String(localized: "Save…")) { [weak self] in self?.promptSave(s) }
-        stack.addArrangedSubview(row([popup, save]))
+        let delete = controls.button(String(localized: "Delete…")) { [weak self, weak popup] in
+            guard let self, let i = popup?.indexOfSelectedItem, i >= 0, i < saved.count else { return }
+            self.confirmDelete(saved[i].name)
+        }
+        delete.isEnabled = !saved.isEmpty
+        delete.setAccessibilityLabel(String(localized: "Delete the selected preset"))
+        stack.addArrangedSubview(row([popup, save, delete]))
+    }
+
+    private func confirmDelete(_ name: String) {
+        guard let window else { return }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Delete the preset “\(name)”?")
+        alert.informativeText = String(localized: "The current background is not changed.")
+        alert.addButton(withTitle: String(localized: "Delete"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.buttons.first?.hasDestructiveAction = true
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn else { return }
+            self?.presets.delete(name: name)
+            self?.scheduleRebuild()
+        }
     }
 
     private func promptSave(_ s: AnnotationKit.BackgroundStyle) {
