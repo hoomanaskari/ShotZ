@@ -4,6 +4,14 @@ import AppKit
 import ShotzCore
 import UniformTypeIdentifiers
 
+/// Where a capture's last export lives, kept with its history item so Save keeps
+/// overwriting the same file after the editor is reopened (SPEC §5.5).
+struct ExportRecord: Sendable {
+    let captureID: CaptureResult.ID
+    let previous: @Sendable (CaptureResult.ID) async -> URL?
+    let record: @Sendable (CaptureResult.ID, URL) async -> Void
+}
+
 /// Output for one editor window (SPEC §5.5). Every path renders through
 /// `DocumentExport` at full base-image resolution, never from the screen.
 @MainActor final class EditorExporter {
@@ -12,13 +20,16 @@ import UniformTypeIdentifiers
     /// The window's provider, so exports reuse its decoded image and redaction cache.
     private let base: BaseImageProvider
     private let log = ShotzLog.logger("AnnotationEditor")
-    /// The previous Save of this document; Save overwrites it.
+    /// The previous Save of this document while the window is open (images opened from a file).
     private(set) var lastExportURL: URL?
+    /// Capture-backed editors: the export path stored with the history item.
+    private let record: ExportRecord?
 
-    init(exporter: ExportService, settings: SettingsStore, base: BaseImageProvider) {
+    init(exporter: ExportService, settings: SettingsStore, base: BaseImageProvider, record: ExportRecord? = nil) {
         self.exporter = exporter
         self.settings = settings
         self.base = base
+        self.record = record
     }
 
     enum Failure: LocalizedError {
@@ -52,17 +63,33 @@ import UniformTypeIdentifiers
 
     /// Writes to the export folder without asking (or asks, per setting), or
     /// overwrites the previous export of this document. Returns the file.
+    /// A capture's previous export (recorded with its history item) or, for an image
+    /// opened from a file, this window's previous Save. If that file is gone, Save
+    /// exports anew through `ExportService` and records the new file.
     func save(_ document: AnnotationDocument, name: String) async throws -> URL? {
-        if let previous = lastExportURL, FileManager.default.fileExists(atPath: previous.path(percentEncoded: false)) {
-            let format = ImageFormat.allCases.first { $0.fileExtension == previous.pathExtension.lowercased() } ?? settings.exportFormat
-            let scale: CGFloat = settings.retinaScale == .downscaleTo1x ? 1 / max(document.scale, 1) : 1
-            try DocumentExport.write(document, base: base, to: previous, format: format, quality: 0.9, scale: scale)
+        let previous: URL? = if let record { await record.previous(record.captureID) } else { lastExportURL }
+        if let previous, FileManager.default.fileExists(atPath: previous.path(percentEncoded: false)) {
+            try overwrite(previous, with: document)
+            await remember(previous)
             return previous
         }
         let url = try renderTemporaryPNG(document, name: name)
         let saved = try await exporter.saveToExportFolder(imageAt: url, suggestedName: name, askDestination: settings.askDestinationWhenSaving)
-        if let saved { lastExportURL = saved }
+        if let saved { await remember(saved) }
         return saved
+    }
+
+    /// Re-renders into an existing export, keeping its format (from the extension).
+    private func overwrite(_ url: URL, with document: AnnotationDocument) throws {
+        let format = ImageFormat.allCases.first { $0.fileExtension == url.pathExtension.lowercased() }
+            ?? (url.pathExtension.lowercased() == "jpeg" ? .jpeg : settings.exportFormat)
+        let scale: CGFloat = settings.retinaScale == .downscaleTo1x ? 1 / max(document.scale, 1) : 1
+        try DocumentExport.write(document, base: base, to: url, format: format, quality: 0.9, scale: scale)
+    }
+
+    private func remember(_ url: URL) async {
+        lastExportURL = url
+        if let record { await record.record(record.captureID, url) }
     }
 
     /// Save As…: format, quality and 1×/2× scale.
@@ -79,6 +106,7 @@ import UniformTypeIdentifiers
         // 1× = one pixel per point; 2× = two (the native size of Retina captures).
         let outputScale = CGFloat(accessory.scaleFactor) / max(document.scale, 0.0001)
         try DocumentExport.write(document, base: base, to: url, format: accessory.format, quality: accessory.quality, scale: outputScale)
+        await remember(url)
         return url
     }
 
