@@ -76,8 +76,19 @@ opened normally, uses the shortcuts saved in its Settings: ⌘⇧3, ⌘⇧4 and
   "This session" line under any of them.
 - If you used the **Use ⌃⌥⌘3, ⌃⌥⌘4 and ⌃⌥⌘5** button earlier, click **Reset
   to Defaults**.
+- If you record a shortcut while Shotz runs with `--dev-hotkeys`, an orange
+  warning appears under it: the shortcut is saved but not active until Shotz
+  starts normally. Click **Relaunch Normally** to switch.
 - A yellow warning next to a shortcut means Shotz could not register it.
-  Free it as described in step 4.
+  Free it as described in step 4. macOS does not always report a shortcut
+  that another app holds. So if a shortcut shows no warning but does nothing,
+  another app may still be using it.
+- To see what Shotz registered, run this in Terminal. It prints one line per
+  shortcut: `registered`, `FAILED (Carbon status …)` or `not registered`.
+
+  ```bash
+  log show --last 10m --style compact --predicate 'subsystem == "app.shotz.Shotz"' | grep "Hotkey "
+  ```
 
 ## 6. Clearing test history
 
