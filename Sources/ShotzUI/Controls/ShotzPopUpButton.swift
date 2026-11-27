@@ -14,7 +14,8 @@ public final class ShotzPopUpButton: ShotzControlView {
     /// When set, the button shows a menu of actions instead of a selection (title stays fixed).
     public var actionMenu: NSMenu?
     public var onChange: ((Int) -> Void)?
-    private let choiceMenu = NSMenu()
+    /// The choices menu (internal: tests choose items through it, as AppKit does).
+    let choiceMenu = NSMenu()
 
     public init(items: [String], selectedIndex: Int = 0, icon: ShotzIcon? = nil, role: ShotzUI.ControlRole = .secondary, size: ShotzUI.ControlSize = .regular) {
         self.items = items

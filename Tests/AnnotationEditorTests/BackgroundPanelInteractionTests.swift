@@ -12,6 +12,7 @@ struct BackgroundPanelInteractionTests {
         let model: EditorModel
         let panel: BackgroundPanelView
         let window: NSWindow
+        let presetsDefaults: UserDefaults
         func slider(_ label: String) -> ShotzSlider? { control(ShotzSlider.self, label) }
         /// A control found by its accessibility label (re-found after each change: the panel rebuilds).
         func control<T: NSView>(_ type: T.Type, _ label: String) -> T? {
@@ -28,7 +29,8 @@ struct BackgroundPanelInteractionTests {
     static func fixture(_ style: AnnotationKit.BackgroundStyle = .init()) -> Fixture {
         let model = makeModel()
         model.setBackground(style, interactive: false)
-        let presets = BackgroundPresets(defaults: MemoryDefaults())
+        let presetsDefaults = MemoryDefaults()
+        let presets = BackgroundPresets(defaults: presetsDefaults)
         let panel = BackgroundPanelView(model: model, presets: presets)
         // As in the editor: the panel is a sidebar at the right of a wide window, so window and
         // panel coordinates differ by about a thousand points.
@@ -41,7 +43,7 @@ struct BackgroundPanelInteractionTests {
             panel.bottomAnchor.constraint(equalTo: content.bottomAnchor),
         ])
         let window = PointerDriver.window(hosting: content, size: content.frame.size)
-        return Fixture(model: model, panel: panel, window: window)
+        return Fixture(model: model, panel: panel, window: window, presetsDefaults: presetsDefaults)
     }
 
     @Test func paddingSliderFollowsADragBackAndForth() async throws {

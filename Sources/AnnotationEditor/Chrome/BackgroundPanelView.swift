@@ -286,15 +286,22 @@ import ShotzUI
         let field = ShotzTextField(placeholder: String(localized: "Preset name"), label: String(localized: "Preset name"))
         field.frame = NSRect(origin: .zero, size: field.intrinsicContentSize)
         alert.accessoryView = field
-        alert.addButton(withTitle: String(localized: "Save"))
+        let save = alert.addButton(withTitle: String(localized: "Save"))
         alert.addButton(withTitle: String(localized: "Cancel"))
+        // Save needs a name: disabled until one is typed, so Return can't save nothing silently.
+        save.isEnabled = false
+        field.onChange = { save.isEnabled = !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         guard let window else { return }
+        alert.window.initialFirstResponder = field.editingView
         alert.beginSheetModal(for: window) { [weak self] response in
             guard response == .alertFirstButtonReturn else { return }
             self?.presets.save(s, name: field.text)
             self?.scheduleRebuild()
         }
-        alert.window.initialFirstResponder = field.subviews.first { $0 is NSTextField }
+        // The sheet must open with the insertion point in the name field: typing a name and pressing
+        // Return is the natural way to save. (Before 0.1.2 focus stayed on the field's wrapper, so the
+        // typed name went nowhere and Return saved an empty, ignored name: "None saved".)
+        field.focus()
     }
 
     // MARK: Helpers
