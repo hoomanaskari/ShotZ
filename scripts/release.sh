@@ -23,6 +23,8 @@
 #   ShotZ<build>-<old>.delta  Sparkle deltas from earlier archives in sparkle-releases/ (second and
 #                             later releases)
 #   SHA256SUMS.txt            checksums of everything to upload (DMG, zip, deltas)
+# and, OUTSIDE dist/ in dist-symbols/ (or <dir>/dist-symbols), so a glob upload of dist/ never
+# includes it:
 #   ShotZ-<version>.dSYM.zip  the stripped executable's symbols (both architectures) for crash
 #                             reports: KEEP it, do NOT upload it (not in SHA256SUMS.txt)
 # and the appcast (appcast.xml, or <dir>/appcast.xml) from sparkle-releases/ (archives, deltas).
@@ -79,10 +81,12 @@ if [[ -n "$DRY_RUN_DIR" ]]; then
   mkdir -p "$DRY_RUN_DIR"
   OUT_ROOT="$(cd "$DRY_RUN_DIR" && pwd)"
   DIST="$OUT_ROOT/dist"
+  SYMBOLS="$OUT_ROOT/dist-symbols"
   RELEASES_DIR="$OUT_ROOT/sparkle-releases"
   APPCAST="$OUT_ROOT/appcast.xml"
 else
   DIST="$ROOT/dist"
+  SYMBOLS="$ROOT/dist-symbols"
   RELEASES_DIR="$ROOT/sparkle-releases"
   APPCAST="$ROOT/appcast.xml"
 fi
@@ -397,11 +401,15 @@ else
 fi
 
 # The executable ships stripped; its symbols live only in the dSYM bundle.sh wrote to build/dSYMs/,
-# which clean-slate.sh and any rebuild wipe. Keep a copy with this release's outputs.
+# which clean-slate.sh and any rebuild wipe. Keep a copy in dist-symbols/, beside dist/ but not in
+# it, so uploading dist/ (even by a glob) can never publish the symbols.
 step "dSYM (keep for crash reports; never uploaded)"
 DSYM_SRC="$ROOT/build/dSYMs/$APP_NAME-$VERSION-$BUILD.dSYM"
-DSYM_ZIP="$DIST/$APP_NAME-$VERSION.dSYM.zip"
-rm -f "$DSYM_ZIP"
+mkdir -p "$SYMBOLS"
+# Kept out of git like dist/, without touching the repository's .gitignore.
+[[ -f "$SYMBOLS/.gitignore" ]] || printf '*\n' > "$SYMBOLS/.gitignore"
+DSYM_ZIP="$SYMBOLS/$APP_NAME-$VERSION.dSYM.zip"
+rm -f "$DSYM_ZIP" "$DIST/$APP_NAME-$VERSION.dSYM.zip"   # (earlier releases wrote it into dist/)
 if [[ ! -d "$DSYM_SRC" ]]; then
   DSYM_ZIP=""
   if [[ -n "$DRY_RUN_DIR" || "$SKIP_NOTARIZE" == 1 ]]; then
@@ -687,7 +695,7 @@ if [[ "$HAVE_SPARKLE" == 1 && ${#DELTAS[@]} -gt 0 ]]; then
   printf ' Deltas:\n'; for d in "${DELTAS[@]}"; do printf '   %s\n' "$DIST/$(basename "$d")"; done
 fi
 printf ' Upload:   %s (from %s, as listed in SHA256SUMS.txt)\n' "${UPLOADS[*]}" "$DIST"
-[[ -n "$DSYM_ZIP" ]] && printf ' dSYM:     %s (keep, do NOT upload; not in SHA256SUMS.txt)\n' "$DSYM_ZIP"
+[[ -n "$DSYM_ZIP" ]] && printf ' dSYM:     %s (outside dist/; keep, do NOT upload; not in SHA256SUMS.txt)\n' "$DSYM_ZIP"
 if [[ ${#WARNINGS[@]} -gt 0 ]]; then
   printf ' Warnings:\n'; for w in "${WARNINGS[@]}"; do printf '   - %s\n' "$w"; done
 fi
@@ -705,7 +713,8 @@ Go-live steps (this script does none of them; see docs/RELEASE.md):
      (exactly the files in SHA256SUMS.txt):
 $(for u in "${UPLOADS[@]}"; do printf '       %s\n' "$u"; done)
      Check each asset is public and matches SHA256SUMS.txt.
-     Do NOT upload $(basename "${DSYM_ZIP:-dSYM.zip}"): keep it (with dist/) to symbolicate crash reports.
+     The symbols, $(basename "${DSYM_ZIP:-dSYM.zip}"), are in dist-symbols/, not dist/: never upload
+     them; keep dist-symbols/ to symbolicate crash reports.
   5. Only then expose the update feed:  git push origin main
      and check the public appcast matches the local file.
 EOF
