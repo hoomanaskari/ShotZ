@@ -51,8 +51,8 @@ public final class ShotzSlider: ShotzControlView {
         return NSSize(width: ceil(w), height: s.hitHeight)
     }
 
-    /// The track, in the slider's coordinates (internal: tests aim at points along it).
-    var trackRect: CGRect {
+    /// The track, in the slider's coordinates (tests and the editor's script harness aim at points along it).
+    public var trackRect: CGRect {
         let s = shotzSize
         let left = (icon != nil ? s.iconSize + ShotzUI.Space.s : 0) + knob / 2
         let right = (format != nil ? ShotzUI.Space.s + valueWidth : 0) + knob / 2

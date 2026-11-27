@@ -4,6 +4,7 @@ import AppKit
 import ImageIO
 import QuartzCore
 import ShotzCore
+import ShotzUI
 
 /// Development harness, off unless `SHOTZ_EDITOR_SCRIPT=<file>` is set:
 /// replays a small script of real mouse/key events through the editor window
@@ -35,6 +36,12 @@ import ShotzCore
 ///   textstyle <decoration>     the Text tool's decoration for the next text
 ///   down|move|up x y [mods]    one mouse event (snapshot mid-drag)
 ///   wait <ms>
+///   panelslider "<label>" <from%> <to%> [<to%>…]   press a slider in the background panel or the
+///                              options bar at <from%> of its track and drag through the others,
+///                              with real in-process mouse events (as the tests' PointerDriver)
+///   panelclick "<label>"       click a panel or options-bar control by accessibility label
+///                              (e.g. "Align top left", "Auto-balance", a gradient preset name)
+///   panelsegment "<label>" <index> <count>   click segment <index> of an n-segment control
 @MainActor final class EditorScriptRunner {
     /// The window commands act on (switches when `capture` opens another).
     private var controller: EditorWindowController
@@ -55,6 +62,16 @@ import ShotzCore
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { runner.next() }
     }
 
+    /// Runs `script` on `controller` (a window that need not be on screen) and calls `done` when the
+    /// last command has run. Review renders use it off screen, so nothing is shown or activated.
+    static func run(_ script: String, on controller: EditorWindowController, done: @escaping @MainActor () -> Void) {
+        let runner = EditorScriptRunner(controller: controller, script: script)
+        runner.onFinish = done
+        current = runner
+        runner.next()
+    }
+
+    private var onFinish: (@MainActor () -> Void)?
     private static var current: EditorScriptRunner?
     private static var started = false
     private weak var coordinator: EditorCoordinator?
@@ -75,6 +92,8 @@ import ShotzCore
         guard !lines.isEmpty else {
             log.notice("SCRIPT done")
             Self.current = nil
+            onFinish?()
+            onFinish = nil
             return
         }
         let line = lines.removeFirst()
@@ -239,10 +258,79 @@ import ShotzCore
             }
         case "close":
             window?.performClose(nil)
+        case "panelslider":
+            // Mouse events go to the slider's own tracking loop from a run-loop timer, as AppKit
+            // delivers them, so work the app queues meanwhile runs mid-drag exactly as for a person.
+            guard let label = args.first, let slider: ShotzSlider = panelControl(label) else { break }
+            let stops = args.dropFirst().compactMap(Double.init).map { CGFloat($0) / 100 }
+            guard let first = stops.first else { break }
+            let track = slider.trackRect
+            let point = { (f: CGFloat) in CGPoint(x: track.minX + track.width * f, y: slider.bounds.midY) }
+            press(slider, at: point(first), dragging: stops.dropFirst().map(point))
+            return
+        case "panelclick":
+            guard let label = args.first, let control: ShotzControlView = panelControl(label) else { break }
+            press(control, at: CGPoint(x: control.bounds.midX, y: control.bounds.midY), dragging: [])
+            return
+        case "panelsegment":
+            guard args.count >= 3, let seg: ShotzSegmentedControl = panelControl(args[0]),
+                  let i = Double(args[1]), let n = Double(args[2]), n > 0 else { break }
+            press(seg, at: CGPoint(x: seg.bounds.width * (CGFloat(i) + 0.5) / CGFloat(n), y: seg.bounds.midY), dragging: [])
+            return
         default:
             log.error("SCRIPT unknown command \(line, privacy: .private)")
         }
         next()
+    }
+
+    // MARK: Panel controls (real in-process events)
+
+    /// A control in the background panel or the options bar, by accessibility label.
+    private func panelControl<T: NSView>(_ label: String) -> T? {
+        let roots: [NSView] = [controller.backgroundPanel, controller.optionsBar].compactMap { $0 }
+        func find(_ v: NSView) -> T? {
+            if let t = v as? T, t.accessibilityLabel() == label { return t }
+            for sub in v.subviews { if let t = find(sub) { return t } }
+            return nil
+        }
+        let found = roots.lazy.compactMap(find).first
+        if found == nil { log.error("SCRIPT no control labelled \(label, privacy: .public)") }
+        return found
+    }
+
+    /// Press at `down` and drag through `drags` (control coordinates), then release at the last
+    /// point, through the control's tracking loop; continues the script afterwards.
+    private func press(_ control: NSView, at down: CGPoint, dragging drags: [CGPoint]) {
+        guard let window, let content = window.contentView else { next(); return }
+        func event(_ type: NSEvent.EventType, _ p: CGPoint) -> NSEvent? {
+            NSEvent.mouseEvent(with: type, location: control.convert(p, to: nil), modifierFlags: [],
+                               timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                               context: nil, eventNumber: 0, clickCount: 1, pressure: 1)
+        }
+        guard let downEvent = event(.leftMouseDown, down) else { next(); return }
+        let job = PressJob(content: content, down: downEvent,
+                           queue: drags.compactMap { event(.leftMouseDragged, $0) } + [event(.leftMouseUp, drags.last ?? down)].compactMap { $0 })
+        let timer = Timer(timeInterval: 0, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                let saved = ShotzControlView.nextTrackingEvent
+                ShotzControlView.nextTrackingEvent = { _ in
+                    RunLoop.main.run(mode: .eventTracking, before: Date(timeIntervalSinceNow: 1.0 / 60))
+                    return job.queue.isEmpty ? nil : job.queue.removeFirst()
+                }
+                let hitPoint = job.content.superview?.convert(job.down.locationInWindow, from: nil) ?? job.down.locationInWindow
+                job.content.hitTest(hitPoint)?.mouseDown(with: job.down)
+                ShotzControlView.nextTrackingEvent = saved
+                self?.next(after: 0.3)
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    /// One press's events, carried into the timer callback (main thread only).
+    private final class PressJob: @unchecked Sendable {
+        let content: NSView, down: NSEvent
+        var queue: [NSEvent]
+        init(content: NSView, down: NSEvent, queue: [NSEvent]) { self.content = content; self.down = down; self.queue = queue }
     }
 
     /// Splits a script line on spaces; "double quotes" keep a path with spaces together.
