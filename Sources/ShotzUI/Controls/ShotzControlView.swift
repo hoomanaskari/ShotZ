@@ -159,12 +159,16 @@ open class ShotzControlView: NSControl {
         isPressed = true
         mouseDownAt(convert(event.locationInWindow, from: nil))
         // Track until mouse-up; the press shows only while the pointer is inside.
+        defer { isPressed = false; trackingEnded() }
         while let window, let next = Self.nextTrackingEvent(window) {
+            // The app may have replaced this control while waiting (work queued on the main queue
+            // runs inside nextEvent). A view no longer in a window can't convert window points
+            // (they would read as its own coordinates and land far off the track): stop here.
+            guard self.window === window else { return }
             let p = convert(next.locationInWindow, from: nil)
             if next.type == .leftMouseUp {
-                isPressed = false
                 if bounds.contains(p) { activate(at: p) }
-                break
+                return
             }
             isPressed = bounds.contains(p)
             mouseDraggedTo(p)
@@ -173,7 +177,7 @@ open class ShotzControlView: NSControl {
 
     /// The click-tracking loop's event source (drags and the mouse-up). A seam for tests, which
     /// script the mouse-up instead of running AppKit's event loop.
-    static var nextTrackingEvent: (NSWindow) -> NSEvent? = { $0.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) }
+    public static var nextTrackingEvent: (NSWindow) -> NSEvent? = { $0.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) }
 
     open override func keyDown(with event: NSEvent) {
         if event.charactersIgnoringModifiers == " " || event.keyCode == 36 {
@@ -187,6 +191,8 @@ open class ShotzControlView: NSControl {
     open func mouseDownAt(_ point: CGPoint) {}
     open func mouseDraggedTo(_ point: CGPoint) {}
     open func selectionChanged() {}
+    /// Called once when a press ends (mouse-up, or the control left its window mid-press).
+    open func trackingEnded() {}
 
     /// Default activation: send the action.
     open func activate(at point: CGPoint) {
