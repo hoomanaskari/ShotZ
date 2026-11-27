@@ -3,6 +3,32 @@
     <channel>
         <title>ShotZ</title>
         <item>
+            <title>0.1.2</title>
+            <pubDate>Thu, 26 Nov 2026 19:27:57 -0500</pubDate>
+            <link>https://github.com/hoomanaskari/ShotZ</link>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# ShotZ 0.1.2
+
+Fixes for the editor's Background panel, and a privacy and security tidy-up.
+
+- Sliders in the editor now follow the pointer. Padding, Corners, Angle, Opacity, Corner radius and Redaction strength used to jump to the end and stick there.
+- Position in the Background panel now moves the image, with any aspect. When there is no room to move it, the grid is greyed out and says why.
+- Saving a Background preset works: the name field is ready for typing, and Save waits until you have typed a name.
+- Your captures, documents and history are now stored so that only your user account can read them. Existing files are tightened the first time 0.1.2 starts; files you save or export are not affected.
+- ShotZ's log entries no longer show file names or paths.
+- The app no longer contains file paths from the computer it was built on.
+- Developer test switches are ignored by the released app.
+- Settings ▸ Advanced has a new Acknowledgements row with the licences for ShotZ and the open-source software it includes.
+]]></description>
+            <enclosure url="https://github.com/hoomanaskari/ShotZ/releases/download/v0.1.2/ShotZ-0.1.2.zip" length="5623331" type="application/octet-stream" sparkle:edSignature="lz6FYuH1Htp682+Mi9rhb29Eefyn63IXf+9GfEEmd3TS0IiJBuLxLXo4P+i1Pli2irsmi1Bv/UqD63DCICE3Bg=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/hoomanaskari/ShotZ/releases/download/v0.1.2/ShotZ3-2.delta" sparkle:deltaFrom="2" length="622758" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976432" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="9yWVku46yGfwCUPGGeKGMdO31Hll5IInMOk35IAf1ktjMbcDJfxJwn2Y/Z9Cynp+CIW3SYUAGFVcB5Ywn6xpAQ=="/>
+                <enclosure url="https://github.com/hoomanaskari/ShotZ/releases/download/v0.1.2/ShotZ3-1.delta" sparkle:deltaFrom="1" length="1911050" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976432" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="k4e0yF/pvSUNF1ctwYIva2ND10csidvB+gkVzYbsCsd6C+U+euJ9IxblmxuYvuQ+4ahNxVkqpH1ptD8buul8BQ=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>0.1.1</title>
             <pubDate>Thu, 26 Nov 2026 16:43:16 -0500</pubDate>
             <link>https://github.com/hoomanaskari/ShotZ</link>
