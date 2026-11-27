@@ -104,6 +104,13 @@ import ShotzUI
         let maxRadius = Double(model.unit * 24)
         let shadows = AnnotationKit.BackgroundStyle.Shadow.allCases
         let aspects = AnnotationKit.BackgroundStyle.Aspect.allCases
+        let canPosition = BackgroundLayout.canPosition(model.document)
+        var positionRows: [ShotzFormStack.Row] = [.init(String(localized: "Position"), Sized(alignmentGrid(s, enabled: canPosition)))]
+        if !canPosition {
+            // Nothing to position against: no padding and Auto aspect. Say so rather than do nothing.
+            positionRows.append(.init(nil, EditorControls.note(String(localized: "Add padding or choose an aspect to move the image."),
+                                                               width: Self.contentWidth - Self.labelWidth - ShotzUI.Space.m)))
+        }
         form([
             .init(String(localized: "Padding"), controls.slider(
                 value: s.padding * 100, min: 0, max: 25, width: Self.sliderWidth, label: String(localized: "Padding"), glyph: .padding,
@@ -129,8 +136,7 @@ import ShotzUI
                 selected: aspects.firstIndex(of: s.aspect), label: String(localized: "Aspect")) { [weak self] i in
                 self?.update { $0.aspect = aspects[i] }
             }),
-            .init(String(localized: "Position"), Sized(alignmentGrid(s))),
-        ])
+        ] + positionRows)
         divider()
         addPresets(s)
     }
@@ -215,14 +221,16 @@ import ShotzUI
         return grid
     }
 
-    private func alignmentGrid(_ s: AnnotationKit.BackgroundStyle) -> NSView {
+    private func alignmentGrid(_ s: AnnotationKit.BackgroundStyle, enabled: Bool) -> NSView {
         let all = AnnotationKit.BackgroundStyle.Alignment.allCases
         let cell = CGSize(width: 18, height: 12)
         let tiles: [NSView] = all.map { a in
             // Empty content: the tile's own base fill shows.
-            controls.tile(NSImage(size: cell), size: cell, label: Self.alignmentName(a), selected: a == s.alignment) { [weak self] in
+            let tile = controls.tile(NSImage(size: cell), size: cell, label: Self.alignmentName(a), selected: a == s.alignment) { [weak self] in
                 self?.update { $0.alignment = a }
             }
+            tile.isEnabled = enabled
+            return tile
         }
         let grid = NSGridView(views: [Array(tiles[0..<3]), Array(tiles[3..<6]), Array(tiles[6..<9])])
         grid.rowSpacing = 0
