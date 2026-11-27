@@ -36,6 +36,18 @@ public struct LegacyDataMigration {
         case moved(entries: Int)
         case merged(added: Int)
         case failed(String)
+
+        /// The outcome without its payload text, safe for a public log line: the case name and
+        /// counts only (a failure's message can carry a path).
+        public var logSummary: String {
+            switch self {
+            case .nothingToMove: "nothingToMove"
+            case .alreadyMigrated: "alreadyMigrated"
+            case .moved(let entries): "moved(entries: \(entries))"
+            case .merged(let added): "merged(added: \(added))"
+            case .failed: "failed"
+            }
+        }
     }
 
     public static let markerFileName = "MIGRATED.txt"
@@ -85,7 +97,10 @@ public struct LegacyDataMigration {
         var report = Report()
         report.copiedKeys = migrateDefaults()
         report.data = migrateData()
-        log.notice("Legacy migration: \(report.copiedKeys.count) settings copied; data \(String(describing: report.data), privacy: .public)")
+        log.notice("Legacy migration: \(report.copiedKeys.count) settings copied; data \(report.data.logSummary, privacy: .public)")
+        if case .failed(let reason) = report.data {
+            log.error("Legacy migration failed: \(reason, privacy: .private)")
+        }
         return report
     }
 

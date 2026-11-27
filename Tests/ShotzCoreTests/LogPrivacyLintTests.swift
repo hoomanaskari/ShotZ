@@ -16,6 +16,34 @@ struct LogPrivacyLintTests {
         #"renderedImageURL == nil ? "original" : "annotated""#,   // a state word, not the URL
     ]
 
+    /// `String(describing:)` of a value prints its payloads too (an enum case's associated text, an
+    /// error's paths), so logging it publicly is only allowed for these payload-free types.
+    static let describableAllowed: Set<String> = [
+        "String(describing: availability)",   // UpdateAvailability: cases and a reason enum, no text
+        "String(describing: step)",           // OnboardingStep: Int-backed, no payloads
+        "String(describing: mode)",           // CaptureMode: area, window, fullscreen, allInOne
+    ]
+
+    /// Whether `expr` prints a value whole: `String(describing:)` or an error/report interpolated
+    /// as is (`error`, `self.error`, `report.data`…), which can carry paths in its payload.
+    static func printsWholeValue(_ expr: String) -> Bool {
+        if expr.contains("String(describing:") { return !describableAllowed.contains(expr) }
+        if expr.contains("String(reflecting:") || expr.contains("dump(") { return true }
+        let last = expr.split(separator: ".").last.map(String.init) ?? expr
+        return ["error", "err", "failure", "data", "outcome", "result"].contains(last)
+            || last.hasSuffix("Error") || last.hasSuffix("Outcome")
+    }
+
+    @Test func lintCatchesWholeValueShapes() {
+        #expect(Self.printsWholeValue("String(describing: report.data)"))
+        #expect(Self.printsWholeValue("error"))
+        #expect(Self.printsWholeValue("self.lastError"))
+        #expect(Self.printsWholeValue("report.data"))
+        #expect(!Self.printsWholeValue("report.data.logSummary"))
+        #expect(!Self.printsWholeValue("String(describing: mode)"))
+        #expect(!Self.printsWholeValue("report.copiedKeys.count"))
+    }
+
     @Test func noPathLikeValueIsLoggedPublicly() throws {
         let sources = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "Sources")
@@ -32,6 +60,7 @@ struct LogPrivacyLintTests {
                     guard !Self.allowed.contains(expr) else { continue }
                     let hit = Self.pathLike.first { expr.contains($0) }
                     #expect(hit == nil, "\(file.lastPathComponent):\(i + 1) logs `\(expr)` publicly")
+                    #expect(!Self.printsWholeValue(expr), "\(file.lastPathComponent):\(i + 1) logs the whole value `\(expr)` publicly")
                 }
             }
         }

@@ -251,4 +251,15 @@ struct LegacyDataMigrationTests {
         #expect(prod.stagingRoot.lastPathComponent == "com.pixelforty.shotz.migrating")
         #expect(prod.stagingRoot.deletingLastPathComponent() == prod.newRoot.deletingLastPathComponent())
     }
+
+    /// The public log line names the outcome and counts only; a failure's text (it can carry a
+    /// path) is never in it.
+    @Test func logSummaryCarriesNoPayloadText() {
+        let failed = LegacyDataMigration.DataOutcome.failed("could not move /Users/someone/Library/x")
+        #expect(failed.logSummary == "failed")
+        #expect(LegacyDataMigration.DataOutcome.moved(entries: 3).logSummary == "moved(entries: 3)")
+        #expect(LegacyDataMigration.DataOutcome.merged(added: 2).logSummary == "merged(added: 2)")
+        #expect(LegacyDataMigration.DataOutcome.nothingToMove.logSummary == "nothingToMove")
+        #expect(LegacyDataMigration.DataOutcome.alreadyMigrated.logSummary == "alreadyMigrated")
+    }
 }
