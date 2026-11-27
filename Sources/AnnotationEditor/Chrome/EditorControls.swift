@@ -60,8 +60,11 @@ import ShotzUI
 
     // MARK: Sliders
 
-    /// Icon, track and value readout. `handler(value, isFinal)`: a drag is many updates and
+    /// Icon, track and value readout. `handler(value, isFinal)`: a drag is many live updates and
     /// one final call when the mouse comes up (one undo step); keys give final values.
+    /// The final call comes from the slider at mouse-up, never from a main-queue hop: queued work
+    /// runs during the drag (inside AppKit's event tracking), and a final mid-drag rebuilt the
+    /// panel under the pointer (the 0.1.1 "slider jumps to the end" bug).
     func slider(value: Double, min: Double, max: Double, width: CGFloat = 80, label: String, glyph: EditorGlyph?,
                 format: @escaping (Double) -> String, _ handler: @escaping (Double, Bool) -> Void) -> ShotzSlider {
         let range = min...Swift.max(max, min + 0.0001)
@@ -71,20 +74,8 @@ import ShotzUI
         s.format = format
         s.valuePlaceholder = [format(min), format(max), format((min + max) / 2)].max { $0.count < $1.count } ?? format(max)
         s.setShotzToolTip(label)
-        var pending: Double?
-        s.onChange = { v in
-            handler(v, false)
-            // The control tracks the drag in its own loop: this runs once the mouse is up
-            // (or right after a key press) and settles the change into one undo step.
-            let isFirst = pending == nil
-            pending = v
-            guard isFirst else { return }
-            DispatchQueue.main.async {
-                guard let last = pending else { return }
-                pending = nil
-                handler(last, true)
-            }
-        }
+        s.onChange = { v in handler(v, false) }
+        s.onCommit = { v in handler(v, true) }
         return s
     }
 

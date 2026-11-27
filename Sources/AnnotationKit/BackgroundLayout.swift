@@ -31,10 +31,17 @@ public struct BackgroundLayout: Sendable, Equatable {
         }
         canvas = CGSize(width: canvas.width.rounded(), height: canvas.height.rounded())
 
+        // Position (the 9-way grid) splits the free margin around the image in each axis: the
+        // chosen side keeps a quarter of the padding, the other side takes the rest. So with Auto
+        // aspect and symmetric padding the grid still moves the image, and with a fixed aspect it
+        // moves it in both axes. Centre keeps the exact earlier arithmetic (existing documents
+        // render as before).
+        let inset = (pad * Self.alignedMarginFraction).rounded()
         func place(_ length: CGFloat, in total: CGFloat, leading: Bool, trailing: Bool) -> CGFloat {
-            if leading { return pad }
-            if trailing { return total - length - pad }
-            return ((total - length) / 2).rounded()
+            let free = total - length
+            if leading { return min(inset, (free / 2).rounded()) }
+            if trailing { return free - min(inset, (free / 2).rounded()) }
+            return (free / 2).rounded()
         }
         let a = bg.alignment
         let x = place(visual.width, in: canvas.width,
@@ -43,6 +50,20 @@ public struct BackgroundLayout: Sendable, Equatable {
                       leading: [.topLeft, .top, .topRight].contains(a), trailing: [.bottomLeft, .bottom, .bottomRight].contains(a))
         canvasSize = canvas
         imageFrame = CGRect(x: x - visual.minX, y: y - visual.minY, width: size.width, height: size.height)
+    }
+
+    /// The margin the chosen side keeps, as a fraction of the padding.
+    public static let alignedMarginFraction: CGFloat = 0.25
+
+    /// Whether the position grid can move the image: there is margin around it in some axis
+    /// (padding, or a fixed aspect's extra room). False with no padding and Auto aspect.
+    public static func canPosition(_ document: AnnotationDocument, visibleContent: CGRect? = nil) -> Bool {
+        guard let bg = document.background else { return false }
+        var centred = document
+        centred.background?.alignment = .center
+        let layout = BackgroundLayout(document: centred, visibleContent: bg.autoBalance ? visibleContent : nil)
+        let visual = (bg.autoBalance ? visibleContent : nil)?.size ?? document.imageRect.size
+        return layout.canvasSize.width - visual.width >= 2 || layout.canvasSize.height - visual.height >= 2
     }
 
     /// Maps a point in document (base-image) space to canvas space.

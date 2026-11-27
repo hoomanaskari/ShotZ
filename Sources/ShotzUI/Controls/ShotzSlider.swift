@@ -15,7 +15,12 @@ public final class ShotzSlider: ShotzControlView {
     public var format: ((Double) -> String)? { didSet { invalidateIntrinsicContentSize(); needsDisplay = true } }
     /// Widest string the formatter produces, so the track never changes length.
     public var valuePlaceholder = "100 %" { didSet { invalidateIntrinsicContentSize() } }
+    /// Every value change, live during a drag.
     public var onChange: ((Double) -> Void)?
+    /// The settled value: once when a press ends (if it changed the value) and after each key or
+    /// accessibility step. A drag is many `onChange` calls and one `onCommit`.
+    public var onCommit: ((Double) -> Void)?
+    private var changedDuringPress = false
     public var trackWidth: CGFloat = 120 { didSet { invalidateIntrinsicContentSize() } }
 
     public init(value: Double, in range: ClosedRange<Double> = 0...1, step: Double = 0.05, icon: ShotzIcon? = nil, label: String,
@@ -46,7 +51,8 @@ public final class ShotzSlider: ShotzControlView {
         return NSSize(width: ceil(w), height: s.hitHeight)
     }
 
-    private var trackRect: CGRect {
+    /// The track, in the slider's coordinates (tests and the editor's script harness aim at points along it).
+    public var trackRect: CGRect {
         let s = shotzSize
         let left = (icon != nil ? s.iconSize + ShotzUI.Space.s : 0) + knob / 2
         let right = (format != nil ? ShotzUI.Space.s + valueWidth : 0) + knob / 2
@@ -92,21 +98,31 @@ public final class ShotzSlider: ShotzControlView {
         let t = trackRect
         let f = min(max((x - t.minX) / t.width, 0), 1)
         let v = minValue + Double(f) * (maxValue - minValue)
-        if v != value { value = v; onChange?(value); sendAction(action, to: target) }
+        if v != value { value = v; changedDuringPress = true; onChange?(value); sendAction(action, to: target) }
     }
 
-    public override func mouseDownAt(_ point: CGPoint) { setValue(atX: point.x) }
+    public override func mouseDownAt(_ point: CGPoint) { changedDuringPress = false; setValue(atX: point.x) }
     public override func mouseDraggedTo(_ point: CGPoint) { setValue(atX: point.x) }
     public override func activate(at point: CGPoint) { onAction?(self) }
+    public override func trackingEnded() {
+        if changedDuringPress { changedDuringPress = false; onCommit?(value) }
+    }
+
+    private func step(by delta: Double) {
+        value += delta
+        onChange?(value)
+        onCommit?(value)
+        sendAction(action, to: target)
+    }
 
     public override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 123, 125: value -= step; onChange?(value); sendAction(action, to: target)
-        case 124, 126: value += step; onChange?(value); sendAction(action, to: target)
+        case 123, 125: step(by: -step)
+        case 124, 126: step(by: step)
         default: super.keyDown(with: event)
         }
     }
 
-    public override func accessibilityPerformIncrement() -> Bool { value += step; onChange?(value); return true }
-    public override func accessibilityPerformDecrement() -> Bool { value -= step; onChange?(value); return true }
+    public override func accessibilityPerformIncrement() -> Bool { step(by: step); return true }
+    public override func accessibilityPerformDecrement() -> Bool { step(by: -step); return true }
 }

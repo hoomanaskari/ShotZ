@@ -121,8 +121,10 @@ overrides it only if it matches.)
       that no Mach-O in the app (each architecture, raw bytes and `strings -a`) contains `/Users/`
       or the build user's name (the executable is stripped by `bundle.sh`; its dSYM stays in
       `build/dSYMs/`), and copies that dSYM, after checking its UUIDs match the shipped executable
-      for both architectures, to `dist/ShotZ-<version>.dSYM.zip`: keep it for crash reports, never
-      upload it (it is not in `SHA256SUMS.txt`); a real release stops if there is no dSYM;
+      for both architectures, to `dist-symbols/ShotZ-<version>.dSYM.zip` (beside `dist/`, not in it,
+      git-ignored by its own `.gitignore`; `<dry-run-dir>/dist-symbols/` in a rehearsal), so an
+      upload of `dist/` can never include it: keep it for crash reports, never upload it (it is not
+      in `SHA256SUMS.txt`); `clean-slate.sh` never removes `dist-symbols/`; a real release stops if there is no dSYM;
    2. notarizes the app (`notarytool submit --wait`, a few minutes), staples it and checks Gatekeeper;
    3. makes the Sparkle zip and the DMG (signed), notarizes and staples the DMG, and validates it;
    4. mounts the DMG and verifies the app inside and the Applications link;
@@ -220,8 +222,8 @@ In this order, so the feed never points to downloads that aren't public yet:
    | `release-notes/<version>.md` | the notes (the GitHub release description and the update window) |
    | `sparkle-releases/.gitignore` | keeps the folder's build products out of git (unchanged after the first release) |
 
-   Everything else the run produced is a build product and stays uncommitted: all of `dist/` (it
-   ignores itself) and, in `sparkle-releases/`, the ZIPs, deltas and the notes copies
+   Everything else the run produced is a build product and stays uncommitted: all of `dist/` and
+   `dist-symbols/` (each ignores itself) and, in `sparkle-releases/`, the ZIPs, deltas and the notes copies
    (`ShotZ-<version>.md`, made from `release-notes/` for `generate_appcast`).
 
    ```bash
@@ -232,7 +234,8 @@ In this order, so the feed never points to downloads that aren't public yet:
 3. Create the GitHub release `v$VERSION` with `release-notes/$VERSION.md` as its description and
    upload from `dist/` exactly the files in `SHA256SUMS.txt`: `ShotZ-$VERSION.dmg`,
    `ShotZ-$VERSION.zip` and, from the second release on, every `.delta` (the go-live steps list them
-   by name). Check each asset is public and matches `SHA256SUMS.txt`.
+   by name). Check each asset is public and matches `SHA256SUMS.txt`. Never upload anything from
+   `dist-symbols/` (the dSYM): keep it to symbolicate crash reports.
 4. Expose the feed: `git push origin main`.
 5. Check the public appcast (`SUFeedURL`) matches your local `appcast.xml`, and that an installed
    older ShotZ offers the update.

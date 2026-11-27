@@ -333,7 +333,12 @@ A panel (toggle G) that wraps the image for presentation:
   presets + custom two-stop with angle) · **(later)** image/wallpaper.
 - Padding (0–25 % of the long edge, slider), optional auto-balance (equal
   visual margins).
-- Inner corner radius, shadow (off / soft / strong), inset alignment (9-way).
+- Inner corner radius, shadow (off / soft / strong), inset alignment (9-way):
+  the position grid places the image within the padded canvas. In each axis
+  the chosen side keeps a quarter of the padding and the opposite side takes
+  the rest (centre splits it evenly), so it works with Auto aspect too. With no
+  padding and Auto aspect there is nothing to position against: the grid is
+  disabled with a note.
 - Output aspect: auto, 1:1, 4:3, 16:9, 3:2 (canvas grows; image never crops).
 - Window captures (which already carry a transparent shadow margin) are
   handled so the shadow blends onto the fill.

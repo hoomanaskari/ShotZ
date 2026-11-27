@@ -34,7 +34,7 @@ let package = Package(
         ),
 
         // Test-only helpers (in-memory preferences, self-removing temp folders); never shipped.
-        .target(name: "ShotzTestSupport", dependencies: ["ShotzCore"], path: "Tests/ShotzTestSupport"),
+        .target(name: "ShotzTestSupport", dependencies: ["ShotzCore", "ShotzUI"], path: "Tests/ShotzTestSupport"),
         .testTarget(name: "ShotzCoreTests", dependencies: ["ShotzTestSupport", "ShotzCore"]),
         .testTarget(name: "ShotzUITests", dependencies: ["ShotzTestSupport", "ShotzUI", "ShotzCore"], exclude: ["Goldens"]),
         .testTarget(name: "CaptureKitTests", dependencies: ["ShotzTestSupport", "CaptureKit", "ShotzCore"]),

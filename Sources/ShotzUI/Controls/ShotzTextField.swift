@@ -39,6 +39,15 @@ public final class ShotzTextField: ShotzControlView, NSTextFieldDelegate {
     public override var intrinsicContentSize: NSSize { NSSize(width: preferredWidth, height: shotzSize.hitHeight) }
     public override var acceptsFirstResponder: Bool { false } // the inner field takes focus
 
+    /// The view that takes keyboard focus for typing (the inner text field). Use it for a window's
+    /// `initialFirstResponder`, or call `focus()`: the wrapper itself refuses focus, so focusing it
+    /// would leave typing nowhere (the 0.1.1 preset-name sheet bug).
+    public var editingView: NSView { field }
+
+    /// Puts the insertion point in the field.
+    @discardableResult
+    public func focus() -> Bool { window?.makeFirstResponder(field) ?? false }
+
     public override func layout() {
         super.layout()
         let chrome = chromeRect()

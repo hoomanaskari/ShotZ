@@ -125,13 +125,14 @@ struct RendererTests {
         doc.background?.alignment = .bottomRight
         l = BackgroundLayout(document: doc)
         #expect(l.canvasSize == CGSize(width: 1200, height: 1200))
-        #expect(l.imageFrame.maxX == 1100 && l.imageFrame.maxY == 1100)
+        // The chosen side keeps a quarter of the padding (100 → 25) in both axes.
+        #expect(l.imageFrame.maxX == 1175 && l.imageFrame.maxY == 1175)
         doc.background?.alignment = .top
         doc.crop = CGRect(x: 100, y: 0, width: 400, height: 400)
         doc.background?.padding = 0.25
         l = BackgroundLayout(document: doc)
         #expect(l.canvasSize == CGSize(width: 600, height: 600))
-        #expect(l.imageFrame == CGRect(x: 100, y: 100, width: 400, height: 400))
+        #expect(l.imageFrame == CGRect(x: 100, y: 25, width: 400, height: 400))
         // Auto-balance pads around the visible content only.
         doc.background = BackgroundStyle(padding: 0.1, autoBalance: true)
         doc.crop = nil

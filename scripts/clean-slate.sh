@@ -6,7 +6,7 @@
 #   scripts/clean-slate.sh --yes              does it
 #   scripts/clean-slate.sh --yes --include-review   also removes build/review in the checkout
 #
-# Never touched: the source checkout and its git history, dist/, sparkle-releases/, the keychain
+# Never touched: the source checkout and its git history, dist/, dist-symbols/, sparkle-releases/, the keychain
 # (the Sparkle private key lives there), SwiftPM .build folders, files you exported.
 #
 # User data (Application Support folders with captures, installed apps, build/review) is moved to
@@ -105,7 +105,7 @@ plan() {
   parent="$(resolve_dir "$(dirname "$path")")" || { echo "  REFUSED (parent unresolvable): $path"; REFUSED=1; return 0; }
   real="$parent/$base"
   case "$real" in
-    */.git|*/.git/*|*/dist|*/dist/*|*/sparkle-releases|*/sparkle-releases/*)
+    */.git|*/.git/*|*/dist|*/dist/*|*/dist-symbols|*/dist-symbols/*|*/sparkle-releases|*/sparkle-releases/*)
       echo "  REFUSED (protected): $real"; REFUSED=1; return 0 ;;
   esac
   if [[ "$real" == "$REPO_R/"* && "$real" != "$REPO_R/build/"* && "$real" != "$REPO_R/.claude/worktrees/"*"/build/"* ]]; then
@@ -210,7 +210,7 @@ if [[ -x "$LSREGISTER" ]]; then
     [[ -n "$p" ]] || continue
     # Left registered: release copies in dist/ and sparkle-releases/, and mounted disk images
     # (the downloaded DMG under test lives in /Volumes).
-    case "$p" in "$REPO_R/dist/"*|"$REPO_R/sparkle-releases/"*|/Volumes/*) continue ;; esac
+    case "$p" in "$REPO_R/dist/"*|"$REPO_R/dist-symbols/"*|"$REPO_R/sparkle-releases/"*|/Volumes/*) continue ;; esac
     LS_PATHS+=("$p")
   done < <("$LSREGISTER" -dump 2>/dev/null | sed -nE 's/^path: +(.*\/(ShotZ|Shotz)( Dev)?\.app)( \(0x[0-9a-f]+\))?$/\1/p' | sort -u)
 fi
@@ -267,7 +267,7 @@ fi
 
 print_left_in_place() {
   echo "-- Left in place"
-  echo "   $REPO_R (source, .git, dist/, sparkle-releases/), SwiftPM .build folders"
+  echo "   $REPO_R (source, .git, dist/, dist-symbols/, sparkle-releases/), SwiftPM .build folders"
   [[ "$INCLUDE_REVIEW" == 1 ]] || echo "   $REPO_R/build/review (pass --include-review to remove it)"
   echo "   the keychain (Sparkle's private key), exported screenshots (e.g. ~/Desktop)"
   echo "   Launch Services entries for dist/, sparkle-releases/ and mounted disk images (/Volumes)"
